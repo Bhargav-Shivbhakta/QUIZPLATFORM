@@ -1,0 +1,87 @@
+# Checks every question file and publishes the site to GitHub Pages.
+#
+# - Every push to main: check questions -> build -> publish.
+#   If a question file has a mistake, nothing is published (the old site stays up)
+#   and the exact file and line show up in the "Actions" tab.
+# - Pull requests: only check, never publish.
+# - If someone drops a PDF / Word / Excel file into exams/, an issue is opened
+#   reminding you to turn it into a questions.md.
+
+name: Check and publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Look for files that need converting
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          found=$(find exams -type f \( -iname '*.pdf' -o -iname '*.docx' -o -iname '*.doc' -o -iname '*.xlsx' -o -iname '*.xls' -o -iname '*.pptx' \) -not -path '*/_*' | sort)
+          if [ -z "$found" ]; then exit 0; fi
+          echo "::warning::These files can't be turned into quizzes automatically: $(echo $found | tr '\n' ' ')"
+          title="New exam file needs converting"
+          if gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number' | grep -q .; then
+            echo "Reminder issue already open."
+            exit 0
+          fi
+          body=$(printf '%s\n\n%s\n\n%s\n%s\n%s\n%s\n\n%s\n' \
+            "These files were added to \`exams/\`, but only \`questions.md\` files become quizzes:" \
+            "$(echo "$found" | sed 's/^/- `/; s/$/`/')" \
+            "To turn one into a quiz:" \
+            "1. Convert it into a \`questions.md\` (see README, \"Adding a new exam\"). Claude can do the conversion for you." \
+            "2. Put it at \`exams/<exam-name>/questions.md\`." \
+            "3. Delete the original file from \`exams/\` (or move it out of the repo) and push." \
+            "Close this issue when you're done.")
+          gh issue create --title "$title" --body "$body" || echo "Couldn't open an issue (are issues turned on for this repo?)"
+
+      - name: Check question files and build the site
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
