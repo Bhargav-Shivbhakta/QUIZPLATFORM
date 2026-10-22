@@ -45,3 +45,18 @@ export function addPreviewExam(parsed, name) {
   previewExams.set(id, exam);
   return exam;
 }
+
+// Programming assignments for an exam (loaded only when needed)
+const asgCache = new Map();
+export async function getAssignments(id) {
+  if (asgCache.has(id)) return asgCache.get(id);
+  const m = await getManifest();
+  const entry = m.exams.find((e) => e.id === id);
+  if (!entry || !entry.assignmentCount) return [];
+  const p = fetch(`data/${encodeURIComponent(id)}.assignments.json?v=${entry.assignmentsHash}`).then((r) => {
+    if (!r.ok) throw new Error(`Couldn't load the assignments (HTTP ${r.status}).`);
+    return r.json();
+  }).then((d) => d.assignments);
+  asgCache.set(id, p);
+  try { return await p; } catch (e) { asgCache.delete(id); throw e; }
+}

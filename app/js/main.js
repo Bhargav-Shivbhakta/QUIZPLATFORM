@@ -13,6 +13,9 @@ const routes = [
   { re: /^\/progress\/([^/]+)$/, keys: ['id'], view: () => import('./views/progress.js'), nav: 'home' },
   { re: /^\/browse\/([^/]+)$/, keys: ['id'], view: () => import('./views/browse.js'), nav: 'home' },
   { re: /^\/cards\/([^/]+)$/, keys: ['id'], view: () => import('./views/flashcards.js'), nav: 'home' },
+  { re: /^\/assignments\/([^/]+)$/, keys: ['id'], view: () => import('./views/assignments.js'), nav: 'home' },
+  { re: /^\/code\/([^/]+)\/([^/]+)$/, keys: ['id', 'slug'], view: () => import('./views/code.js'), nav: 'home', focus: true },
+  { re: /^\/subjects$/, view: () => import('./views/subjects.js'), nav: 'home' },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
 ];

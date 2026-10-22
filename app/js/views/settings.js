@@ -2,17 +2,29 @@ import * as store from '../store.js';
 import { getManifest } from '../data.js';
 import { esc, icon, toast, confirmDialog } from '../ui.js';
 import { applyTheme } from '../main.js';
+import { listCourses, chosenCourses, courseOptions, saveChoice } from './subjects.js';
 
 export async function render(main) {
   const s = store.getSettings();
   let exams = [];
   try { exams = (await getManifest()).exams.filter((e) => !e.preview); } catch {}
 
+  let courses = [];
+  try { courses = await listCourses(); } catch {}
+  const chosen = chosenCourses(courses) || [];
   const radio = (name, value, label, cur) => `<label class="chip"><input type="radio" name="${name}" value="${value}" ${cur === value ? 'checked' : ''}><span>${label}</span></label>`;
 
   main.innerHTML = `
     <section class="page narrow settings">
       <h1>Settings</h1>
+      ${courses.length > 1 || (courses.length === 1 && courses[0].name) ? `
+      <form class="setup-form" data-my-subjects id="subjects">
+        <fieldset><legend>My classes</legend>
+          <p class="muted small fieldset-help">Your home page shows only these. Exams from other classes stay available through their links.</p>
+          <div class="subject-grid compact">${courseOptions(courses, chosen)}</div>
+          <p class="form-error bad small" data-subj-err role="alert" hidden>Keep at least one class selected.</p>
+        </fieldset>
+      </form>` : ''}
       <form class="setup-form" data-prefs>
         <fieldset><legend>Theme</legend><div class="chip-row">
           ${radio('theme', 'system', 'Match my device', s.theme)}${radio('theme', 'light', 'Light', s.theme)}${radio('theme', 'dark', 'Dark', s.theme)}
@@ -33,7 +45,7 @@ export async function render(main) {
       <p class="muted">Everything is stored only in this browser on this device (about ${store.storageUsedKB()} KB). To study on another device, export here and import there. Clearing your browser data erases it.</p>
       <div class="data-actions">
         <div class="data-row">
-          <div><strong>Export progress</strong><span class="muted small">Downloads a small file with your scores, history, saved questions and notes.</span></div>
+          <div><strong>Export progress</strong><span class="muted small">Downloads a small file with your scores, history, saved questions, notes and assignment code.</span></div>
           <button class="btn" data-export>${icon('download')} Export</button>
         </div>
         <div class="data-row">
@@ -42,7 +54,7 @@ export async function render(main) {
         </div>
         ${exams.map((e) => `
         <div class="data-row">
-          <div><strong>Reset ${esc(e.title)}</strong><span class="muted small">Clears your scores, history and saved questions for this exam only.</span></div>
+          <div><strong>Reset ${esc(e.title)}</strong><span class="muted small">Clears your scores, history, saved questions${e.assignmentCount ? ' and assignment code' : ''} for this exam only.</span></div>
           <button class="btn danger-outline" data-reset="${esc(e.id)}" data-title="${esc(e.title)}">Reset</button>
         </div>`).join('')}
         <div class="data-row">
@@ -51,6 +63,16 @@ export async function render(main) {
         </div>
       </div>
     </section>`;
+
+  const subjForm = main.querySelector('[data-my-subjects]');
+  subjForm?.addEventListener('change', (ev) => {
+    const picked = [...subjForm.querySelectorAll('input[name=subject]:checked')].map((i) => i.value);
+    const err = subjForm.querySelector('[data-subj-err]');
+    if (!picked.length) { ev.target.checked = true; err.hidden = false; return; }
+    err.hidden = true;
+    saveChoice(picked, courses);
+    toast('Your classes are saved');
+  });
 
   main.querySelector('[data-prefs]').addEventListener('change', (ev) => {
     const f = ev.currentTarget;
@@ -84,7 +106,7 @@ export async function render(main) {
     ev.target.value = '';
   };
   main.querySelectorAll('[data-reset]').forEach((b) => (b.onclick = async () => {
-    if (await confirmDialog({ title: `Reset ${b.dataset.title}?`, body: '<p>Your scores, history, saved questions and notes for this exam will be erased from this browser. This can\'t be undone. Export first if you want a backup.</p>', confirm: 'Reset', danger: true })) {
+    if (await confirmDialog({ title: `Reset ${b.dataset.title}?`, body: '<p>Your scores, history, saved questions, notes and any assignment code for this exam will be erased from this browser. This can\'t be undone. Export first if you want a backup.</p>', confirm: 'Reset', danger: true })) {
       store.resetExam(b.dataset.reset);
       toast(`${b.dataset.title} reset`);
       render(main);

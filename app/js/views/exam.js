@@ -53,6 +53,18 @@ export async function render(main, { id }) {
         </a>
       </div>
 
+      ${exam.assignmentCount ? (() => {
+        const prog = store.getAsgProgress(exam.id);
+        const done = Object.values(prog).filter((x) => x.done).length;
+        return `<a class="code-card" href="#/assignments/${e}">
+          <span class="code-card-icon" aria-hidden="true">{ }</span>
+          <span class="code-card-text"><span class="mode-name">Programming assignments</span>
+          <span class="mode-sub">${plural(exam.assignmentCount, 'Java program')} to write and test right in your browser${done ? ` · ${done} of ${exam.assignmentCount} done` : ''}</span></span>
+          ${done ? `<span class="code-card-meter">${meter(done / exam.assignmentCount, { tone: done === exam.assignmentCount ? 'good' : '' })}</span>` : ''}
+          ${icon('right')}
+        </a>`;
+      })() : ''}
+
       <div class="mode-grid">
         <a class="mode-card" href="#/start/${e}/topic"><span class="mode-name">Practice by topic</span><span class="mode-sub">Choose one or more topics</span></a>
         <a class="mode-card" href="#/start/${e}/bank"><span class="mode-name">Full question bank</span><span class="mode-sub">All ${exam.questions.length}, shuffled</span></a>

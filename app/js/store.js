@@ -48,6 +48,9 @@ const DEFAULT_SETTINGS = {
   shuffleChoices: true,
   confirmSubmit: true,
   showTimer: true,
+  subjects: null,         // courses the student picked; null = not chosen yet
+  subjectsSeen: null,     // courses that existed when they last chose (to flag new ones)
+  editorFont: 'm',        // code editor text size
 };
 export function getSettings() { return { ...DEFAULT_SETTINGS, ...get('settings', {}) }; }
 export function saveSettings(patch) { const s = { ...getSettings(), ...patch }; set('settings', s); return s; }
@@ -89,6 +92,26 @@ export function saveNote(examId, qid, text) {
   set(notesKey(examId), n);
 }
 
+// ---------- programming assignments ----------
+export const asgKey = (examId) => `asg:${examId}`;
+export const codeKey = (examId, slug) => `code:${examId}:${slug}`;
+export function getAsgProgress(examId) { return get(asgKey(examId), {}); }
+export function saveAsgProgress(examId, slug, patch) {
+  const all = getAsgProgress(examId);
+  const cur = all[slug] || { attempts: 0, best: 0, total: 0, done: false, hints: 0 };
+  all[slug] = { ...cur, ...patch, updated: Date.now() };
+  set(asgKey(examId), all);
+  return all[slug];
+}
+export function recordTestRun(examId, slug, passed, total) {
+  const cur = getAsgProgress(examId)[slug] || {};
+  const done = !!cur.done || (total > 0 && passed === total);
+  return saveAsgProgress(examId, slug, { attempts: (cur.attempts || 0) + 1, last: passed, total, best: Math.max(cur.best || 0, passed), done, doneAt: !cur.done && done ? Date.now() : cur.doneAt });
+}
+export function getCode(examId, slug) { const v = rawGet(codeKey(examId, slug)); return v == null ? null : v; }
+export function saveCode(examId, slug, code) { return rawSet(codeKey(examId, slug), code); }
+export function clearCode(examId, slug) { rawRemove(codeKey(examId, slug)); }
+
 // ---------- in-progress session ----------
 export function getSession() { return get('session', null); }
 export function saveSession(s) { set('session', s); }
@@ -125,6 +148,10 @@ export function importAll(payload) {
   let merged = 0;
   for (const [key, raw] of Object.entries(payload.data)) {
     if (key === 'session') continue;
+    if (key.startsWith('code:')) {
+      if (rawGet(key) == null) { rawSet(key, raw); merged++; }
+      continue;
+    }
     let incoming;
     try { incoming = JSON.parse(raw); } catch { continue; }
     const current = get(key, undefined);
@@ -147,6 +174,14 @@ export function importAll(payload) {
           const c = next[day];
           next[day] = c ? { ms: Math.max(c.ms, d.ms), answered: Math.max(c.answered, d.answered) } : d;
         }
+      } else if (key.startsWith('asg:')) {
+        next = { ...current };
+        for (const [slug, a] of Object.entries(incoming)) {
+          const c = next[slug];
+          next[slug] = !c ? a : { ...c, best: Math.max(c.best || 0, a.best || 0), done: !!(c.done || a.done), attempts: Math.max(c.attempts || 0, a.attempts || 0), hints: Math.max(c.hints || 0, a.hints || 0) };
+        }
+      } else if (key.startsWith('code:')) {
+        next = current; // keep the code already on this device
       } else if (key.startsWith('notes:')) {
         next = { ...incoming, ...current };
       } else if (key === 'settings') {
@@ -160,7 +195,12 @@ export function importAll(payload) {
 }
 
 export function resetExam(examId) {
-  for (const k of [attemptsKey(examId), statsKey(examId), savedKey(examId), notesKey(examId)]) remove(k);
+  for (const k of [attemptsKey(examId), statsKey(examId), savedKey(examId), notesKey(examId), asgKey(examId)]) remove(k);
+  if (storageOk) {
+    const codeKeys = [];
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX + `code:${examId}:`)) codeKeys.push(k); }
+    codeKeys.forEach((k) => localStorage.removeItem(k));
+  }
   const s = getSession();
   if (s && s.examId === examId) clearSession();
 }

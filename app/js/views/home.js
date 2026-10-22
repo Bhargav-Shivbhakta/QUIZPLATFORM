@@ -3,6 +3,7 @@ import { getManifest, getExam } from '../data.js';
 import * as store from '../store.js';
 import { esc, ring, plural, toneFor, confirmDialog } from '../ui.js';
 import { readiness, fmtDate, MODES } from '../engine.js';
+import { listCourses, chosenCourses, newCourses, saveChoice, courseLabel } from './subjects.js';
 
 function countdown(dateStr) {
   if (!dateStr) return '';
@@ -20,7 +21,28 @@ export async function render(main, params = {}) {
   const manifest = await getManifest();
   const all = manifest.exams;
   const courseFilter = params.course || '';
-  const exams = courseFilter ? all.filter((e) => slug(e.course) === courseFilter) : all;
+  const courseList = await listCourses();
+  let chosen = chosenCourses(courseList);
+  if (courseFilter && !chosen) {
+    // arriving from a course link counts as choosing that course
+    const c = courseList.find((x) => x.name && slug(x.name) === courseFilter);
+    if (c) { saveChoice([c.name], courseList); chosen = [c.name]; }
+  }
+  if (!courseFilter && !chosen && courseList.some((c) => c.name)) {
+    location.replace('#/subjects');
+    return;
+  }
+  const exams = courseFilter ? all.filter((e) => slug(e.course) === courseFilter)
+    : chosen ? all.filter((e) => e.preview || chosen.includes(e.course || '')) : all;
+  const fresh = courseFilter ? [] : newCourses(courseList);
+  const mine = !courseFilter && chosen && courseList.length > 1 ? `
+    <p class="my-subjects">Showing ${chosen.map((c) => `<strong>${esc(courseLabel(c))}</strong>`).join(', ')}
+      <a class="link-btn" href="#/subjects">Change classes</a></p>` : '';
+  const freshNote = fresh.length ? `
+    <div class="resume-banner new-course" role="region" aria-label="New classes">
+      <div><strong>New on the site: ${fresh.map((c) => esc(courseLabel(c.name))).join(', ')}</strong><span class="muted">Add ${fresh.length > 1 ? 'them' : 'it'} to your home page if you're taking ${fresh.length > 1 ? 'them' : 'it'}.</span></div>
+      <div class="row"><button class="btn" data-dismiss-new>Not now</button><a class="btn primary" href="#/subjects">Choose classes</a></div>
+    </div>` : '';
   const courses = [...new Set(all.filter((e) => !e.preview).map((e) => e.course || ''))];
   const session = store.getSession();
 
@@ -66,7 +88,7 @@ export async function render(main, params = {}) {
         ${e.course && !grouped ? `<p class="course">${esc(e.course)}</p>` : ''}
         <h2>${esc(e.title)}</h2>
         ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
-        <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, real exam has ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}</p>
+        <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, real exam has ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
         ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
         ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best real exam ${best}%` : ''}</p>` : ''}
       </div>
@@ -94,8 +116,10 @@ export async function render(main, params = {}) {
       <section class="page home">
         <header class="home-head">
           <h1>${esc(courseFilter ? (exams[0].course || config.siteName) : config.siteName)}</h1>
-          ${courseFilter ? `<p class="tagline"><a href="#/">See all courses</a></p>` : config.tagline ? `<p class="tagline">${esc(config.tagline)}</p>` : ''}
+          ${courseFilter ? `<p class="tagline"><a href="#/">Back to my classes</a></p>` : config.tagline ? `<p class="tagline">${esc(config.tagline)}</p>` : ''}
+          ${mine}
         </header>
+        ${freshNote}
         ${resume}
         ${shownCourses.map(section).join('')}
         ${previews.length ? `<h2 class="section-title">Previews</h2><p class="muted section-sub">Loaded from a file on this device. Not published.</p><div class="exam-grid">${previews.map((e) => card(e)).join('')}</div>` : ''}
@@ -109,7 +133,9 @@ export async function render(main, params = {}) {
       <header class="home-head">
         <h1>${esc(config.siteName)}</h1>
         ${config.tagline ? `<p class="tagline">${esc(config.tagline)}</p>` : ''}
+        ${mine}
       </header>
+      ${freshNote}
       ${resume}
       ${card(featured, true)}
       ${others.length ? `<h2 class="section-title">Other exams</h2><div class="exam-grid">${others.map((e) => card(e)).join('')}</div>` : ''}
@@ -119,6 +145,10 @@ export async function render(main, params = {}) {
 
   bindDiscard();
   function bindDiscard() {
+  main.querySelector('[data-dismiss-new]')?.addEventListener('click', () => {
+    store.saveSettings({ subjectsSeen: courseList.map((c) => c.name) });
+    main.querySelector('.new-course')?.remove();
+  });
   main.querySelector('[data-discard]')?.addEventListener('click', async () => {
     const ok = await confirmDialog({ title: 'Discard this quiz?', body: '<p>Your answers in the unfinished quiz will be lost. Your saved progress stays.</p>', confirm: 'Discard', danger: true });
     if (ok) { store.clearSession(); render(main, params); }
