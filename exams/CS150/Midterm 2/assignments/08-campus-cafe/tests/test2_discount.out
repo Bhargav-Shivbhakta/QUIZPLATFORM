@@ -1,0 +1,18 @@
+=== Campus Cafe ===
+1. Coffee     $2.50
+2. Latte      $4.50
+3. Bagel      $3.25
+4. Muffin     $2.75
+5. Sandwich   $7.95
+0. Checkout
+Added 2 x Sandwich
+Added 1 x Latte
+Added 3 x Muffin
+--- Receipt ---
+Latte x 1: $4.50
+Muffin x 3: $8.25
+Sandwich x 2: $15.90
+Subtotal: $28.65
+Discount: $2.87
+Tax: $2.00
+Total: $27.78
