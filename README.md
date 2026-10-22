@@ -11,6 +11,9 @@ Students open a link and can:
 - **Browse** every question with search, answers and private notes
 - Flag questions, cross out choices, use the built-in calculator, pause, and resume later
 - See their scores, weakest topics, most-missed questions and an exam-readiness estimate
+- Do **programming assignments**: write Java in the browser, run it with their own input, and check it against your tests instantly (compile errors look exactly like `javac`'s, and wrong output is shown side by side with the expected output)
+
+On their first visit, students **pick their classes** (for example CS150). The home page then shows only those classes; they can change this any time in **Settings → My classes**.
 
 **Privacy:** each student's progress is stored **only in their own browser**. Nothing is sent anywhere, so students can't see each other's data, and you don't see it either. Students can move progress between devices with **Settings → Export / Import**.
 
@@ -67,7 +70,7 @@ exams/
     Midterm 1/questions.md
 ```
 
-The subject folder name (CS150) becomes the course label, the home page groups exams by subject, and each subject gets its own link such as `…/#/course/cs150` that shows only that course. Each subject can have its own `active: true` exam. You never edit a list of exams. Adding or deleting a folder adds or removes an exam.
+The subject folder name (CS150) becomes the course label. On their first visit students choose which subjects they're taking, and the home page shows only those (they can change it in Settings). Each subject also gets its own link such as `…/#/course/cs150`; opening it counts as choosing that subject, so it's the best link to share with one class. When you add a new subject later, students who already chose see a "New on the site" note and can add it. Each subject can have its own `active: true` exam. You never edit a list of exams. Adding or deleting a folder adds or removes an exam.
 
 To change the site name shown at the top, edit `app/config.js`.
 
@@ -190,6 +193,56 @@ Fill-in answers aren't case sensitive. Separate accepted alternatives with `|`.
 
 ---
 
+## 4b. Programming assignments
+
+Put assignments in an `assignments` folder inside the exam folder. Each assignment is a folder whose name starts with a number (the order):
+
+```
+exams/CS150/Midterm 2/
+  questions.md
+  assignments/
+    01-movie-ticket/
+      assignment.md        ← title, settings and the instructions students read
+      MovieTicket.java     ← starter code students begin with
+      solution/
+        MovieTicket.java   ← your reference solution (never published)
+      tests/
+        test1_adult_evening.in     ← input typed into the program
+        test1_adult_evening.out    ← exact output expected
+        ...
+      checks.txt           ← optional code requirements
+```
+
+`assignment.md` starts with a few settings, then the instructions in Markdown:
+
+```markdown
+---
+title: Movie Ticket Pricer
+class: MovieTicket                 # the Java class name (and file name)
+order: 1
+difficulty: medium                 # easy | medium | hard
+estimate: 30 min
+topics: if / else-if chains, logical operators, printf
+sample_tests: test1_adult_evening, test2_child_matinee   # tests students can see before running
+---
+
+Write a program that prices one movie ticket. ...
+
+## Hints
+- First hint (students reveal hints one at a time)
+- Second hint
+```
+
+`checks.txt` (optional) lists requirements on the code itself, one per line: `require:<regex>  # label` or `forbid:<regex>  # label`. The label is what students see, for example `require:\bswitch\s*\(  # Uses a switch statement`. Comments are ignored when checking.
+
+**How grading works:** the student's program is compiled and run in their browser against every test. Output must match the `.out` file exactly, except that spaces at the ends of lines and blank lines at the very end don't matter. Tests not listed in `sample_tests` are hidden until the student runs them. Programs that loop forever are stopped after 5 seconds.
+
+**Your solution is checked on every publish.** If the reference solution in `solution/` doesn't pass all of its own tests and checks, the build fails and tells you which test, so a typo in a `.out` file never reaches students. The `solution/` folder is never copied to the website. Keep it in the repo (a private repo keeps it fully hidden; in a public repo anyone browsing GitHub can read it).
+
+**What Java is supported:** the CS150-level language: `Scanner` input, `System.out.print/println/printf`, `String.format`, primitives, `String` methods, `Math`, `Integer/Double` parsing, arrays, `if`/`switch` (including `case ->`), all loops, `break`/`continue`, static methods and recursion, and runtime exceptions with Java's own messages. Not supported yet: your own classes with objects, `ArrayList`, interfaces and generics. If a starter or solution uses something unsupported, the build tells you.
+
+---
+
 ## 5. Checking and previewing on your computer (optional)
 
 This needs [Node.js](https://nodejs.org) 18 or newer.
@@ -207,7 +260,7 @@ You can also check a file without installing anything. On the live site, click *
 
 ## 6. Things to know
 
-- **Progress lives in each browser.** Students who switch devices or clear their browser data lose it unless they use Export/Import in Settings. Private/incognito windows don't keep it after closing.
+- **Progress and assignment code live in each browser.** Code is saved automatically as students type. Students who switch devices or clear their browser data lose it unless they use Export/Import in Settings. Private/incognito windows don't keep it after closing.
 - **Question IDs matter.** If you rename `Q7` to `Q8`, students' history for that question is treated as a new question. Changing the wording or answers is fine.
 - **The real exam timer** keeps counting across a page reload (time spent away from the tab is not counted). When it runs out, answers are submitted automatically.
 - **No tracking, no analytics, no cookies.** The only outside request is loading the fonts from Google Fonts. To remove it, delete the two `fonts.googleapis.com` lines in `app/index.html`; the site falls back to system fonts.
