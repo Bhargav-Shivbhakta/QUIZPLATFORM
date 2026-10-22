@@ -11,7 +11,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { parseExam, findImages, isRelativeUrl, rewriteImages } from '../app/js/parser.js';
+<<<<<<< HEAD
 import { loadAssignments } from './assignments.mjs';
+=======
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EXAMS = path.join(ROOT, 'exams');
@@ -128,6 +131,7 @@ export function buildAll({ write = true, quiet = false } = {}) {
     errorCount += res.errors.length;
     warnCount += res.warnings.length;
 
+<<<<<<< HEAD
     // programming assignments in <exam>/assignments/
     const asg = loadAssignments(src.dir);
     if (asg.assignments.length || asg.errors.length) {
@@ -139,6 +143,8 @@ export function buildAll({ write = true, quiet = false } = {}) {
     errorCount += asg.errors.length;
     warnCount += asg.warnings.length;
 
+=======
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
     if (!res.errors.length) {
       const base = `data/${src.id}/`;
       for (const q of res.questions) {
@@ -147,7 +153,11 @@ export function buildAll({ write = true, quiet = false } = {}) {
         q.hint = rewriteImages(q.hint, base);
         if (q.options) q.options.forEach((o) => (o.text = rewriteImages(o.text, base)));
       }
+<<<<<<< HEAD
       built.push({ id: src.id, res, images, assetDir, assignments: asg.assignments });
+=======
+      built.push({ id: src.id, res, images, assetDir });
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
     }
   }
 
@@ -188,13 +198,17 @@ export function buildAll({ write = true, quiet = false } = {}) {
   copy('@highlightjs/cdn-assets/highlight.min.js', 'hljs/highlight.min.js');
   copy('@highlightjs/cdn-assets/styles/github.min.css', 'hljs/light.css');
   copy('@highlightjs/cdn-assets/styles/github-dark.min.css', 'hljs/dark.css');
+<<<<<<< HEAD
   copy('codejar/dist/codejar.js', 'codejar.js');
+=======
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
 
   const dataDir = path.join(DIST, 'data');
   fs.mkdirSync(dataDir, { recursive: true });
   const manifest = { builtAt: new Date().toISOString(), exams: [] };
   for (const b of built) {
     const { meta, topics, questions } = b.res;
+<<<<<<< HEAD
     const asgList = b.assignments || [];
     const payload = { id: b.id, ...meta, topics, questions, assignmentCount: asgList.length };
     let asgHash = null;
@@ -205,6 +219,9 @@ export function buildAll({ write = true, quiet = false } = {}) {
       asgHash = crypto.createHash('sha1').update(aj).digest('hex').slice(0, 10);
       fs.writeFileSync(path.join(dataDir, `${b.id}.assignments.json`), aj);
     }
+=======
+    const payload = { id: b.id, ...meta, topics, questions };
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
     const json = JSON.stringify(payload);
     const hash = crypto.createHash('sha1').update(json).digest('hex').slice(0, 10);
     fs.writeFileSync(path.join(dataDir, `${b.id}.json`), json);
@@ -219,7 +236,11 @@ export function buildAll({ write = true, quiet = false } = {}) {
       active: meta.active, archived: meta.archived, order: meta.order, timeLimit: meta.timeLimit,
       passMark: meta.passMark, examDate: meta.examDate,
       questionCount: questions.length, onExamCount: questions.filter((q) => q.onExam).length,
+<<<<<<< HEAD
       topics, hash, assignmentCount: asgList.length, assignmentsHash: asgHash,
+=======
+      topics, hash,
+>>>>>>> e76887380f6e9bf0e9468a72271fa1801a7defab
     });
   }
   manifest.exams.sort((a, b) => (a.course || '').localeCompare(b.course || '', undefined, { numeric: true }) || (b.active - a.active) || (a.archived - b.archived) || (a.order - b.order) || a.title.localeCompare(b.title));
