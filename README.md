@@ -56,7 +56,18 @@ scripts/              ← build, preview and checking tools
 .github/workflows/    ← automatic checking and publishing
 ```
 
-**Every folder in `exams/` that contains a `questions.md` becomes an exam on the site.** You never edit a list of exams. Adding or deleting a folder adds or removes an exam.
+**Every folder in `exams/` that contains a `questions.md` becomes an exam on the site.** You can also group exams by subject, one level deeper:
+
+```
+exams/
+  CS150/
+    Midterm 2/questions.md
+    Final/questions.md
+  CS160/
+    Midterm 1/questions.md
+```
+
+The subject folder name (CS150) becomes the course label, the home page groups exams by subject, and each subject gets its own link such as `…/#/course/cs150` that shows only that course. Each subject can have its own `active: true` exam. You never edit a list of exams. Adding or deleting a folder adds or removes an exam.
 
 To change the site name shown at the top, edit `app/config.js`.
 

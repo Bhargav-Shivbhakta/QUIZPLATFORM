@@ -1288,3 +1288,9 @@ pre code.hljs, .prose pre code { overflow-x: visible !important; display: block;
 }
 
 @media (hover: none) { .kbd-only { display: none; } }
+
+/* subjects on the home page */
+.course-group + .course-group { margin-top: 2.6rem; }
+.course-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem 1rem; margin-bottom: .9rem; padding-bottom: .5rem; border-bottom: 2px solid var(--ink); }
+.course-head h2 { margin: 0; font-size: 1.35rem; }
+.course-group .exam-grid { margin-top: 1rem; }

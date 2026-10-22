@@ -111,9 +111,16 @@ test('text: case, spacing, trailing period and alternatives', () => {
 
 console.log('\nExam files in this repo');
 const examsDir = path.join(ROOT, 'exams');
-for (const entry of fs.readdirSync(examsDir, { withFileTypes: true })) {
-  const f = entry.isDirectory() ? path.join(examsDir, entry.name, 'questions.md') : path.join(examsDir, entry.name);
-  if (!f.endsWith('.md') || !fs.existsSync(f)) continue;
+const examFiles = [];
+(function walk(dir, depth) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name.startsWith('.')) continue;
+    const full = path.join(dir, e.name);
+    if (e.isDirectory() && depth < 2) walk(full, depth + 1);
+    else if (e.isFile() && e.name.endsWith('.md') && !/^readme/i.test(e.name)) examFiles.push(full);
+  }
+})(examsDir, 0);
+for (const f of examFiles) {
   test(`${path.relative(ROOT, f)} parses without errors and every answer key grades as correct`, () => {
     const r = parseExam(fs.readFileSync(f, 'utf8'));
     assert.deepEqual(r.errors, [], r.errors.map((e) => `line ${e.line}: ${e.message}`).join('\n'));
@@ -131,9 +138,9 @@ for (const entry of fs.readdirSync(examsDir, { withFileTypes: true })) {
 console.log('\nMock exams');
 {
   const { mockPick } = await import('../app/js/engine.js');
-  for (const entry of fs.readdirSync(examsDir, { withFileTypes: true })) {
-    const f = entry.isDirectory() ? path.join(examsDir, entry.name, 'questions.md') : null;
-    if (!f || !fs.existsSync(f) || entry.name.startsWith('_')) continue;
+  for (const f of examFiles) {
+    if (f.includes(`${path.sep}_`)) continue;
+    const entry = { name: path.relative(examsDir, path.dirname(f)) };
     const r = parseExam(fs.readFileSync(f, 'utf8'));
     const exam = { ...r.meta, topics: r.topics, questions: r.questions };
     const real = r.questions.filter((q) => q.onExam);

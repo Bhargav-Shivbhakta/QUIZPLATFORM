@@ -27,6 +27,14 @@ export function slugify(s) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'exam';
 }
 
+// Exams inside a subject folder, e.g. exams/CS150/Midterm 2/questions.md
+function subjectExams(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && !d.name.startsWith('_') && !d.name.startsWith('.'))
+    .map((d) => ({ name: d.name, dir: path.join(dir, d.name), file: path.join(dir, d.name, 'questions.md') }))
+    .filter((x) => fs.existsSync(x.file));
+}
+
 function findExamSources() {
   if (!fs.existsSync(EXAMS)) return [];
   const out = [];
@@ -40,6 +48,12 @@ function findExamSources() {
         const others = fs.readdirSync(full).filter((f) => /\.(md|markdown)$/i.test(f));
         if (others.length === 1) out.push({ id: slugify(entry.name), file: path.join(full, others[0]), dir: full });
         else if (others.length > 1) out.push({ id: slugify(entry.name), problem: `Folder exams/${entry.name} has several .md files. Name the question file questions.md.` });
+        else if (subjectExams(full).length) {
+          // A subject folder: exams/CS150/Midterm 2/questions.md
+          for (const sub of subjectExams(full)) {
+            out.push({ id: slugify(entry.name + '-' + sub.name), file: sub.file, dir: sub.dir, course: entry.name });
+          }
+        }
         else {
           const loose = fs.readdirSync(full).filter((f) => !f.startsWith('.') && f !== 'images');
           const hint = loose.some((f) => /\.(pdf|docx?)$/i.test(f))
@@ -88,8 +102,9 @@ export function buildAll({ write = true, quiet = false } = {}) {
     ids.add(src.id);
     const rel = path.relative(ROOT, src.file);
     const text = fs.readFileSync(src.file, 'utf8');
-    const fallbackTitle = src.id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    const fallbackTitle = (src.course ? path.basename(src.dir) : src.id.replace(/-/g, ' ')).replace(/\b\w/g, (c) => c.toUpperCase());
     const res = parseExam(text, { fallbackTitle });
+    if (src.course && !res.meta.course) res.meta.course = src.course;
 
     // images must exist
     const assetDir = path.relative(EXAMS, src.dir);
@@ -132,7 +147,9 @@ export function buildAll({ write = true, quiet = false } = {}) {
   // exactly one "current" exam
   const visible = built.filter((b) => !b.res.meta.hidden);
   const actives = visible.filter((b) => b.res.meta.active);
-  if (actives.length > 1) log(yellow(`  ! ${actives.length} exams say "active: true". "${actives[0].res.meta.title}" is shown first.`));
+  const byCourse = new Map();
+  actives.forEach((b) => { const c = b.res.meta.course || ''; byCourse.set(c, [...(byCourse.get(c) || []), b]); });
+  for (const [c, list] of byCourse) if (list.length > 1) log(yellow(`  ! ${list.length} exams${c ? ` in ${c}` : ''} say "active: true". "${list[0].res.meta.title}" is shown first.`));
   if (!actives.length && visible.length) log(dim(`  No exam has "active: true", so "${visible.slice().sort((a, b) => a.res.meta.order - b.res.meta.order)[0].res.meta.title}" is shown first.`));
 
   if (!write) {
@@ -183,7 +200,7 @@ export function buildAll({ write = true, quiet = false } = {}) {
       topics, hash,
     });
   }
-  manifest.exams.sort((a, b) => (b.active - a.active) || (a.archived - b.archived) || (a.order - b.order) || a.title.localeCompare(b.title));
+  manifest.exams.sort((a, b) => (a.course || '').localeCompare(b.course || '', undefined, { numeric: true }) || (b.active - a.active) || (a.archived - b.archived) || (a.order - b.order) || a.title.localeCompare(b.title));
   fs.writeFileSync(path.join(dataDir, 'exams.json'), JSON.stringify(manifest, null, 1));
   fs.writeFileSync(path.join(DIST, '.nojekyll'), '');
 
