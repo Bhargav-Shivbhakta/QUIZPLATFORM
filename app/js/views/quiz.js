@@ -3,7 +3,7 @@ import * as store from '../store.js';
 import { esc, icon, modal, toast, plural, modalOpen, $, $$ } from '../ui.js';
 import { md, highlight } from '../render.js';
 import { gradeQuestion, isAnswered, correctAnswerLabel, TYPE_LABELS } from '../parser.js';
-import { finishSession, recordAnswer, fmtDuration } from '../engine.js';
+import { finishSession, recordAnswer, fmtDuration, EXAM_LIKE } from '../engine.js';
 import { toggleCalculator, closeCalculator } from '../calculator.js';
 import { go } from '../main.js';
 
@@ -28,6 +28,7 @@ export async function render(main) {
   s.paused = false; // never resume into a paused state without the overlay
 
   const instant = s.feedback === 'instant';
+  const examLike = EXAM_LIKE.has(s.mode);
   const savedSet = new Set(store.getSaved(exam.id));
   const N = s.questionIds.length;
 
@@ -52,14 +53,15 @@ export async function render(main) {
         <div class="quiz-main">
           <article class="qcard" data-qcard aria-live="polite"></article>
           <div class="quiz-nav">
-            <button class="btn" data-prev>${icon('left')}<span>Previous</span></button>
+            <button class="btn" data-prev aria-label="Previous question">${icon('left')}<span>Previous</span></button>
             <span class="quiz-count" data-count></span>
+            <button class="btn ghost" data-skip hidden><span>Skip</span>${icon('right')}</button>
             <button class="btn primary" data-next><span>Next</span>${icon('right')}</button>
           </div>
         </div>
         <aside class="sheet" data-sheet aria-label="Answer sheet">
           <div class="sheet-head"><h2>Answer sheet</h2><button class="icon-btn small sheet-close" data-sheet-toggle aria-label="Close answer sheet">${icon('x')}</button></div>
-          <div class="sheet-grid" data-grid role="list"></div>
+          <div class="sheet-grid" data-grid></div>
           <dl class="sheet-legend">
             <div><dt><span class="bub filled"></span></dt><dd>Answered</dd></div>
             <div><dt><span class="bub"></span></dt><dd>Not answered</dd></div>
@@ -94,7 +96,7 @@ export async function render(main) {
       if (instant && s.checked[id]) cls = gradeQuestion(qq, s.answers[id]) ? 'right' : 'wrong';
       if (s.flags[id]) cls += ' flagged';
       if (i === s.current) cls += ' current';
-      return `<button class="bub ${cls}" data-jump="${i}" role="listitem" aria-label="Question ${i + 1}${ans ? ', answered' : ''}${s.flags[id] ? ', flagged' : ''}">${i + 1}</button>`;
+      return `<button class="bub ${cls}" data-jump="${i}" aria-label="Question ${i + 1}${ans ? ', answered' : ''}${s.flags[id] ? ', flagged' : ''}">${i + 1}</button>`;
     }).join('');
     const answered = s.questionIds.filter((id) => isAnswered(exam.byId.get(id), s.answers[id])).length;
     const flagged = s.questionIds.filter((id) => s.flags[id]).length;
@@ -114,7 +116,7 @@ export async function render(main) {
       else if (selected) state = 'is-wrong';
     }
     return `
-      <li class="opt ${selected ? 'selected' : ''} ${struck ? 'struck' : ''} ${state}">
+      <div class="opt ${selected ? 'selected' : ''} ${struck ? 'struck' : ''} ${state}">
         <button class="opt-btn" data-opt="${origIdx}" ${locked ? 'disabled' : ''} role="${qq.type === 'multi' ? 'checkbox' : 'radio'}" aria-checked="${selected}">
           <span class="bubble ${qq.type === 'multi' ? 'square' : ''}" aria-hidden="true">${LETTERS[displayIdx]}</span>
           <span class="opt-text">${md(qq.options[origIdx].text, { inline: !qq.options[origIdx].text.includes('\n') })}</span>
@@ -122,7 +124,7 @@ export async function render(main) {
           ${locked && selected && !qq.options[origIdx].correct ? `<span class="opt-mark">${icon('x')}</span>` : ''}
         </button>
         ${locked ? '' : `<button class="strike-btn" data-strike="${origIdx}" aria-label="Cross out choice ${LETTERS[displayIdx]}" title="Cross out">${icon('strike')}</button>`}
-      </li>`;
+      </div>`;
   }
 
   function feedbackBlock(qq) {
@@ -147,8 +149,8 @@ export async function render(main) {
 
     card.innerHTML = `
       <header class="qhead">
-        <span class="qnum">Question ${s.current + 1} <span class="muted">of ${N}</span></span>
-        <span class="qmeta"><span class="tag">${esc(qq.topic)}</span><span class="tag diff-${qq.difficulty}">${qq.difficulty}</span>${qq.points !== 1 ? `<span class="tag">${qq.points} pts</span>` : ''}</span>
+        <h1 class="qnum">Question ${s.current + 1} <span class="muted">of ${N}</span></h1>
+        ${examLike ? (qq.points !== 1 ? `<span class="qmeta"><span class="tag">${qq.points} pts</span></span>` : '') : `<span class="qmeta"><span class="tag">${esc(qq.topic)}</span><span class="tag diff-${qq.difficulty}">${qq.difficulty}</span>${qq.points !== 1 ? `<span class="tag">${qq.points} pts</span>` : ''}</span>`}
         <span class="qtools">
           <button class="tool ${s.flags[id] ? 'on' : ''}" data-flag aria-pressed="${!!s.flags[id]}" title="Flag for review (F)">${icon('flag')}<span>${s.flags[id] ? 'Flagged' : 'Flag'}</span></button>
           <button class="tool ${savedSet.has(id) ? 'on star' : ''}" data-save aria-pressed="${savedSet.has(id)}" title="Save to study later (S)">${icon('star')}<span>${savedSet.has(id) ? 'Saved' : 'Save'}</span></button>
@@ -163,12 +165,12 @@ export async function render(main) {
             value="${esc(s.answers[id] ?? '')}" ${locked ? 'disabled' : ''}>
           ${qq.type === 'numeric' ? '<span class="muted small">Decimals, negatives and fractions like 1/4 are fine.</span>' : '<span class="muted small">Not case sensitive.</span>'}
         </div>` : `
-        <ol class="opts ${qq.type === 'multi' ? 'multi' : ''}" role="${qq.type === 'multi' ? 'group' : 'radiogroup'}" aria-label="Answer choices">
+        <div class="opts ${qq.type === 'multi' ? 'multi' : ''}" role="${qq.type === 'multi' ? 'group' : 'radiogroup'}" aria-label="Answer choices">
           ${order.map((orig, di) => optionRow(qq, di, orig, locked)).join('')}
-        </ol>`}
-      ${qq.hint && !locked && s.mode !== 'exam' ? (hintShown
+        </div>`}
+      ${qq.hint && !locked && !examLike ? (hintShown
         ? `<div class="hint prose">${icon('bulb')}<div>${md(qq.hint)}</div></div>`
-        : `<button class="link-btn hint-btn" data-hint>${icon('bulb')} Show hint (H)</button>`) : ''}
+        : `<button class="link-btn hint-btn" data-hint>${icon('bulb')} Show hint<span class="kbd-only"> (H)</span></button>`) : ''}
       ${locked ? feedbackBlock(qq) : ''}`;
     highlight(card);
 
@@ -176,15 +178,30 @@ export async function render(main) {
     $('[data-prev]', main).disabled = s.current === 0;
     const next = $('[data-next]', main);
     const answered = isAnswered(qq, s.answers[id]);
+    paintNav(qq, locked, answered);
     if (instant && !locked) {
-      next.innerHTML = answered ? `<span>Check answer</span>${icon('check')}` : `<span>Skip</span>${icon('right')}`;
-      next.classList.toggle('primary', answered);
+      // handled by paintNav
     } else {
       const last = s.current === N - 1;
       next.innerHTML = last ? `<span>${instant ? 'Finish' : 'Review and submit'}</span>${icon('check')}` : `<span>Next</span>${icon('right')}`;
       next.classList.add('primary');
+      next.disabled = false;
     }
     renderGrid();
+  }
+
+  // In instant-feedback mode, "Skip" and "Check answer" are two separate buttons,
+  // so a student can't skip a question by accident.
+  function paintNav(qq, locked, answered) {
+    const next = $('[data-next]', main);
+    const skip = $('[data-skip]', main);
+    const checking = instant && !locked;
+    skip.hidden = !checking || s.current === N - 1;
+    if (checking) {
+      next.innerHTML = `<span>Check answer</span>${icon('check')}`;
+      next.classList.add('primary');
+      next.disabled = !answered;
+    }
   }
 
   // ---------- actions ----------
@@ -244,6 +261,7 @@ export async function render(main) {
   function next() {
     const qq = q();
     if (instant && !s.checked[qq.id] && isAnswered(qq, s.answers[qq.id])) { check(); return; }
+    if (instant && !s.checked[qq.id]) return; // nothing to check yet; use Skip to move on
     if (s.current < N - 1) goTo(s.current + 1);
     else openSubmit();
   }
@@ -255,7 +273,7 @@ export async function render(main) {
     toast(on ? 'Saved. Find it under Saved questions.' : 'Removed from saved questions.');
     renderCard();
   }
-  function showHint() { const qq = q(); if (!qq.hint || s.mode === 'exam') return; s.hintsUsed[qq.id] = true; save(); renderCard(); }
+  function showHint() { const qq = q(); if (!qq.hint || examLike) return; s.hintsUsed[qq.id] = true; save(); renderCard(); }
 
   // ---------- timer ----------
   let lastTick = performance.now();
@@ -311,11 +329,12 @@ export async function render(main) {
     const unanswered = s.questionIds.map((id, i) => ({ id, i })).filter(({ id }) => !isAnswered(exam.byId.get(id), s.answers[id]));
     const flagged = s.questionIds.map((id, i) => ({ id, i })).filter(({ id }) => s.flags[id]);
     if (!unanswered.length && !flagged.length && !store.getSettings().confirmSubmit) { submit(); return; }
+    const strictScoring = examLike || (!instant && !!s.timeLimitSec);
     const list = (arr) => arr.map(({ i }) => `<button class="bub small-bub" data-goto="${i}">${i + 1}</button>`).join('');
     const body = document.createElement('div');
     body.innerHTML = `
       <p>${unanswered.length ? `You've answered ${N - unanswered.length} of ${N} questions.` : `You've answered all ${N} questions.`}${s.timeLimitSec ? ` ${fmtDuration(Math.max(0, s.timeLimitSec * 1000 - s.elapsedMs))} left.` : ''}</p>
-      ${unanswered.length ? `<p class="submit-label">Not answered (${unanswered.length}), counted as wrong:</p><div class="bub-row">${list(unanswered)}</div>` : ''}
+      ${unanswered.length ? `<p class="submit-label">Not answered (${unanswered.length}), ${strictScoring ? 'counted as wrong' : 'skipped, so they won\'t count toward your score'}:</p><div class="bub-row">${list(unanswered.slice(0, 40))}${unanswered.length > 40 ? `<span class="muted small">+${unanswered.length - 40} more</span>` : ''}</div>` : ''}
       ${flagged.length ? `<p class="submit-label">Flagged for review (${flagged.length}):</p><div class="bub-row">${list(flagged)}</div>` : ''}`;
     const m = modal({
       title: instant ? 'Finish this quiz?' : 'Submit your answers?',
@@ -337,6 +356,7 @@ export async function render(main) {
     activityMs = 0;
     const attempt = finishSession(exam, s);
     s = null;
+    if (!attempt) { toast("You didn't answer any questions, so nothing was saved."); go(`#/exam/${encodeURIComponent(exam.id)}`); return; }
     go(`#/results/${encodeURIComponent(exam.id)}/${attempt.id}`);
   }
 
@@ -355,6 +375,7 @@ export async function render(main) {
     if ('hint' in t.dataset) return showHint();
     if ('prev' in t.dataset) return goTo(s.current - 1);
     if ('next' in t.dataset) return next();
+    if ('skip' in t.dataset) return goTo(s.current + 1);
     if ('submit' in t.dataset) return openSubmit();
     if ('pause' in t.dataset) return setPaused(true);
     if ('resume' in t.dataset) return setPaused(false);
@@ -375,11 +396,8 @@ export async function render(main) {
       renderGrid();
       const qq = q();
       const nextBtn = $('[data-next]', main);
-      if (instant && !s.checked[qq.id]) {
-        const a = isAnswered(qq, s.answers[qq.id]);
-        nextBtn.innerHTML = a ? `<span>Check answer</span>${icon('check')}` : `<span>Skip</span>${icon('right')}`;
-        nextBtn.classList.toggle('primary', a);
-      }
+      if (instant && !s.checked[qq.id]) paintNav(qq, false, isAnswered(qq, s.answers[qq.id]));
+      void nextBtn;
     }
   });
 
@@ -424,6 +442,7 @@ export async function render(main) {
       ['F', 'Flag for review'],
       ['S', 'Save question to study later'],
       ['H', 'Show hint (practice only)'],
+      ...(instant ? [['→', 'Skip to the next question']] : []),
       ['T', 'Jump to the answer box'],
       ['C', 'Calculator'],
       ...(s.canPause ? [['P', 'Pause']] : []),

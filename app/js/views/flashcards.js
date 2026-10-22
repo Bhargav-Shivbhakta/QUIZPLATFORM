@@ -31,6 +31,14 @@ export async function render(main, { id }, query) {
               ${exam.topics.map((t) => `<option value="t:${esc(t.name)}">${esc(t.name)} (${t.count})</option>`).join('')}
             </select>
           </label>
+          <div class="inline-fields plain">
+            <label class="field"><span>Cards</span>
+              <select name="size">${[10, 20, 30, 50].map((n) => `<option value="${n}" ${n === 20 ? 'selected' : ''}>${n}</option>`).join('')}<option value="0">All in the deck</option></select>
+            </label>
+            <label class="field"><span>Order</span>
+              <select name="order"><option value="weak" selected>Weakest first</option><option value="random">Random</option><option value="file">In order</option></select>
+            </label>
+          </div>
           <div class="row end"><a class="btn" href="#/exam/${e}">Cancel</a><button class="btn primary big" type="submit">Start</button></div>
         </form>
       </section>`;
@@ -43,15 +51,23 @@ export async function render(main, { id }, query) {
       let pool = exam.questions;
       if (deck === 'due') pool = pool.filter((q) => isDue(qStat(stats2, q.id)));
       else if (deck.startsWith('t:')) pool = pool.filter((q) => q.topic === deck.slice(2));
-      start(pool.map((q) => q.id));
+      const size = Number(form.size.value) || pool.length;
+      const order = form.order.value;
+      const strength = (q) => { const st = qStat(stats2, q.id); return st.seen ? st.box + st.right / (st.seen + 1) : 0.5; };
+      let ids;
+      if (order === 'weak') ids = shuffle(pool).sort((a, b) => strength(a) - strength(b)).map((q) => q.id);
+      else if (order === 'random') ids = shuffle(pool.map((q) => q.id));
+      else ids = pool.map((q) => q.id);
+      start(ids.slice(0, size), true);
     };
   }
 
-  function start(ids) {
-    Object.assign(st, { cards: shuffle(ids), i: 0, flipped: false, knew: 0, again: 0, missed: [], active: true });
+  function start(ids, keepOrder = true) {
+    Object.assign(st, { cards: keepOrder ? ids.slice() : shuffle(ids), i: 0, flipped: false, knew: 0, again: 0, missed: [], active: true });
     main.innerHTML = `
       <section class="page narrow flash">
         ${crumbs}
+        <h1 class="sr-only">Flashcards</h1>
         <div class="flash-top"><span data-pos></span><span class="muted" data-tally></span></div>
         <div class="flash-card" data-card tabindex="0" role="button" aria-label="Flip card"></div>
         <div class="flash-actions" data-actions></div>
@@ -112,7 +128,7 @@ export async function render(main, { id }, query) {
   const onClick = (ev) => {
     const b = ev.target.closest('button, [data-card]');
     if (!b) return;
-    if ('redo' in b.dataset) return start(st.missed.slice());
+    if ('redo' in b.dataset) return start(st.missed.slice(), false);
     if ('pick' in b.dataset) return picker();
     if (!st.active) return;
     if (b.matches('[data-card]') || 'flip' in b.dataset) { st.flipped = !st.flipped; draw(); }

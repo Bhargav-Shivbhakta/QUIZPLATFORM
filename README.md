@@ -4,7 +4,8 @@ A free practice-exam website for your students. No logins, no database, no serve
 
 Students open a link and can:
 
-- **Take the real exam:** the actual exam questions in order, with a timer, scored at the end
+- **Take the real exam:** the actual exam questions in order, with a timer, scored at the end (answer choices are shuffled each time)
+- **Mock exam:** a fresh exam every time, drawn from the whole bank with the same length and topic mix as the real one
 - **Practice by topic,** run the **full question bank,** or build a **custom exam** (topics, difficulty, length, timer)
 - Use **smart review** (spaced repetition), **my mistakes**, **saved questions** and **flashcards**
 - **Browse** every question with search, answers and private notes
@@ -126,7 +127,7 @@ What is the base case in a recursive factorial?
 | `## Q1 · …` | Starts a question. `Q1` is its ID: any letters/numbers, unique within the file. **Keep IDs stable** so students' progress carries over when you edit. |
 | `single` `multi` `truefalse` `numeric` `text` | Question type. Optional: if left out it's guessed from the answers. |
 | `easy` `medium` `hard` | Difficulty (default `medium`). |
-| `on-exam` | Part of "Take the real exam", in file order. If no question has it, the real exam uses every question. |
+| `on-exam` | Part of "Take the real exam", in file order. Mock exams copy the topic mix of these questions. If no question has it, the real exam uses every question. |
 | `2pts` | Worth 2 points (default 1). |
 | `- [ ]` / `- [x]` | Answer choices. `[x]` marks the correct one(s). |
 | `= answer` | Answer for true/false, numeric and fill-in questions. |

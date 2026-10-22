@@ -43,6 +43,8 @@ export function md(src, { inline = false } = {}) {
   let html = inline ? marked.parseInline(text) : marked.parse(text);
   html = html.replace(/@@MATH(\d+)@@/g, (_, i) => store[Number(i)]);
   html = html.replace(/<img /g, '<img loading="lazy" ');
+  // code blocks can scroll sideways, so make them reachable with the keyboard
+  html = html.replace(/<pre>/g, '<pre tabindex="0">');
   html = html.replace(/<table>/g, '<div class="table-wrap"><table>').replace(/<\/table>/g, '</table></div>');
   if (cache.size > 2000) cache.clear();
   cache.set(key, html);
@@ -60,7 +62,7 @@ export function highlight(root) {
 // Plain-text preview of a question (for lists)
 export function snippet(src, n = 120) {
   const t = String(src ?? '')
-    .replace(/```[\s\S]*?```/g, ' [code] ')
+    .replace(/```[^\n]*\n([\s\S]*?)```/g, (_, code) => { const first = code.split('\n').map((l) => l.trim()).find(Boolean) || ''; return first ? ` \`${first.replace(/`/g, '')}${code.trim().includes('\n') ? ' …' : ''}\` ` : ' '; })
     .replace(/!\[[^\]]*\]\([^)]*\)/g, ' [image] ')
     .replace(/^\s*\|.*$/gm, ' ')
     .replace(/\$\$([^$]+)\$\$/g, '$$$1$$')

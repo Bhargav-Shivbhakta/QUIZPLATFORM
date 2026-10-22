@@ -1,7 +1,7 @@
 import { getExam } from '../data.js';
 import * as store from '../store.js';
 import { esc, plural, confirmDialog, $$ } from '../ui.js';
-import { buildSession, MODES, mistakeIds } from '../engine.js';
+import { buildSession, MODES, mistakeIds, EXAM_LIKE } from '../engine.js';
 import { TYPE_LABELS } from '../parser.js';
 import { go } from '../main.js';
 
@@ -33,14 +33,16 @@ export async function render(main, { id, mode }, query) {
   const back = `<nav class="crumbs"><a href="#/">Exams</a><a href="#/exam/${e}">${esc(exam.title)}</a></nav>`;
 
   // ---------- real exam: rules screen ----------
-  if (mode === 'exam') {
+  if (EXAM_LIKE.has(mode)) {
+    const mock = mode === 'mock';
     const qs = exam.questions.filter((q) => q.onExam);
-    const n = qs.length || exam.questions.length;
-    const pts = (qs.length ? qs : exam.questions).reduce((s, q) => s + (q.points || 1), 0);
+    const n = mock ? (qs.length || Math.min(50, exam.questions.length)) : (qs.length || exam.questions.length);
+    const pts = mock ? n : (qs.length ? qs : exam.questions).reduce((s, q) => s + (q.points || 1), 0);
     main.innerHTML = `
       <section class="page narrow setup">
         ${back}
-        <h1>Take the real exam</h1>
+        <h1>${mock ? 'Take a mock exam' : 'Take the real exam'}</h1>
+        ${mock ? `<p class="lead">A new set of ${n} questions every time, picked from all ${exam.questions.length} with the same topic mix as the real exam.</p>` : ''}
         <div class="exam-rules">
           <dl class="facts-list">
             <div><dt>Questions</dt><dd>${n}${pts !== n ? ` (${pts} points)` : ''}</dd></div>
@@ -48,17 +50,18 @@ export async function render(main, { id, mode }, query) {
             ${exam.passMark ? `<div><dt>Target</dt><dd>${exam.passMark}%</dd></div>` : ''}
           </dl>
           <ul class="rules">
-            <li>Questions appear in the same order as the real exam.</li>
+            ${mock ? '<li>Questions are grouped by topic, like the real exam, but chosen at random.</li>' : '<li>Questions appear in the same order as the real exam. Answer choices are shuffled each time.</li>'}
+            <li>Topic and difficulty labels and hints are hidden, like on the real test.</li>
             <li>You won't see right or wrong answers until you submit.</li>
             <li>You can skip questions, flag them, and come back before submitting.</li>
             ${exam.timeLimit ? '<li>The timer can\'t be paused. When it runs out, your answers are submitted automatically.</li>' : ''}
             <li>If you close the tab, you can resume from the home screen. The timer keeps your used time.</li>
           </ul>
-          ${!qs.length ? '<p class="note">No questions are marked as being on the real exam, so this uses the whole bank.</p>' : ''}
+          ${!qs.length && !mock ? '<p class="note">No questions are marked as being on the real exam, so this uses the whole bank.</p>' : ''}
         </div>
-        <div class="row end"><a class="btn" href="#/exam/${e}">Cancel</a><button class="btn primary big" data-start>Start exam</button></div>
+        <div class="row end setup-actions"><a class="btn" href="#/exam/${e}">Cancel</a><button class="btn primary big" data-start>Start ${mock ? 'mock exam' : 'exam'}</button></div>
       </section>`;
-    main.querySelector('[data-start]').onclick = () => startSession(exam, 'exam', {});
+    main.querySelector('[data-start]').onclick = () => startSession(exam, mode, {});
     return;
   }
 
@@ -81,7 +84,7 @@ export async function render(main, { id, mode }, query) {
     mistakes: 'Questions you got wrong the last time you answered them. Answer one correctly and it leaves this list.',
     saved: 'Questions you starred.',
   };
-  const defaultCount = { topic: 0, bank: 0, custom: 20, smart: 20, mistakes: 0, saved: 0 }[mode];
+  const defaultCount = { topic: 20, bank: 0, custom: 20, smart: 20, mistakes: 0, saved: 0 }[mode];
   const defaultFeedback = mode === 'custom' ? 'end' : settings.feedback;
   const perQ = exam.timeLimit && exam.questions.some((q) => q.onExam)
     ? exam.timeLimit / exam.questions.filter((q) => q.onExam).length
@@ -197,10 +200,13 @@ export async function render(main, { id, mode }, query) {
     const take = mode === 'smart' ? n : Math.min(n, Number(form.count.value) || n);
     const mins = timerMinutes(take);
     const out = form.querySelector('.match-count');
-    out.textContent = n === 0
+    const noTopic = showTopics && !vals('topic').length;
+    out.textContent = noTopic
+      ? 'Pick at least one topic to start.'
+      : n === 0
       ? 'No questions match. Choose more topics or difficulties.'
       : `${plural(take, 'question')}${mode !== 'smart' && take < n ? ` (from ${n} matching)` : ''}${mins ? `, ${mins} minutes` : ''}`;
-    out.classList.toggle('bad', n === 0);
+    out.classList.toggle('bad', n === 0 && !noTopic);
     form.querySelector('[type="submit"]').disabled = n === 0;
     const minField = form.querySelector('[data-minutes]');
     if (minField) minField.hidden = form.timer.value !== 'custom';

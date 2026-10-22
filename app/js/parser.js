@@ -394,7 +394,7 @@ function finalizeQuestion(q, { err, warn }) {
       if (q.options.length < 2) { err(q.line, `${q.id} needs at least two answer choices (lines starting with "- [ ]").`, q.id); break; }
       if (c === 0) err(q.line, `${q.id} has no correct answer marked. Mark it with [x], like  - [x] the right choice`, q.id);
       else if (q.type !== 'multi' && c > 1) err(q.line, `${q.id} has ${c} choices marked correct. Mark only one, or add "multi" to the heading if several are right.`, q.id);
-      const texts = q.options.map((o) => o.text.toLowerCase());
+      const texts = q.options.map((o) => o.text.trim());
       if (new Set(texts).size !== texts.length) warn(q.line, `${q.id} has two identical answer choices.`, q.id);
       if (q.options.some((o) => !o.text)) err(q.line, `${q.id} has an empty answer choice.`, q.id);
       break;

@@ -128,5 +128,26 @@ for (const entry of fs.readdirSync(examsDir, { withFileTypes: true })) {
   });
 }
 
+console.log('\nMock exams');
+{
+  const { mockPick } = await import('../app/js/engine.js');
+  for (const entry of fs.readdirSync(examsDir, { withFileTypes: true })) {
+    const f = entry.isDirectory() ? path.join(examsDir, entry.name, 'questions.md') : null;
+    if (!f || !fs.existsSync(f) || entry.name.startsWith('_')) continue;
+    const r = parseExam(fs.readFileSync(f, 'utf8'));
+    const exam = { ...r.meta, topics: r.topics, questions: r.questions };
+    const real = r.questions.filter((q) => q.onExam);
+    if (!real.length) continue;
+    test(`${entry.name}: mock exams match the real exam's length and topic mix, with no repeats`, () => {
+      for (let k = 0; k < 20; k++) {
+        const m = mockPick(exam);
+        assert.equal(m.length, real.length);
+        assert.equal(new Set(m.map((q) => q.id)).size, m.length);
+        for (const t of r.topics) assert.equal(m.filter((q) => q.topic === t.name).length, real.filter((q) => q.topic === t.name).length, t.name);
+      }
+    });
+  }
+}
+
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

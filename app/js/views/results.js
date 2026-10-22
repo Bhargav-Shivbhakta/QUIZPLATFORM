@@ -61,13 +61,15 @@ export async function render(main, { id, attempt: attemptId }, query) {
             <div><dt>Time</dt><dd>${fmtDuration(a.durationMs, { short: true })}${a.timeLimitSec ? ` of ${Math.round(a.timeLimitSec / 60)} min` : ''}</dd></div>
             <div><dt>Per question</dt><dd>${fmtDuration(avgTime, { short: true })} average</dd></div>
             ${pass ? `<div><dt>Target</dt><dd>${pass}% · ${pct >= pass ? 'Reached' : `${Math.round((pass - pct) * 10) / 10} points short`}</dd></div>` : ''}
+            ${a.skippedIds?.length ? `<div><dt>Skipped</dt><dd>${a.skippedIds.length} (not counted)</dd></div>` : ''}
             ${delta != null ? `<div><dt>Last time</dt><dd>${prev.score.pct}% (${delta >= 0 ? '+' : ''}${delta})</dd></div>` : ''}
           </dl>
         </div>
       </header>
 
       <div class="result-actions">
-        ${wrongIds.length ? `<button class="btn primary" data-retry>Retry the ${plural(wrongIds.length, 'one', 'ones')} I missed</button>` : ''}
+        ${wrongIds.length ? `<button class="btn primary" data-retry>${wrongIds.length === 1 ? 'Retry the one I missed' : `Retry the ${wrongIds.length} I missed`}</button>` : ''}
+        ${a.skippedIds?.length ? `<button class="btn" data-skipped>${a.skippedIds.length === 1 ? 'Do the skipped one' : `Do the ${a.skippedIds.length} skipped ones`}</button>` : ''}
         ${weakest.length ? `<button class="btn" data-weak>Practice ${weakest.length === 1 ? esc(weakest[0].name) : 'my weakest topics'}</button>` : ''}
         <button class="btn" data-again>Same settings again</button>
         <a class="btn" href="#/progress/${e}">My progress</a>
@@ -124,10 +126,11 @@ export async function render(main, { id, attempt: attemptId }, query) {
     const b = ev.target.closest('button');
     if (!b) return;
     if (b.dataset.filter) { filter = b.dataset.filter; renderList(); }
+    if ('skipped' in b.dataset) startSession(exam, 'retry', { ids: a.skippedIds, label: 'Skipped questions', feedback: a.feedback || 'instant' });
     if ('retry' in b.dataset) startSession(exam, 'retry', { ids: wrongIds, label: 'Retry missed questions', feedback: 'instant' });
     if ('weak' in b.dataset) startSession(exam, 'topic', { topics: weakest.map((t) => t.name), label: weakest.length === 1 ? `Topic: ${weakest[0].name}` : 'Weakest topics', count: 20 });
     if ('again' in b.dataset) {
-      if (a.mode === 'exam') startSession(exam, 'exam', {});
+      if (a.mode === 'exam' || a.mode === 'mock') startSession(exam, a.mode, {});
       else startSession(exam, a.mode, a.opts ? { ...a.opts } : { count: a.questionIds.length, label: a.label, feedback: a.feedback, timeLimitMin: a.timeLimitSec ? a.timeLimitSec / 60 : null });
     }
   });

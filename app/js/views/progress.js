@@ -97,7 +97,7 @@ export async function render(main, { id }) {
           <h2>Most missed</h2>
           ${missed.length ? `
             <ol class="missed">
-              ${missed.map(({ q, s }) => `<li><span class="missed-text">${md(snippet(q.text, 90), { inline: true })}</span><span class="muted small">${esc(q.topic)} · wrong ${s.wrong} of ${s.seen}</span></li>`).join('')}
+              ${missed.map(({ q, s }) => `<li><span class="missed-text">${md(snippet(q.text, 90), { inline: true })}</span><span class="muted small">${esc(q.id)} · ${esc(q.topic)} · wrong ${s.wrong} of ${s.seen}</span></li>`).join('')}
             </ol>
             <button class="btn" data-missed>Practice these ${missed.length}</button>` : '<p class="muted">No missed questions yet.</p>'}
         </section>

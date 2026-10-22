@@ -5,6 +5,7 @@ export const MODES = {
   topic:   { label: 'Topic practice',      feedback: 'instant', timer: false },
   bank:    { label: 'Full question bank',  feedback: 'instant', timer: false },
   exam:    { label: 'Real exam',           feedback: 'end',     timer: true  },
+  mock:    { label: 'Mock exam',           feedback: 'end',     timer: true  },
   custom:  { label: 'Custom exam',         feedback: 'end',     timer: true  },
   smart:   { label: 'Smart review',        feedback: 'instant', timer: false },
   mistakes:{ label: 'My mistakes',         feedback: 'instant', timer: false },
@@ -15,6 +16,9 @@ export const MODES = {
 // Spaced repetition (Leitner boxes 1–5). Box 0 = never answered.
 const DAY = 86400000;
 const BOX_INTERVAL = [0, 10 * 60000, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY];
+
+// Modes that behave like a real test: no hints, no topic labels, unanswered = wrong
+export const EXAM_LIKE = new Set(['exam', 'mock']);
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -55,6 +59,26 @@ export function smartPick(exam, stats, count) {
   return scored.sort((a, b) => a.pri - b.pri).slice(0, count).map((x) => x.id);
 }
 
+// A fresh exam with the same length and topic mix as the real one, drawn from the whole bank.
+export function mockPick(exam) {
+  const real = exam.questions.filter((q) => q.onExam);
+  const size = real.length || Math.min(50, exam.questions.length);
+  const want = new Map();
+  if (real.length) real.forEach((q) => want.set(q.topic, (want.get(q.topic) || 0) + 1));
+  else exam.topics.forEach((t) => want.set(t.name, Math.round((t.count / exam.questions.length) * size)));
+  const picked = [];
+  for (const t of exam.topics) {
+    const n = want.get(t.name) || 0;
+    picked.push(...shuffle(exam.questions.filter((q) => q.topic === t.name)).slice(0, n));
+  }
+  // top up if rounding left us short
+  if (picked.length < size) {
+    const have = new Set(picked.map((q) => q.id));
+    picked.push(...shuffle(exam.questions.filter((q) => !have.has(q.id))).slice(0, size - picked.length));
+  }
+  return picked;
+}
+
 /**
  * opts: { topics, count, difficulties, types, source: all|unseen|missed|saved, ids, timeLimitMin,
  *         feedback, shuffleQuestions, shuffleChoices }
@@ -71,6 +95,9 @@ export function buildSession(exam, mode, opts = {}) {
     const onExam = pool.filter((q) => q.onExam);
     pool = onExam.length ? onExam : pool;
     ordered = true;
+  } else if (mode === 'mock') {
+    pool = mockPick(exam);
+    ordered = true;
   } else if (opts.ids?.length) {
     pool = opts.ids.map((id) => exam.byId.get(id)).filter(Boolean);
   } else if (mode === 'smart') {
@@ -83,7 +110,7 @@ export function buildSession(exam, mode, opts = {}) {
     pool = pool.filter((q) => saved.has(q.id));
   }
 
-  if (mode !== 'exam' && mode !== 'smart') {
+  if (!EXAM_LIKE.has(mode) && mode !== 'smart') {
     if (opts.topics?.length) pool = pool.filter((q) => opts.topics.includes(q.topic));
     if (opts.difficulties?.length) pool = pool.filter((q) => opts.difficulties.includes(q.difficulty));
     if (opts.types?.length) pool = pool.filter((q) => opts.types.includes(q.type));
@@ -97,19 +124,20 @@ export function buildSession(exam, mode, opts = {}) {
   if (shuffleQs) ids = shuffle(ids);
   if (opts.count && opts.count < ids.length) ids = ids.slice(0, opts.count);
 
-  const shuffleChoices = mode === 'exam' ? false : (opts.shuffleChoices ?? (settings.shuffleChoices && exam.shuffleChoices !== false));
+  // Exam-like modes always shuffle choices so the answer letter can't be memorized.
+  const shuffleChoices = EXAM_LIKE.has(mode) ? exam.shuffleChoices !== false : (opts.shuffleChoices ?? (settings.shuffleChoices && exam.shuffleChoices !== false));
   const choiceOrder = {};
   for (const id of ids) {
     const q = exam.byId.get(id);
     if (!q.options) continue;
     const idx = q.options.map((_, i) => i);
     // never shuffle True/False or "all/none of the above" style lists
-    const fixed = q.type === 'truefalse' || q.options.some((o) => /\b(all|none|both|neither) of (the|these)\b|\bA and B\b/i.test(o.text));
+    const fixed = q.type === 'truefalse' || q.options.length === 2 || q.options.some((o) => /\b(all|none|both|neither) of (the|these)\b|\bA and B\b/i.test(o.text));
     choiceOrder[id] = shuffleChoices && !fixed ? shuffle(idx) : idx;
   }
 
   let timeLimitMin = opts.timeLimitMin;
-  if (timeLimitMin === undefined) timeLimitMin = mode === 'exam' ? exam.timeLimit : null;
+  if (timeLimitMin === undefined) timeLimitMin = EXAM_LIKE.has(mode) ? exam.timeLimit : null;
 
   return {
     id: uid(),
@@ -117,7 +145,7 @@ export function buildSession(exam, mode, opts = {}) {
     examTitle: exam.title,
     mode,
     label: opts.label || m.label,
-    feedback: opts.feedback || (mode === 'exam' ? 'end' : m.feedback === 'instant' ? settings.feedback : m.feedback),
+    feedback: opts.feedback || (EXAM_LIKE.has(mode) ? 'end' : m.feedback === 'instant' ? settings.feedback : m.feedback),
     questionIds: ids,
     choiceOrder,
     answers: {},
@@ -131,15 +159,15 @@ export function buildSession(exam, mode, opts = {}) {
     elapsedMs: 0,
     timeLimitSec: timeLimitMin ? Math.round(timeLimitMin * 60) : null,
     paused: false,
-    canPause: mode !== 'exam',
+    canPause: !EXAM_LIKE.has(mode),
     opts: { ...opts },
   };
 }
 
-export function gradeSession(exam, session) {
+export function gradeSession(exam, session, ids = session.questionIds) {
   const results = {};
   let earned = 0, total = 0, correct = 0, answered = 0;
-  for (const id of session.questionIds) {
+  for (const id of ids) {
     const q = exam.byId.get(id);
     if (!q) continue;
     const value = session.answers[id];
@@ -152,7 +180,7 @@ export function gradeSession(exam, session) {
   }
   return {
     results,
-    score: { earned, total, correct, answered, count: session.questionIds.length, pct: total ? Math.round((earned / total) * 1000) / 10 : 0 },
+    score: { earned, total, correct, answered, count: ids.length, pct: total ? Math.round((earned / total) * 1000) / 10 : 0 },
   };
 }
 
@@ -171,10 +199,17 @@ export function recordAnswer(stats, qid, correct, now = Date.now()) {
 
 // Called once when a session is submitted. Returns the saved attempt.
 export function finishSession(exam, session) {
-  const { results, score } = gradeSession(exam, session);
+  // In practice modes, questions you never answered are "skipped", not wrong.
+  // In exam-like modes (and timed custom exams) they count as wrong, like a real test.
+  const strict = EXAM_LIKE.has(session.mode) || session.feedback === 'end' && !!session.timeLimitSec;
+  const answeredIds = session.questionIds.filter((id) => { const q = exam.byId.get(id); return q && isAnswered(q, session.answers[id]); });
+  const scoredIds = strict ? session.questionIds : answeredIds;
+  const skippedIds = strict ? [] : session.questionIds.filter((id) => !answeredIds.includes(id));
+  if (!scoredIds.length) { store.clearSession(); return null; }
+  const { results, score } = gradeSession(exam, session, scoredIds);
   const stats = store.getStats(exam.id);
   const now = Date.now();
-  for (const id of session.questionIds) {
+  for (const id of scoredIds) {
     const r = results[id];
     // instant-feedback questions were already recorded when checked
     if (r.answered && !session.checked[id]) recordAnswer(stats, id, r.correct, now);
@@ -192,7 +227,8 @@ export function finishSession(exam, session) {
     durationMs: session.elapsedMs,
     timeLimitSec: session.timeLimitSec,
     timedOut: !!session.timedOut,
-    questionIds: session.questionIds,
+    questionIds: scoredIds,
+    skippedIds,
     choiceOrder: session.choiceOrder,
     answers: session.answers,
     flags: session.flags,
@@ -238,7 +274,7 @@ export function readiness(exam, stats, attempts) {
   for (const q of qs) { const s = qStat(stats, q.id); mastery += s.box / 5; if (s.seen) seen++; }
   mastery /= qs.length;
   const coverage = seen / qs.length;
-  const examLike = attempts.filter((a) => (a.mode === 'exam' || a.mode === 'custom' || a.mode === 'bank') && a.score.count >= 5).slice(-3);
+  const examLike = attempts.filter((a) => (a.mode === 'exam' || a.mode === 'mock' || a.mode === 'custom' || a.mode === 'bank') && a.score.count >= 5).slice(-3);
   const recent = examLike.length ? examLike.reduce((s, a) => s + a.score.pct, 0) / examLike.length / 100 : null;
   let score = recent == null ? mastery * 0.8 + coverage * 0.2 : mastery * 0.5 + recent * 0.35 + coverage * 0.15;
   score = Math.round(score * 100);

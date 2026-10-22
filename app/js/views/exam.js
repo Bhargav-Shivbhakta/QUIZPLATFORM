@@ -41,11 +41,15 @@ export async function render(main, { id }) {
       <div class="mode-primary">
         <a class="mode-card exam" href="#/start/${e}/exam">
           <span class="mode-name">Take the real exam</span>
-          <span class="mode-sub">${plural(realCount, 'question')}${exam.timeLimit ? `, ${exam.timeLimit} minutes` : ''}. Scored at the end, like the real thing.</span>
+          <span class="mode-sub">The actual ${plural(realCount, 'question')}${exam.timeLimit ? `, ${exam.timeLimit} minutes` : ''}. Scored at the end.</span>
+        </a>
+        <a class="mode-card mock" href="#/start/${e}/mock">
+          <span class="mode-name">Mock exam</span>
+          <span class="mode-sub">A new ${realCount}-question exam each time, same topic mix${exam.timeLimit ? `, ${exam.timeLimit} minutes` : ''}.</span>
         </a>
         <a class="mode-card smart" href="#/start/${e}/smart">
           <span class="mode-name">Smart review</span>
-          <span class="mode-sub">${esc(smartSub)}. Picks what you're most likely to forget.</span>
+          <span class="mode-sub">${esc(smartSub)}. Focuses on what you're most likely to forget.</span>
         </a>
       </div>
 

@@ -96,7 +96,7 @@ export function formatNum(v) {
 
 let panel = null;
 export function toggleCalculator(force) {
-  if (panel && force !== true) { panel.remove(); panel = null; return; }
+  if (panel && force !== true) { closeCalculator(); return; }
   if (panel) return;
   let degrees = false, ans = 0;
   const history = [];
@@ -123,6 +123,10 @@ export function toggleCalculator(force) {
     <div class="calc-out" aria-live="polite"></div>
     <div class="calc-keys">${keys.flat().map((k) => `<button data-k="${esc(k)}" class="${k === '=' ? 'eq' : /^[\d.]$/.test(k) ? 'num' : ''}">${esc(k)}</button>`).join('')}</div>`;
   document.body.appendChild(panel);
+  document.body.classList.add('calc-open');
+  // On touch screens use the calculator's own keys instead of popping up the phone keyboard
+  const touch = matchMedia('(pointer: coarse)').matches;
+  if (touch) panel.querySelector('.calc-input').setAttribute('inputmode', 'none');
   const input = panel.querySelector('.calc-input');
   const out = panel.querySelector('.calc-out');
   const hist = panel.querySelector('.calc-hist');
@@ -155,7 +159,7 @@ export function toggleCalculator(force) {
       input.selectionStart = input.selectionEnd = s + k.length;
       preview();
     }
-    input.focus();
+    if (!touch) input.focus();
   });
   input.addEventListener('input', preview);
   input.addEventListener('keydown', (e) => {
@@ -179,7 +183,7 @@ export function toggleCalculator(force) {
     head.addEventListener('pointermove', move);
     head.addEventListener('pointerup', up);
   });
-  input.focus();
+  if (!touch) input.focus();
 }
 export const calculatorOpen = () => !!panel;
-export function closeCalculator() { if (panel) { panel.remove(); panel = null; } }
+export function closeCalculator() { if (panel) { panel.remove(); panel = null; } document.body.classList.remove('calc-open'); }
