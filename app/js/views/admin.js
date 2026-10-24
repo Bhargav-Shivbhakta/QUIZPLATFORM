@@ -39,11 +39,12 @@ export async function render(main, params = {}, query = {}) {
             <div class="class-admin-main">
               <h2><span class="class-dot" style="--sw:${(CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch}"></span>${esc(c.name)}</h2>
               <p class="muted small">${esc([c.course, c.term].filter(Boolean).join(' · '))}${c.updatedAt ? ` · roster updated ${esc(fmtDate(c.updatedAt))}` : ''}</p>
-              <p><strong>${plural(c.studentCount || 0, 'student')}</strong> · ${(c.exams || []).map((id) => esc(examTitle(id))).join(', ') || '<span class="bad">no exams chosen</span>'}</p>
+              <p><strong>${plural(c.studentCount || 0, 'student')}</strong> · ${(c.exams || []).map((id) => esc(examTitle(id))).join(', ') || '<span class="muted">no exams yet</span>'}</p>
               <p class="muted small">Teaching staff: ${(c.staff || (c.instructors || []).map((email) => ({ email, role: 'instructor', sections: [] }))).map((x) => `${esc(x.name || x.email)} (${x.role === 'ta' ? 'TA' : 'instructor'}${x.sections?.length ? ' · ' + x.sections.map(esc).join(', ') : ''})`).join(', ') || 'none'}</p>
             </div>
             <div class="row">
               <a class="btn" href="#/instructor?class=${encodeURIComponent(c.id)}">${icon('grid')} Dashboard</a>
+              <a class="btn" href="#/content/${encodeURIComponent(c.id)}">${icon('note')} Exams & assignments</a>
               <a class="btn" href="#/admin?edit=${encodeURIComponent(c.id)}">Edit / new roster</a>
               <button class="btn danger-outline" data-delete="${esc(c.id)}" data-name="${esc(c.name)}">${icon('trash')}<span class="sr-only">Delete ${esc(c.name)}</span></button>
             </div>
@@ -69,7 +70,9 @@ async function editor(main, cls, exams, classes) {
   let staff = cls?.staff ? cls.staff.map((x) => ({ ...x, sections: [...(x.sections || [])] }))
     : (cls?.instructors || []).map((email) => { const p = current.find((q) => q.email === email); return p ? staffFromRoster(p) : { name: '', email, role: 'instructor', sections: [] }; });
   const sectionPool = () => [...new Set([...studentsOf(parsed && !parsed.error ? parsed.people : current).flatMap((p) => (p.section || '').split(', ').filter(Boolean)), ...staff.flatMap((x) => x.sections)])].sort();
-  const courses = [...new Set(exams.map((e) => e.course || ''))];
+  const builtIn = exams.filter((e) => !e.cloud);                                   // from the website files (GitHub)
+  const uploadedHere = exams.filter((e) => e.cloud && e.classId === cls?.id);      // uploaded to this class
+  const courses = [...new Set(builtIn.map((e) => e.course || ''))];
   main.innerHTML = `
     <section class="page narrow admin-edit">
       <nav class="crumbs"><a href="#/admin">Classes</a></nav>
@@ -78,10 +81,14 @@ async function editor(main, cls, exams, classes) {
         <fieldset><legend>Class</legend>
           <label class="field"><span>Class name</span><input name="name" required maxlength="80" placeholder="CS150 Fall 2026" value="${esc(cls?.name || '')}"></label>
           <p class="muted small" data-id-note>${isNew ? 'Class ID: <code data-id>…</code>' : `Class ID: <code>${esc(cls.id)}</code> (can't change)`}</p>
+          <label class="field"><span>Course <span class="muted">(optional)</span></span><input name="course" maxlength="20" placeholder="CS150" value="${esc(cls?.course || '')}"></label>
           <label class="field"><span>Term <span class="muted">(optional)</span></span><input name="term" maxlength="40" placeholder="Fall 2026" value="${esc(cls?.term || '')}"></label>
         </fieldset>
         <fieldset><legend>Exams in this class</legend>
-          ${courses.map((c) => `<p class="muted small exam-group">${esc(c || 'Other exams')}</p><div class="chip-row">${exams.filter((e) => (e.course || '') === c).map((e) => `
+          <p class="muted small fieldset-help">Optional now: after saving, you or the class's instructors upload exams on the class's <strong>Exams and assignments</strong> page.</p>
+          ${uploadedHere.length ? `<p class="small"><strong>Uploaded:</strong> ${uploadedHere.map((e) => esc(e.title)).join(', ')} · <a href="#/content/${encodeURIComponent(cls.id)}">Manage</a></p>` : ''}
+          ${builtIn.length ? '<p class="muted small exam-group">From the website files (GitHub)</p>' : ''}
+          ${courses.map((c) => `<p class="muted small exam-group">${esc(c || 'Other exams')}</p><div class="chip-row">${builtIn.filter((e) => (e.course || '') === c).map((e) => `
             <label class="chip"><input type="checkbox" name="exam" value="${esc(e.id)}" ${cls?.exams?.includes(e.id) ? 'checked' : ''}><span>${esc(e.title)}${e.archived ? ' (past)' : ''}</span></label>`).join('')}</div>`).join('')}
           <p class="muted small fieldset-help" style="margin-top:.8rem">Exam dates (optional): students see a countdown and a daily plan.</p>
           <div class="exam-dates" data-exam-dates></div>
@@ -118,7 +125,7 @@ async function editor(main, cls, exams, classes) {
   const dates = { ...(cls?.examDates || {}) };
   const datesEl = main.querySelector('[data-exam-dates]');
   function paintDates() {
-    const picked = [...form.querySelectorAll('input[name=exam]:checked')].map((i) => exams.find((e) => e.id === i.value)).filter(Boolean);
+    const picked = [...uploadedHere, ...[...form.querySelectorAll('input[name=exam]:checked')].map((i) => exams.find((e) => e.id === i.value)).filter(Boolean)];
     datesEl.innerHTML = picked.map((e) => `<label class="exam-date-row"><span><strong>${esc(e.title)}</strong>${!dates[e.id] && e.examDate ? ` <span class="muted small">(question file says ${esc(e.examDate)})</span>` : ''}</span><input type="date" data-date="${esc(e.id)}" value="${esc(dates[e.id] || '')}" aria-label="Exam date for ${esc(e.title)}"></label>`).join('');
   }
   paintDates();
@@ -211,13 +218,13 @@ async function editor(main, cls, exams, classes) {
     showErr('');
     const name = form.name.value.trim();
     const id = isNew ? classIdFrom(name) : cls.id;
-    const examIds = [...form.querySelectorAll('input[name=exam]:checked')].map((i) => i.value);
+    // keep the exams uploaded to this class, plus the ticked ones from the website files
+    const examIds = [...new Set([...(cls?.exams || []).filter((x) => !builtIn.some((e) => e.id === x)), ...[...form.querySelectorAll('input[name=exam]:checked')].map((i) => i.value)])];
     const staffNow = staff.filter((x) => x.email || x.name);
     const noEmail = staffNow.filter((x) => !x.email).map((x) => x.name);
     const badInstr = staffNow.filter((x) => x.email && !/^[^\s@]+@[^\s@]+$/.test(x.email) || x.email && !x.email.endsWith('@' + cloud.domain)).map((x) => x.email);
     if (!name) return showErr('Give the class a name, for example "CS150 Fall 2026".');
     if (isNew && classes.some((c) => c.id === id)) return showErr(`A class with the ID "${id}" already exists. Use a different name or edit that class.`);
-    if (!examIds.length) return showErr('Choose at least one exam for this class.');
     if (noEmail.length) return showErr(`Add an email for ${noEmail.join(', ')} in Teaching staff.`);
     if (badInstr.length) return showErr(`Teaching staff emails must be @${cloud.domain} addresses: ${badInstr.join(', ')}`);
     if (parsed?.error) return showErr(parsed.error);
@@ -227,12 +234,12 @@ async function editor(main, cls, exams, classes) {
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const r = await cloud.saveClass({ id, name, course: exam0?.course || '', term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people,
+      const r = await cloud.saveClass({ id, name, course: form.course.value.trim() || exam0?.course || name.split(/\s+/)[0], term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people,
         color: form.querySelector('input[name=color]:checked')?.value || 'blue',
         examDates: Object.fromEntries(Object.entries(dates).filter(([k]) => examIds.includes(k))) });
       await cloud.refreshAccess();
       toast(`${name} saved: ${plural(r.total, 'person', 'people')} on the roster${!isNew ? `, ${r.added} added, ${r.removed} removed` : ''}`, 'good');
-      location.hash = '#/admin';
+      location.hash = isNew ? `#/content/${encodeURIComponent(id)}` : '#/admin';
     } catch (e) {
       console.error(e);
       showErr("Couldn't save: " + (e?.code === 'permission-denied' ? 'your account is not an admin in firestore.rules.' : e?.message || e));

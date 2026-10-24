@@ -85,8 +85,8 @@ export function buildAll({ write = true, quiet = false } = {}) {
 
   log(bold('\nChecking exam files'));
   if (!sources.length) {
-    log(red('  No exams found. Create one with:  npm run new-exam'));
-    return { ok: false, errorCount: 1 };
+    // Fine when exams are uploaded on the site (sign-in mode); the site is still built.
+    log(yellow('  No exam folders in exams/. Exams uploaded on the site (Class content page) still work.'));
   }
 
   for (const src of sources) {
@@ -189,6 +189,7 @@ export function buildAll({ write = true, quiet = false } = {}) {
   copy('@highlightjs/cdn-assets/styles/github.min.css', 'hljs/light.css');
   copy('@highlightjs/cdn-assets/styles/github-dark.min.css', 'hljs/dark.css');
   copy('codejar/dist/codejar.js', 'codejar.js');
+  copy('jszip/dist/jszip.min.js', 'jszip.min.js'); // reading and making .zip files for assignment uploads
   // Firebase (sign-in and saving progress to student accounts). The browser builds import each
   // other from Google's CDN; point them at our own copies so the site loads nothing from outside.
   fs.mkdirSync(path.join(vendor, 'firebase'), { recursive: true });
@@ -209,7 +210,7 @@ export function buildAll({ write = true, quiet = false } = {}) {
     let asgHash = null;
     if (asgList.length) {
       // solutions are never published: only instructions, starter code, tests and checks
-      const pub = { examId: b.id, assignments: asgList.map(({ folder, verified, ...a }) => a) };
+      const pub = { examId: b.id, assignments: asgList.map(({ folder, verified, solution, ...a }) => a) };
       const aj = JSON.stringify(pub);
       asgHash = crypto.createHash('sha1').update(aj).digest('hex').slice(0, 10);
       fs.writeFileSync(path.join(dataDir, `${b.id}.assignments.json`), aj);

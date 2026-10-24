@@ -304,11 +304,24 @@ It runs on Google Firebase's free plan, which needs no credit card. The free pla
 
 The `apiKey` in `config.js` is meant to be public; it only identifies your Firebase project. The rules from step 5 are what protect the data.
 
+### Exams and assignments on the site (no GitHub needed)
+
+With sign-in on, exams and programming assignments are uploaded on the site, so instructors never need GitHub:
+
+1. Open the class (or **Admin → Exams & assignments**, or the button on the class page or dashboard). Admins and the class's instructors and TAs can use it.
+2. **Add an exam:** choose the exam's question file (`.md`, same format as section 4) or paste its text. It's checked right there, with line numbers for any problems; **Publish** is only possible once it's correct. Students in the class see it immediately.
+3. **Add assignments:** choose a `.zip` with one folder per assignment (same layout as section 4b, including `solution/`). Every reference solution is run against its tests in the browser first; anything that fails is listed before you can publish. Solutions are stored for instructors only and are never sent to students.
+4. **Replace questions**, download the `.md` or the assignments `.zip` (to edit and upload again), or delete an exam at any time.
+
+Uploaded exams are only readable by people on the class roster, unlike files in a public GitHub repo.
+
+**Moving an exam from GitHub:** exams still in the `exams/` folder show on that page with **Move here**. Upload the same file there; it keeps the same exam, so students keep their progress. Then upload its assignments zip and delete the folder from GitHub. The site works with an empty `exams/` folder.
+
 ### Adding a class and its roster
 
 1. Sign in on the site with your admin email and click **Admin → New class**.
 2. **Class name:** for example `CS150 Fall 2026`. **Term:** `Fall 2026`.
-3. Tick the **exams** that belong to this class (the folders under `exams/`).
+3. Exams are optional here: after creating the class you land on its **Exams & assignments** page to upload them. (Exams still in the `exams/` folder can be ticked.)
 4. **Roster:** in Canvas, open the course's **People** page, scroll to the bottom so everyone is loaded, select the whole table (from the "Name" heading to the last student), copy, and paste it into the box. A CSV file works too, such as a Gradebook export. The site reads the Name, Login ID (or Email), SIS ID (RedID), Section and Role columns. Teachers and TAs become instructors; observers are left out.
 5. **Teaching staff:** Teachers and TAs found in the roster are listed automatically. For each person you can edit the name and email, set the role (**Instructor** or **TA**), and for TAs tick the sections they look after. A TA's dashboard shows only those sections (tick none to show them the whole class). Click **Add an instructor or TA** for anyone not in the Canvas roster.
 6. Check the preview: the number of students, the emails (they must be the SDSU accounts students sign in with) and any skipped rows. Then click **Create class**.

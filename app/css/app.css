@@ -1977,3 +1977,38 @@ a.more-item:hover .more-name { color: var(--accent); }
 :root[data-theme="dark"] .toast.good, :root[data-theme="dark"] .toast.bad { color: #0d0f14; }
 /* toasts sit above the phone tab bar */
 @media (max-width: 640px) { body:not(.focus-mode):not(.signed-out) .toast { bottom: calc(76px + env(safe-area-inset-bottom)); } }
+/* ---- exams & assignments (content) page ---- */
+.content-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .8rem; }
+.content-item { display: grid; gap: .7rem; padding: 1rem 1.1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.content-item.builtin { background: var(--surface-2); }
+.content-item h2 { font-size: 1.15rem; margin: 0 0 .2rem; display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.content-item p { margin: 0 0 .25rem; }
+.content-item .icon { width: 15px; height: 15px; vertical-align: -2px; }
+.content-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.upload-panel { padding: 1.1rem 1.2rem; border: 1.5px solid var(--accent-line); border-radius: var(--radius-lg); background: var(--surface); display: grid; gap: .7rem; }
+.upload-panel h2 { margin: 0; }
+.paste-box textarea { width: 100%; margin-top: .4rem; padding: .5rem .65rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); font-family: var(--mono); font-size: 13px; }
+.parse-result { padding: .8rem 1rem; border-radius: var(--radius); border: 1px solid var(--line); background: var(--surface-2); display: grid; gap: .4rem; }
+.parse-result p { margin: 0; }
+.parse-result.pr-good { border-color: var(--good-line); background: var(--good-soft); }
+.parse-result.pr-good > p:first-child strong { color: var(--good); }
+.parse-result.pr-bad { border-color: var(--bad-line); background: var(--surface); }
+.parse-result.pr-bad > p:first-child strong { color: var(--bad); }
+.parse-result strong .icon { width: 17px; height: 17px; vertical-align: -3px; }
+.parse-result .field { display: grid; gap: .3rem; max-width: 420px; }
+.parse-result .field input { padding: .5rem .65rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); font-size: 16px; }
+.issue-list { margin: .2rem 0; padding-left: 1.2rem; font-size: .9rem; display: grid; gap: .2rem; }
+.issue-list.bad li { color: var(--bad); }
+.asg-check { list-style: none; margin: .3rem 0; padding: 0; display: grid; gap: .45rem; }
+.asg-check li { display: flex; gap: .6rem; align-items: flex-start; }
+.asg-check pre { margin: .3rem 0 0; white-space: pre-wrap; color: var(--bad); }
+.asg-check-icon { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--line-strong); font-weight: 700; font-size: .8rem; }
+.asg-check-icon .icon { width: 14px; height: 14px; }
+.asg-check-icon.good { background: var(--good); border-color: var(--good); color: var(--surface); }
+.asg-check-icon.bad { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.asg-check-icon.warn { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.upload-actions { margin-top: .2rem; }
+.upload-panel { grid-template-columns: minmax(0, 1fr); }
+.upload-panel > * { min-width: 0; }
+.paste-box textarea { max-width: 100%; box-sizing: border-box; }
+@media (max-width: 400px) { .upload-panel { padding: .9rem .8rem; } }

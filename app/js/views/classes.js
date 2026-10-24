@@ -73,13 +73,13 @@ async function classPage(main, cls, byId, several) {
           <h1>${esc(cls.name)}</h1>
           <p class="tagline">${teacher ? (cls.role === 'ta' ? `You are a TA for this class${cls.sections?.length ? ` (${cls.sections.length > 1 ? 'sections' : 'section'} ${esc(cls.sections.join(', '))})` : ''}.` : 'You are an instructor for this class.') : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
         </div>
-        ${teacher ? `<a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a>` : ''}
+        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
       </header>
       ${ann}
       ${panel && store.getSession()?.examId === featured?.id ? '' : resumeBanner()}
       ${panel}
       ${panel ? `<h2 class="section-title">Your exam${others.length ? 's' : ''}</h2>` : ''}
-      ${featured ? examCard(featured, { big: !panel, grouped: true, ready: ready.get(featured.id) }) : '<div class="empty-state"><p>No exams have been added to this class yet.</p></div>'}
+      ${featured ? examCard(featured, { big: !panel, grouped: true, ready: ready.get(featured.id) }) : `<div class="empty-state"><p>No exams have been added to this class yet.</p>${teacher ? `<a class="btn primary" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Add an exam</a>` : ''}</div>`}
       ${others.length ? `<h2 class="section-title">Also in this class</h2><div class="exam-grid">${others.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
       ${past.length ? `<h2 class="section-title">Past exams</h2><p class="muted section-sub">Still available for practice.</p><div class="exam-grid">${past.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
     </section>`;

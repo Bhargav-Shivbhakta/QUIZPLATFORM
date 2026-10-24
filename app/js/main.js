@@ -9,6 +9,7 @@ const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/admin$/, view: () => import('./views/admin.js'), nav: 'admin' },
+  { re: /^\/content\/([^/]+)$/, keys: ['classId'], view: () => import('./views/content.js'), nav: 'instructor' },
   { re: /^\/course\/([^/]+)$/, keys: ['course'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/exam\/([^/]+)$/, keys: ['id'], view: () => import('./views/exam.js'), nav: 'home' },
   { re: /^\/start\/([^/]+)\/([^/]+)$/, keys: ['id', 'mode'], view: () => import('./views/setup.js'), nav: 'home' },

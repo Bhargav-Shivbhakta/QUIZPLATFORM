@@ -37,6 +37,28 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
       allow write: if isAdmin();
+      // a class's instructors can add or remove the exams they upload (nothing else)
+      allow update: if teaches(classId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt']);
+
+      // Exams and assignments uploaded on the site: everyone in the class reads them,
+      // the class's instructors (and admins) upload, replace and delete them.
+      match /exams/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      match /examFiles/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      match /assignmentSets/{examId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow write: if isAdmin() || teaches(classId);
+      }
+      // the original assignment files, including reference solutions: instructors only
+      match /assignmentFiles/{examId} {
+        allow read, write: if isAdmin() || teaches(classId);
+      }
 
       // Announcements: the class's instructors post them, everyone in the class reads them.
       match /announcements/{annId} {

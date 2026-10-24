@@ -68,6 +68,7 @@ export async function render(main, params = {}, query = {}) {
             <select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
           </label>
           <label class="field inline"><span class="sr-only">Exam</span><select data-exam></select></label>
+          <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('upload')} Exams & assignments</a>
           <button class="btn" data-refresh>${icon('shuffle')} Refresh</button>
           <button class="btn" data-csv>${icon('download')} CSV</button>
         </div>
@@ -388,6 +389,7 @@ export async function render(main, params = {}, query = {}) {
   main.querySelector('[data-class]').addEventListener('change', (ev) => {
     classId = ev.target.value;
     remember('class', classId);
+    main.querySelector('[data-content-link]').href = `#/content/${encodeURIComponent(classId)}`;
     section = '';
     pickExam(); fillExams();
     load();

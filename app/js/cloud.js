@@ -19,7 +19,7 @@
 //   users/{uid}/code/{examId}               assignment code for one exam (for the student's other devices)
 import config from '../config.js';
 import * as store from './store.js';
-import { getExam, getManifest } from './data.js';
+import { getExam, getManifest, setCloudProvider, refreshManifest } from './data.js';
 import { readiness, topicMastery } from './engine.js';
 
 const fbc = config.firebase || {};
@@ -109,6 +109,7 @@ export async function init() {
       }
     } else if (prev) {
       wipeLocal();
+      cloudExams = []; adminClassList = null; refreshManifest();
     }
     if (first) { first = false; readyResolve(); }
     emit();
@@ -159,6 +160,124 @@ async function loadAccess() {
   if (e.status === 'rejected' && e.reason?.code !== 'permission-denied') {
     authError = "Couldn't check your class enrollment. Check your internet connection and reload the page.";
   }
+  await loadClassContent();
+}
+
+// ---------------------------------------------------------------- class content (exams uploaded on the site)
+// Each class's latest details (name, exams, dates, colour) and the exams uploaded to it.
+let cloudExams = [];        // exam list entries, like data/exams.json entries plus { cloud: true, classId }
+let adminClassList = null;  // all classes, for admins
+async function loadClassContent() {
+  const ids = new Set(Object.keys(enrollment));
+  if (admin) {
+    try { adminClassList = await listClasses(); adminClassList.forEach((c) => ids.add(c.id)); } catch { adminClassList = []; }
+  }
+  const results = await Promise.all([...ids].map(async (id) => {
+    const [cls, ex] = await Promise.allSettled([
+      fb.getDoc(fb.doc(fb.db, 'classes', id)),
+      fb.getDocs(fb.collection(fb.db, 'classes', id, 'exams')),
+    ]);
+    return { id, cls: cls.status === 'fulfilled' && cls.value.exists() ? cls.value.data() : null, exams: ex.status === 'fulfilled' ? ex.value.docs.map((d) => d.data()) : [] };
+  }));
+  cloudExams = [];
+  for (const r of results) {
+    if (r.cls && enrollment[r.id]) {
+      const { name, course, term, exams, examDates, color } = r.cls;
+      enrollment[r.id] = { ...enrollment[r.id], name, course, term, exams: exams || [], examDates: examDates || {}, color };
+    }
+    for (const e of r.exams) cloudExams.push({ ...e, id: e.examId, cloud: true, classId: r.id, course: e.course || r.cls?.course || '' });
+  }
+  refreshManifest();
+}
+export const classExamEntries = () => cloudExams;
+export async function reloadClassContent() { if (user) { await loadClassContent(); emit(); } }
+
+setCloudProvider({
+  exams: () => cloudExams,
+  async loadExamSource(entry) {
+    const key = `examsrc:${entry.id}`;
+    const cached = store.get(key, null);
+    if (cached && cached.hash === entry.hash) return cached.source;
+    await load();
+    const snap = await fb.getDoc(fb.doc(fb.db, 'classes', entry.classId, 'examFiles', entry.id));
+    if (!snap.exists()) throw new Error('This exam file is missing. Ask your instructor to upload it again.');
+    const source = snap.data().source;
+    store.quietly(() => store.set(key, { hash: entry.hash, source }));
+    return source;
+  },
+  async loadAssignments(entry) {
+    await load();
+    const snap = await fb.getDoc(fb.doc(fb.db, 'classes', entry.classId, 'assignmentSets', entry.id));
+    return snap.exists() ? JSON.parse(snap.data().data).assignments : [];
+  },
+});
+
+// Instructors and admins: publish or replace an exam (the questions.md text) in a class
+export async function saveExam(classId, { examId, meta, source, counts }) {
+  await load();
+  const hash = await sha(source);
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'classes', classId, 'examFiles', examId), { examId, source, hash, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+  const prev = cloudExams.find((e) => e.id === examId);
+  b.set(fb.doc(fb.db, 'classes', classId, 'exams', examId), {
+    examId, title: meta.title, course: meta.course || '', description: meta.description || '',
+    active: !!meta.active, archived: !!meta.archived, order: meta.order ?? 0, timeLimit: meta.timeLimit ?? null, passMark: meta.passMark ?? null, examDate: meta.examDate || '',
+    questionCount: counts.questions, onExamCount: counts.onExam, topics: counts.topics, hash,
+    assignmentCount: prev?.assignmentCount || 0, assignmentsHash: prev?.assignmentsHash || null,
+    updatedAt: Date.now(), updatedBy: user.email.toLowerCase(),
+  });
+  await b.commit();
+  await addExamToClass(classId, examId);
+  await loadClassContent();
+}
+export async function deleteExam(classId, examId) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  for (const kind of ['exams', 'examFiles', 'assignmentSets', 'assignmentFiles']) b.delete(fb.doc(fb.db, 'classes', classId, kind, examId));
+  await b.commit();
+  const cls = await getClass(classId);
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId), { exams: (cls?.exams || []).filter((x) => x !== examId), updatedAt: Date.now() }, { merge: true });
+  await loadClassContent();
+}
+async function addExamToClass(classId, examId) {
+  const cls = await getClass(classId);
+  if ((cls?.exams || []).includes(examId)) return;
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId), { exams: [...(cls?.exams || []), examId], updatedAt: Date.now() }, { merge: true });
+}
+export async function examSource(classId, examId) {
+  await load();
+  const snap = await fb.getDoc(fb.doc(fb.db, 'classes', classId, 'examFiles', examId));
+  return snap.exists() ? snap.data().source : null;
+}
+// Assignments: the public part for students, and the original files (with solutions) for staff only
+export async function saveAssignments(classId, examId, { assignments, files }) {
+  await load();
+  const data = JSON.stringify({ examId, assignments });
+  const hash = await sha(data);
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'classes', classId, 'assignmentSets', examId), { examId, data, hash, updatedAt: Date.now() });
+  b.set(fb.doc(fb.db, 'classes', classId, 'assignmentFiles', examId), { examId, files, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+  b.set(fb.doc(fb.db, 'classes', classId, 'exams', examId), { assignmentCount: assignments.length, assignmentsHash: hash, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+  await loadClassContent();
+}
+export async function deleteAssignments(classId, examId) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.delete(fb.doc(fb.db, 'classes', classId, 'assignmentSets', examId));
+  b.delete(fb.doc(fb.db, 'classes', classId, 'assignmentFiles', examId));
+  b.set(fb.doc(fb.db, 'classes', classId, 'exams', examId), { assignmentCount: 0, assignmentsHash: null, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+  await loadClassContent();
+}
+export async function assignmentFiles(classId, examId) {
+  await load();
+  const snap = await fb.getDoc(fb.doc(fb.db, 'classes', classId, 'assignmentFiles', examId));
+  return snap.exists() ? snap.data().files : null;
+}
+async function sha(text) {
+  const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].slice(0, 5).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 export async function refreshAccess() {
   if (!user) return;
