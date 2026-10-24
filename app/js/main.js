@@ -6,6 +6,8 @@ import * as cloud from './cloud.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
+  { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), nav: 'home' },
+  { re: /^\/admin$/, view: () => import('./views/admin.js'), nav: 'admin' },
   { re: /^\/course\/([^/]+)$/, keys: ['course'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/exam\/([^/]+)$/, keys: ['id'], view: () => import('./views/exam.js'), nav: 'home' },
   { re: /^\/start\/([^/]+)\/([^/]+)$/, keys: ['id', 'mode'], view: () => import('./views/setup.js'), nav: 'home' },
@@ -52,6 +54,11 @@ async function route() {
     if (token !== renderToken) return;
     // everything except the instructors' file checker needs a signed-in student
     if (!cloud.currentUser() && path !== '/author') r = { re: /.*/, view: () => import('./views/signin.js'), nav: '' };
+    else if (cloud.currentUser()) {
+      if (path === '/subjects') { location.replace('#/'); return; }
+      // not on any roster: only the home page (which explains), settings and the file checker
+      if (!cloud.isEnrolled() && !['/', '/settings', '/author'].includes(path)) { location.replace('#/'); return; }
+    }
   }
   document.body.classList.toggle('focus-mode', !!r?.focus);
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === r?.nav));
@@ -62,6 +69,10 @@ async function route() {
   const m = path.match(r.re);
   const params = {};
   (r.keys || []).forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
+  if (cloud.enabled && params.id && !cloud.canSeeExam(params.id)) {
+    main.innerHTML = `<section class="page narrow empty-state"><h1>This exam isn't part of your classes</h1><p>You can only open exams from classes you're enrolled in.</p><a class="btn primary" href="#/">Go to my classes</a></section>`;
+    return;
+  }
   try {
     const mod = await r.view();
     if (token !== renderToken) return;
@@ -98,8 +109,12 @@ function paintChrome() {
   foot.innerHTML = `<span>${esc(cloud.enabled ? config.signedInFooter || '' : config.footer)}</span><a href="#/author">For instructors: check a question file</a>`;
   const nav = document.querySelector('.topnav');
   nav.querySelector('[data-nav="instructor"]')?.remove();
+  nav.querySelector('[data-nav="admin"]')?.remove();
   nav.querySelector('.account-chip')?.remove();
   if (cloud.isInstructor()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/instructor" data-nav="instructor">Instructor</a>');
+  if (cloud.isAdmin()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/admin" data-nav="admin">Admin</a>');
+  const home = nav.querySelector('[data-nav="home"]');
+  if (home) home.textContent = cloud.enabled && u ? 'My classes' : 'Exams';
   if (u) {
     const name = u.displayName || u.email;
     const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');

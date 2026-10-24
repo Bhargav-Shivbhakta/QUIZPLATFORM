@@ -15,7 +15,8 @@ const ago = (ts) => {
 const median = (xs) => { const a = xs.filter((x) => x != null).sort((p, q) => p - q); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
 const COLS = [
-  { key: 'name', label: 'Student', sort: (s) => (s.name || '').toLowerCase() },
+  { key: 'name', label: 'Student', sort: (s) => (s.name || s.email || '').toLowerCase() },
+  { key: 'section', label: 'Section', sort: (s) => s.section || '' },
   { key: 'lastActive', label: 'Last active', sort: (s) => s.lastActive || 0 },
   { key: 'seen', label: 'Questions tried', sort: (s) => s.seen || 0 },
   { key: 'accuracy', label: 'Accuracy', sort: (s) => s.accuracy ?? -1 },
@@ -24,14 +25,27 @@ const COLS = [
   { key: 'asgDone', label: 'Assignments', sort: (s) => s.asgDone || 0 },
 ];
 
-export async function render(main) {
+export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled) {
     main.innerHTML = `<section class="page narrow empty-state"><h1>Instructor dashboard</h1><p>Student sign-in is turned off, so there is no student data to show. See "Student sign-in" in the README to turn it on.</p></section>`;
     return;
   }
-  const exams = (await getManifest()).exams.filter((e) => !e.preview);
-  let examId = (() => { try { return sessionStorage.getItem('qp1:instructor-exam'); } catch { return null; } })();
-  if (!exams.some((e) => e.id === examId)) examId = (exams.find((e) => e.active) || exams[0])?.id;
+  const allExams = (await getManifest()).exams.filter((e) => !e.preview);
+  const classes = cloud.isAdmin() ? await cloud.listClasses().catch(() => []) : cloud.teachingClasses();
+  if (!classes.length) {
+    main.innerHTML = `<section class="page narrow empty-state"><h1>No classes to show</h1><p>You aren't listed as an instructor for any class yet. ${cloud.isAdmin() ? '<a href="#/admin">Create a class</a> first.' : 'Ask the site admin to add your email to your class.'}</p></section>`;
+    return;
+  }
+  const remembered = (k) => { try { return sessionStorage.getItem('qp1:instructor-' + k); } catch { return null; } };
+  const remember = (k, v) => { try { sessionStorage.setItem('qp1:instructor-' + k, v); } catch {} };
+  let classId = [query.class, remembered('class')].find((x) => classes.some((c) => c.id === x)) || classes[0].id;
+  const cls = () => classes.find((c) => c.id === classId);
+  const examsOf = () => (cls().exams || []).map((id) => allExams.find((e) => e.id === id)).filter(Boolean);
+  let examId = null;
+  const pickExam = () => { const ex = examsOf(); const r = remembered('exam'); examId = ex.some((e) => e.id === r) ? r : (ex.find((e) => e.active && !e.archived) || ex[0])?.id || null; };
+  pickExam();
+  let roster = [];
+  let section = '';
   let rows = [];
   let asgList = [];
   let sortKey = 'name', sortDir = 1, filter = '', only = 'all';
@@ -45,9 +59,10 @@ export async function render(main) {
           <p class="muted">Updates within a couple of minutes of students studying. Only you can see this page.</p>
         </div>
         <div class="row">
-          <label class="field inline"><span class="sr-only">Exam</span>
-            <select data-exam>${exams.map((e) => `<option value="${esc(e.id)}" ${e.id === examId ? 'selected' : ''}>${esc((e.course ? e.course + ' · ' : '') + e.title)}</option>`).join('')}</select>
+          <label class="field inline"><span class="sr-only">Class</span>
+            <select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
           </label>
+          <label class="field inline"><span class="sr-only">Exam</span><select data-exam></select></label>
           <button class="btn" data-refresh>${icon('shuffle')} Refresh</button>
           <button class="btn" data-csv>${icon('download')} CSV</button>
         </div>
@@ -55,14 +70,29 @@ export async function render(main) {
       <div data-body><p class="muted">Loading student data…</p></div>
     </section>`;
   const body = main.querySelector('[data-body]');
+  const fillExams = () => {
+    main.querySelector('[data-exam]').innerHTML = examsOf().map((e) => `<option value="${esc(e.id)}" ${e.id === examId ? 'selected' : ''}>${esc(e.title)}</option>`).join('') || '<option>No exams</option>';
+  };
+  fillExams();
+  const inSection = (r) => !section || (r.section || '').split(', ').includes(section);
+  const started = () => rows.filter((r) => !r.never && inSection(r));
+  const enrolled = () => rows.filter((r) => !r.dropped && inSection(r));
 
   async function load() {
     body.innerHTML = '<p class="muted loading-line">Loading student data…</p>';
     try {
-      [rows, asgList] = await Promise.all([cloud.classSummaries(examId), getAssignments(examId).catch(() => [])]);
+      if (!examId) { body.innerHTML = '<div class="empty-state"><h2>This class has no exams yet</h2></div>'; return; }
+      let sums;
+      [sums, roster, asgList] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), getAssignments(examId).catch(() => [])]);
+      sums = sums.filter((x) => x.examId === examId);
+      const students = roster.filter((p) => p.role !== 'instructor');
+      const byEmail = new Map(students.map((p) => [p.email, p]));
+      rows = sums.map((x) => { const p = byEmail.get(x.email); return { ...x, name: p?.name || x.name, redId: p?.redId || '', section: p?.section || x.section || '', dropped: !p }; });
+      const have = new Set(rows.map((r) => r.email));
+      for (const p of students) if (!have.has(p.email)) rows.push({ uid: null, email: p.email, name: p.name, redId: p.redId, section: p.section, never: true });
     } catch (e) {
       body.innerHTML = e?.code === 'permission-denied'
-        ? `<div class="empty-state"><h2>You're not on the instructor list</h2><p>Only instructors can see class data. To add yourself, put your email in the instructor list in <code>firestore.rules</code> and publish the rules in the Firebase console (see the README).</p></div>`
+        ? `<div class="empty-state"><h2>You're not an instructor for this class</h2><p>Ask the site admin to add your email to this class on the Admin page.</p></div>`
         : `<div class="empty-state"><h2>Couldn't load student data</h2><p>${esc(e?.message || String(e))}</p></div>`;
       return;
     }
@@ -70,14 +100,15 @@ export async function render(main) {
   }
 
   function overview() {
+    const rows = started();
     const now = Date.now();
     const active7 = rows.filter((r) => r.lastActive && now - r.lastActive < 7 * DAY).length;
     const total = rows[0]?.totalQuestions || 0;
     const asgTotal = asgList.length;
     const tile = (big, label, sub = '') => `<div class="stat-tile"><strong>${big}</strong><span>${label}</span>${sub ? `<span class="muted small">${sub}</span>` : ''}</div>`;
     return `<div class="stat-tiles">
-      ${tile(rows.length, plural(rows.length, 'student').replace(/^\d+ /, '') + ' signed in')}
-      ${tile(active7, 'active in the last 7 days', rows.length ? pct(active7 / rows.length) + ' of the class' : '')}
+      ${tile(`${rows.length}<span class="of"> / ${enrolled().length}</span>`, 'students have started', `${Math.max(0, enrolled().length - rows.filter((r) => !r.dropped).length)} haven't signed in yet`)}
+      ${tile(active7, 'active in the last 7 days', enrolled().length ? pct(active7 / enrolled().length) + ' of the class' : '')}
       ${tile(median(rows.map((r) => r.readiness)) ?? '–', 'median quiz readiness', 'out of 100')}
       ${tile(Math.round(median(rows.map((r) => r.seen)) ?? 0), 'median questions tried', total ? `of ${total}` : '')}
       ${asgTotal ? tile(pct(rows.length ? rows.reduce((s, r) => s + (r.asgDone || 0), 0) / (rows.length * asgTotal) : null), 'assignments completed', `${asgTotal} assignments`) : ''}
@@ -85,6 +116,8 @@ export async function render(main) {
   }
 
   function topics() {
+    const rows = started();
+    const denom = enrolled().length;
     const by = new Map();
     for (const r of rows) for (const t of r.topics || []) {
       const x = by.get(t.name) || { name: t.name, right: 0, wrong: 0, tried: 0, mastery: 0, n: 0 };
@@ -101,10 +134,12 @@ export async function render(main) {
         <li><span class="t-name">${esc(t.name)}</span>
           <span class="t-bar">${meter(t.acc ?? 0, { tone: t.acc == null ? 'muted' : toneFor(t.acc) })}</span>
           <span class="t-num">${pct(t.acc)}</span>
-          <span class="muted small t-tried">${t.tried}/${rows.length} tried</span></li>`).join('')}</ul>`;
+          <span class="muted small t-tried">${t.tried}/${denom} tried</span></li>`).join('')}</ul>`;
   }
 
   function assignments() {
+    const rows = started();
+    const denom = enrolled().length;
     if (!asgList.length) return '';
     return `<h2 class="section-title">Programming assignments</h2>
       <ul class="inst-topics">${asgList.map((a) => {
@@ -113,8 +148,8 @@ export async function render(main) {
         const started = st.length;
         const avgH = st.length ? st.reduce((s, x) => s + (x.hints || 0), 0) / st.length : 0; const hints = Number.isInteger(avgH) ? String(avgH) : avgH.toFixed(1);
         return `<li><span class="t-name">${esc(a.title)}</span>
-          <span class="t-bar">${meter(rows.length ? done / rows.length : 0, { tone: 'good' })}</span>
-          <span class="t-num">${done}/${rows.length}</span>
+          <span class="t-bar">${meter(denom ? done / denom : 0, { tone: 'good' })}</span>
+          <span class="t-num">${done}/${denom}</span>
           <span class="muted small t-tried">${started} started · ${hints} hints avg</span></li>`;
       }).join('')}</ul>`;
   }
@@ -122,9 +157,10 @@ export async function render(main) {
   function visibleRows() {
     const q = filter.trim().toLowerCase();
     const now = Date.now();
-    let list = rows.filter((r) => !q || (r.name || '').toLowerCase().includes(q) || (r.email || '').includes(q));
-    if (only === 'inactive') list = list.filter((r) => !r.lastActive || now - r.lastActive >= 7 * DAY);
-    if (only === 'low') list = list.filter((r) => (r.readiness ?? 0) < 40);
+    let list = rows.filter((r) => inSection(r) && (!q || (r.name || '').toLowerCase().includes(q) || (r.email || '').includes(q) || (r.redId || '').includes(q)));
+    if (only === 'never') list = list.filter((r) => r.never);
+    if (only === 'inactive') list = list.filter((r) => !r.never && (!r.lastActive || now - r.lastActive >= 7 * DAY));
+    if (only === 'low') list = list.filter((r) => !r.never && (r.readiness ?? 0) < 40);
     const col = COLS.find((c) => c.key === sortKey);
     return list.sort((a, b) => { const x = col.sort(a), y = col.sort(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
   }
@@ -134,9 +170,9 @@ export async function render(main) {
     return `
       <h2 class="section-title">Students</h2>
       <div class="inst-tools">
-        <input type="search" placeholder="Search name or email" value="${esc(filter)}" data-filter aria-label="Search students">
+        <input type="search" placeholder="Search name, email or RedID" value="${esc(filter)}" data-filter aria-label="Search students">
         <div class="seg" role="tablist" aria-label="Show">
-          ${[['all', 'Everyone'], ['inactive', 'Inactive 7+ days'], ['low', 'Readiness under 40']].map(([k, l]) => `<button role="tab" data-only="${k}" aria-selected="${only === k}">${l}</button>`).join('')}
+          ${[['all', 'Everyone'], ['never', 'Not started'], ['inactive', 'Inactive 7+ days'], ['low', 'Readiness under 40']].map(([k, l]) => `<button role="tab" data-only="${k}" aria-selected="${only === k}">${l}</button>`).join('')}
         </div>
       </div>
       <div class="table-wrap inst-table-wrap">
@@ -145,8 +181,9 @@ export async function render(main) {
           <tbody>
             ${list.map((r) => `
               <tr>
-                <td><button class="link-btn" data-student="${esc(r.uid)}">${esc(r.name || r.email)}</button><span class="muted small block">${esc(r.email)}</span></td>
-                <td>${ago(r.lastActive)}</td>
+                <td>${r.never ? `<strong>${esc(r.name || r.email)}</strong>` : `<button class="link-btn" data-student="${esc(r.uid)}">${esc(r.name || r.email)}</button>`}<span class="muted small block">${esc(r.email)}${r.redId ? ' · ' + esc(r.redId) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</span></td>
+                <td>${esc(r.section || '–')}</td>
+                <td>${r.never ? '<span class="muted">Never signed in</span>' : ago(r.lastActive)}</td>
                 <td>${r.seen || 0}${r.totalQuestions ? ` <span class="muted small">/ ${r.totalQuestions}</span>` : ''}</td>
                 <td><span class="pill ${toneFor(r.accuracy)}">${pct(r.accuracy)}</span></td>
                 <td>${r.readiness ?? '–'}</td>
@@ -159,11 +196,13 @@ export async function render(main) {
   }
 
   function paint() {
+    const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].sort();
+    const sectionPicker = sections.length > 1 ? `<label class="field inline section-pick"><span>Section</span><select data-section><option value="">All sections</option>${sections.map((x) => `<option ${x === section ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>` : '';
     if (!rows.length) {
-      body.innerHTML = `<div class="empty-state"><h2>No student data yet</h2><p>Students appear here after they sign in and answer a question or run an assignment's tests.</p></div>`;
+      body.innerHTML = `<div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`;
       return;
     }
-    body.innerHTML = overview() + topics() + assignments() + `<div data-table>${table()}</div>`;
+    body.innerHTML = sectionPicker + overview() + (started().length ? topics() + assignments() : '<p class="muted">Nobody has started this exam yet. Topic and assignment results show up once students begin.</p>') + `<div data-table>${table()}</div>`;
   }
   const repaintTable = () => { const t = body.querySelector('[data-table]'); if (t) { const had = document.activeElement?.matches('[data-filter]'); t.innerHTML = table(); if (had) { const f = t.querySelector('[data-filter]'); f.focus(); f.setSelectionRange(f.value.length, f.value.length); } } };
 
@@ -196,7 +235,7 @@ export async function render(main) {
       const view = m.el.querySelector('[data-code-view]');
       view.innerHTML = '<p class="muted">Loading code…</p>';
       try {
-        const d = await cloud.studentCode(r.uid, examId);
+        const d = await cloud.studentCode(classId, r.uid, examId);
         const code = d?.codes?.[b.dataset.code];
         const a = asgList.find((x) => x.slug === b.dataset.code);
         view.innerHTML = code == null ? '<p class="muted">No saved code for this assignment.</p>'
@@ -211,19 +250,19 @@ export async function render(main) {
   }
 
   function csv() {
-    const head = ['Name', 'Email', 'Last active', 'Questions tried', 'Total questions', 'Accuracy %', 'Quiz readiness', 'Quizzes finished', 'Best real exam %', 'Last real exam %', 'Assignments done',
+    const head = ['Name', 'Email', 'RedID', 'Section', 'Signed in', 'Last active', 'Questions tried', 'Total questions', 'Accuracy %', 'Quiz readiness', 'Quizzes finished', 'Best real exam %', 'Last real exam %', 'Assignments done',
       ...asgList.map((a) => `${a.title} (best)`)];
     const cell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
     const lines = [head.map(cell).join(',')];
     for (const r of visibleRows()) {
-      lines.push([r.name, r.email, r.lastActive ? new Date(r.lastActive).toISOString() : '', r.seen || 0, r.totalQuestions || '', r.accuracy == null ? '' : Math.round(r.accuracy * 100),
+      lines.push([r.name, r.email, r.redId || '', r.section || '', r.never ? 'no' : 'yes', r.lastActive ? new Date(r.lastActive).toISOString() : '', r.seen || 0, r.totalQuestions || '', r.accuracy == null ? '' : Math.round(r.accuracy * 100),
         r.readiness ?? '', r.attempts || 0, r.realExamBest ?? '', r.realExamLast ?? '', r.asgDone || 0,
         ...asgList.map((a) => { const s = r.asg?.[a.slug]; return s ? (s.done ? 'done' : `${s.best}/${s.total}`) : ''; })].map(cell).join(','));
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${examId}-students-${new Date().toLocaleDateString('en-CA')}.csv`;
+    link.download = `${classId}-${examId}-students-${new Date().toLocaleDateString('en-CA')}.csv`;
     document.body.appendChild(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     toast('CSV downloaded');
@@ -241,8 +280,16 @@ export async function render(main) {
   main.addEventListener('input', (ev) => { if (ev.target.matches('[data-filter]')) { filter = ev.target.value; repaintTable(); } });
   main.querySelector('[data-exam]').addEventListener('change', (ev) => {
     examId = ev.target.value;
-    try { sessionStorage.setItem('qp1:instructor-exam', examId); } catch {}
+    remember('exam', examId);
     load();
   });
+  main.querySelector('[data-class]').addEventListener('change', (ev) => {
+    classId = ev.target.value;
+    remember('class', classId);
+    section = '';
+    pickExam(); fillExams();
+    load();
+  });
+  main.addEventListener('change', (ev) => { if (ev.target.matches('[data-section]')) { section = ev.target.value; paint(); } });
   await load();
 }

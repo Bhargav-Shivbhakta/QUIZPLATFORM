@@ -25,13 +25,14 @@ export async function render(main) {
           <strong>${esc(cloud.currentUser().displayName || cloud.currentUser().email)}</strong>
           <span class="muted small">${esc(cloud.currentUser().email)}</span>
           <span class="small sync-line" data-sync aria-live="polite"></span>
+          ${cloud.myClasses().length ? `<span class="small">Classes: ${cloud.myClasses().map((c) => esc(c.name) + (c.role === 'instructor' ? ' (instructor)' : c.section ? ` (section ${esc(c.section)})` : '')).join(', ')}</span>` : ''}
         </div>
         <div class="row">
           <button class="btn" data-sync-now>${icon('upload')} Save now</button>
           <button class="btn" data-signout>Sign out</button>
         </div>
       </section>` : ''}
-      ${courses.length > 1 || (courses.length === 1 && courses[0].name) ? `
+      ${!cloud.enabled && (courses.length > 1 || (courses.length === 1 && courses[0].name)) ? `
       <form class="setup-form" data-my-subjects id="subjects">
         <fieldset><legend>My classes</legend>
           <p class="muted small fieldset-help">Your home page shows only these. Exams from other classes stay available through their links.</p>

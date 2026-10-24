@@ -1,15 +1,16 @@
 rules_version = '2';
 
-// Security rules for student sign-in. Paste this whole file into
+// Security rules for student sign-in and class rosters. Paste this whole file into
 // Firebase console → Firestore Database → Rules, then click Publish.
 //
-// 1. Put your instructor email(s) in the list below (lowercase).
+// 1. Put the site admin email(s) in admins() below (lowercase). Admins create classes
+//    and upload rosters. Class instructors are set per class on the Admin page.
 // 2. Change sdsu[.]edu if your school uses a different email ending.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function instructors() {
-      return ['your-email@sdsu.edu'];
+    function admins() {
+      return ['bshivbhakta@sdsu.edu','pkraft@sdsu.edu'];
     }
 
     function schoolAccount() {
@@ -17,41 +18,68 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email.lower().matches('.*@sdsu[.]edu$');
     }
-    function isInstructor() {
-      return schoolAccount() && request.auth.token.email.lower() in instructors();
-    }
-    function isOwner(uid) {
-      return schoolAccount() && request.auth.uid == uid;
-    }
-    // Each document a student writes must be labelled with their own account.
-    function validWrite(uid) {
-      return request.resource.data.uid == uid
-        && request.resource.data.email == request.auth.token.email.lower();
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isAdmin() { return schoolAccount() && myEmail() in admins(); }
+
+    function enrollmentPath() { return /databases/$(database)/documents/enrollments/$(myEmail()); }
+    function isEnrolledAnywhere() { return schoolAccount() && exists(enrollmentPath()) && get(enrollmentPath()).data.classes.size() > 0; }
+    function enrolledIn(classId) { return schoolAccount() && exists(enrollmentPath()) && classId in get(enrollmentPath()).data.classes; }
+
+    function classDoc(classId) { return get(/databases/$(database)/documents/classes/$(classId)).data; }
+    function teaches(classId) { return schoolAccount() && myEmail() in classDoc(classId).instructors; }
+
+    // ---- admin check (the site reads this to decide whether to show the Admin page)
+    match /admins/{email} {
+      allow read: if isAdmin();
     }
 
-    // A student's own data: only they can write it; they and instructors can read it.
+    // ---- classes, rosters and enrollments: only admins can change them
+    match /classes/{classId} {
+      allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+      allow write: if isAdmin();
+
+      // A student's summary and code for one exam, readable by that class's instructors.
+      // Document id is "<uid>_<examId>"; students can only write their own, for exams of this class.
+      match /{kind}/{docId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if kind in ['summaries', 'code']
+          && enrolledIn(classId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.classId == classId
+          && request.resource.data.examId in classDoc(classId).exams
+          && docId == request.auth.uid + '_' + request.resource.data.examId;
+        allow delete: if isAdmin();
+      }
+    }
+    match /rosters/{classId} {
+      allow read: if isAdmin() || teaches(classId);
+      allow write: if isAdmin();
+    }
+    match /enrollments/{email} {
+      allow read: if isAdmin() || (schoolAccount() && email == myEmail());
+      allow write: if isAdmin();
+    }
+
+    // ---- each person's own progress (synced between their devices)
     match /users/{uid} {
-      allow read: if isOwner(uid) || isInstructor();
-      allow create, update: if isOwner(uid) && validWrite(uid);
+      allow read: if isAdmin() || (schoolAccount() && request.auth.uid == uid);
+      allow create, update: if schoolAccount() && request.auth.uid == uid
+        && (isEnrolledAnywhere() || isAdmin())
+        && request.resource.data.uid == uid
+        && request.resource.data.email == myEmail();
       allow delete: if false;
 
       match /{kind}/{examId} {
-        allow read: if isOwner(uid) || isInstructor();
-        allow create, update: if isOwner(uid) && validWrite(uid)
-          && kind in ['exams', 'summaries', 'code']
+        allow read: if isAdmin() || (schoolAccount() && request.auth.uid == uid);
+        allow create, update: if schoolAccount() && request.auth.uid == uid
+          && (isEnrolledAnywhere() || isAdmin())
+          && kind in ['exams', 'code']
+          && request.resource.data.uid == uid
+          && request.resource.data.email == myEmail()
           && request.resource.data.examId == examId;
         allow delete: if false;
       }
-    }
-
-    // The instructor dashboard lists every student's summary at once.
-    match /{path=**}/summaries/{examId} {
-      allow read: if isInstructor();
-    }
-
-    // The site checks this to decide whether to show the Instructor link.
-    match /instructors/{email} {
-      allow read: if isInstructor();
     }
 
     // Everything else is closed.

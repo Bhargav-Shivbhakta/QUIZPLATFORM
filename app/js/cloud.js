@@ -4,13 +4,19 @@
 //  - signs students in with Google, allowing only the school's email domain
 //  - on sign-in, copies the student's saved progress down and merges it with this device
 //  - copies changes back up, a few times a minute at most, to stay inside the free quota
-//  - writes a small summary per exam that the instructor dashboard reads
+//  - reads which classes the student is enrolled in (rosters uploaded by the admin)
+//  - writes a small summary per exam into each of the student's classes for the instructor dashboard
 //
 // Firestore layout (see firestore.rules):
-//   users/{uid}                     name, email, settings, lastSeen
-//   users/{uid}/exams/{examId}      the raw progress for one exam (attempts, stats, saved, notes, assignments)
-//   users/{uid}/summaries/{examId}  small summary for the instructor dashboard
-//   users/{uid}/code/{examId}       assignment code for one exam
+//   admins/{email}                          exists only to test "am I an admin?" (the list lives in the rules)
+//   classes/{classId}                       name, course, term, exams[], instructors[], counts
+//   classes/{classId}/summaries/{uid_exam}  one student's summary for one exam (instructors read these)
+//   classes/{classId}/code/{uid_exam}       one student's assignment code for one exam
+//   rosters/{classId}                       the uploaded roster (admin and the class's instructors only)
+//   enrollments/{email}                     the classes one person is in (they can read only their own)
+//   users/{uid}                             name, email, settings, lastSeen
+//   users/{uid}/exams/{examId}              the raw progress for one exam (attempts, stats, saved, notes, assignments)
+//   users/{uid}/code/{examId}               assignment code for one exam (for the student's other devices)
 import config from '../config.js';
 import * as store from './store.js';
 import { getExam, getManifest } from './data.js';
@@ -23,11 +29,12 @@ export const domain = String(config.allowedEmailDomain || '').replace(/^@/, '').
 const EXAM_KEY = /^(attempts|qstats|saved|notes|asg):(.+)$/;
 const CODE_KEY = /^code:([^:]+):(.+)$/;
 const SOON_MS = 4000;        // after finishing a quiz or running tests
-const LATER_MS = 90 * 1000;  // everything else (answers, typing)
+const LATER_MS = 120 * 1000; // everything else (answers, typing)
 
 let fb = null;               // loaded Firebase modules + instances
 let user = null;
-let instructor = null;       // null = unknown, true/false once checked
+let admin = false;
+let enrollment = {};         // classId -> { name, course, term, exams, role, section }
 let authError = '';
 let readyResolve;
 const ready = new Promise((r) => (readyResolve = r));
@@ -42,7 +49,13 @@ let syncError = '';
 
 export const whenReady = () => ready;
 export const currentUser = () => user;
-export const isInstructor = () => instructor === true;
+export const isAdmin = () => admin;
+export const myClasses = () => Object.entries(enrollment).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+export const teachingClasses = () => myClasses().filter((c) => c.role === 'instructor');
+export const isInstructor = () => admin || teachingClasses().length > 0;
+export const isEnrolled = () => admin || myClasses().length > 0;
+// Exams this person may open: those of their classes (admins see everything)
+export const canSeeExam = (examId) => !enabled || admin || myClasses().some((c) => (c.exams || []).includes(examId));
 export const lastError = () => authError;
 export const syncState = () => ({ lastSynced, pending: dirtyExams.size + dirtyCode.size + (dirtyUser ? 1 : 0), error: syncError });
 const emit = () => window.dispatchEvent(new CustomEvent('qp:auth'));
@@ -84,11 +97,13 @@ export async function init() {
     }
     const prev = user;
     user = u || null;
-    instructor = null;
+    admin = false; enrollment = {};
     if (user) {
       authError = '';
-      try { await afterSignIn(user); } catch (e) { console.error(e); syncError = 'Your saved progress could not be loaded. It will retry automatically.'; }
-      checkInstructor();
+      await loadAccess();
+      if (isEnrolled()) {
+        try { await afterSignIn(user); } catch (e) { console.error(e); syncError = 'Your saved progress could not be loaded. It will retry automatically.'; }
+      }
     } else if (prev) {
       wipeLocal();
     }
@@ -129,13 +144,22 @@ export async function signOut() {
   await fb.signOut(fb.auth);
 }
 
-async function checkInstructor() {
-  try {
-    await fb.getDoc(fb.doc(fb.db, 'instructors', user.email.toLowerCase()));
-    instructor = true;
-  } catch {
-    instructor = false;
+// Which classes is this account in, and is it an admin?
+async function loadAccess() {
+  const email = user.email.toLowerCase();
+  const [a, e] = await Promise.allSettled([
+    fb.getDoc(fb.doc(fb.db, 'admins', email)),
+    fb.getDoc(fb.doc(fb.db, 'enrollments', email)),
+  ]);
+  admin = a.status === 'fulfilled';
+  enrollment = e.status === 'fulfilled' && e.value.exists() ? e.value.data().classes || {} : {};
+  if (e.status === 'rejected' && e.reason?.code !== 'permission-denied') {
+    authError = "Couldn't check your class enrollment. Check your internet connection and reload the page.";
   }
+}
+export async function refreshAccess() {
+  if (!user) return;
+  await loadAccess();
   emit();
 }
 
@@ -304,6 +328,9 @@ async function summaryFor(examId) {
   return out;
 }
 
+// The student's classes that include this exam (instructors' own practice isn't reported)
+const classesWithExam = (examId) => myClasses().filter((c) => c.role !== 'instructor' && (c.exams || []).includes(examId));
+
 const who = () => ({ uid: user.uid, email: user.email.toLowerCase(), name: user.displayName || user.email.split('@')[0] });
 
 export function flush() {
@@ -325,13 +352,19 @@ export function flush() {
       for (const examId of exams) {
         const meta = getSyncMeta(examId);
         jobs.push(fb.setDoc(fb.doc(base, 'exams', examId), { ...me, examId, keys: examPayload(examId), resetAt: meta.resetAt || 0, updatedAt: Date.now() }));
-        jobs.push(summaryFor(examId).then((sum) => fb.setDoc(fb.doc(base, 'summaries', examId), { ...me, ...sum, updatedAt: Date.now() })));
+        const classes = classesWithExam(examId);
+        if (classes.length) {
+          jobs.push(summaryFor(examId).then((sum) => Promise.all(classes.map((c) =>
+            fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'summaries', `${user.uid}_${examId}`), { ...me, ...sum, classId: c.id, section: c.section || '', updatedAt: Date.now() })))));
+        }
       }
       for (const examId of codes) {
         const meta = getSyncMeta(examId);
         const codesNow = {};
         for (const k of store.allKeys()) { const m = CODE_KEY.exec(k); if (m && m[1] === examId) codesNow[m[2]] = store.getRaw(k); }
-        jobs.push(fb.setDoc(fb.doc(base, 'code', examId), { ...me, examId, codes: codesNow, codeAt: meta.codeAt || {}, resetAt: meta.resetAt || 0, updatedAt: Date.now() }));
+        const codeDoc = { ...me, examId, codes: codesNow, codeAt: meta.codeAt || {}, resetAt: meta.resetAt || 0, updatedAt: Date.now() };
+        jobs.push(fb.setDoc(fb.doc(base, 'code', examId), codeDoc));
+        for (const c of classesWithExam(examId)) jobs.push(fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'code', `${user.uid}_${examId}`), { ...codeDoc, classId: c.id }));
       }
       await Promise.all(jobs);
       for (const examId of new Set([...exams, ...codes])) setSyncMeta(examId, { at: Date.now() });
@@ -372,13 +405,69 @@ async function eraseAllCloud() {
 }
 
 // ---------------------------------------------------------------- instructor reads
-export async function classSummaries(examId) {
+export async function classSummaries(classId) {
   await load();
-  const snap = await fb.getDocs(fb.collectionGroup(fb.db, 'summaries'));
-  return snap.docs.map((d) => d.data()).filter((d) => d.examId === examId);
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'summaries'));
+  return snap.docs.map((d) => d.data());
 }
-export async function studentCode(uid, examId) {
+export async function studentCode(classId, uid, examId) {
   await load();
-  const snap = await fb.getDoc(fb.doc(fb.db, 'users', uid, 'code', examId));
+  const snap = await fb.getDoc(fb.doc(fb.db, 'classes', classId, 'code', `${uid}_${examId}`));
   return snap.exists() ? snap.data() : null;
+}
+export async function getClass(classId) {
+  await load();
+  const snap = await fb.getDoc(fb.doc(fb.db, 'classes', classId));
+  return snap.exists() ? { id: classId, ...snap.data() } : null;
+}
+export async function getRoster(classId) {
+  await load();
+  const snap = await fb.getDoc(fb.doc(fb.db, 'rosters', classId));
+  return snap.exists() ? snap.data().people || [] : [];
+}
+
+// ---------------------------------------------------------------- admin: classes and rosters
+export async function listClasses() {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+}
+
+// people: [{ email, name, redId, section, role: 'student' | 'instructor' }]
+export async function saveClass({ id, name, course, term, exams, instructors, people }) {
+  await load();
+  const prevPeople = await getRoster(id).catch(() => []);
+  const staff = [...new Set([...instructors, ...people.filter((p) => p.role === 'instructor').map((p) => p.email)].map((e) => e.toLowerCase()))];
+  const everyone = new Map();
+  for (const p of people) everyone.set(p.email, p);
+  for (const e of staff) everyone.set(e, { ...(everyone.get(e) || { email: e, name: '', redId: '', section: '' }), role: 'instructor' });
+  const info = { name, course: course || '', term: term || '', exams };
+  const ops = [];
+  ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, instructors: staff, studentCount: people.filter((p) => p.role !== 'instructor').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
+  ops.push((b) => b.set(fb.doc(fb.db, 'rosters', id), { classId: id, people: [...everyone.values()], updatedAt: Date.now() }));
+  for (const p of everyone.values()) {
+    ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { email: p.email, classes: { [id]: { ...info, role: p.role, section: p.section || '' } } }, { merge: true }));
+  }
+  const removed = prevPeople.filter((p) => !everyone.has(p.email));
+  for (const p of removed) ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { classes: { [id]: fb.deleteField() } }, { merge: true }));
+  await runOps(ops);
+  return { added: [...everyone.keys()].filter((e) => !prevPeople.some((p) => p.email === e)).length, removed: removed.length, total: everyone.size };
+}
+
+export async function deleteClass(id) {
+  await load();
+  const people = await getRoster(id).catch(() => []);
+  const ops = people.map((p) => (b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { classes: { [id]: fb.deleteField() } }, { merge: true }));
+  ops.push((b) => b.delete(fb.doc(fb.db, 'rosters', id)));
+  ops.push((b) => b.delete(fb.doc(fb.db, 'classes', id)));
+  await runOps(ops);
+}
+
+// Firestore batches hold at most 500 writes
+async function runOps(ops) {
+  for (let i = 0; i < ops.length; i += 450) {
+    const b = fb.writeBatch(fb.db);
+    ops.slice(i, i + 450).forEach((op) => op(b));
+    await b.commit();
+  }
 }

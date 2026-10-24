@@ -272,31 +272,42 @@ You can also check a file without installing anything. On the live site, click *
 
 ---
 
-## 7. Student sign-in (optional)
+## 7. Student sign-in and class rosters (optional)
 
 With sign-in on:
 
-- Students must sign in with a school Google account. Only emails ending in `@sdsu.edu` are accepted (change `allowedEmailDomain` in `app/config.js` for another school). SDSU email is Google, so students go through the normal SDSUid login.
+- Only people on a **class roster** can use the site. They sign in with their school Google account (`@sdsu.edu` only; change `allowedEmailDomain` in `app/config.js` for another school), which for SDSU means the normal SDSUid login.
+- After signing in, students land straight on their class (or a short list if they're in several). They only see the exams of their own classes. Someone not on any roster sees "You're not on a class roster yet."
 - Each student's answers, scores, saved questions, notes and assignment code are saved to their account and appear on any device they sign in from. Signing out removes them from that browser, so shared lab computers are safe.
-- You get an **Instructor** page showing every student: last active, questions tried, accuracy, quiz readiness, best real-exam score, assignments completed, the class's weakest topics, and each student's assignment code. You can download it all as a CSV.
-- Students can only ever see their own data.
+- **Instructors** (the class's Teachers and TAs from the roster, plus any emails you add) get a dashboard for their own classes only: who has started and who has never signed in, last active, questions tried, accuracy, quiz readiness, best real-exam score, assignments, weakest topics, each student's code, filters by section, and a CSV download.
+- **Admins** (you) create classes and upload rosters on the **Admin** page.
+- Rosters are stored in the Firebase database, never in this repo, and only admins and that class's instructors can read them. Students can only ever see their own data.
 
-It runs on Google Firebase's free plan, which needs no credit card. The free plan allows 50,000 sign-ins a month, 1 GB of data, and 20,000 saves and 50,000 reads a day. The site saves at most every 90 seconds while a student is active, and a few seconds after they finish a quiz or run assignment tests, so a class of 1,000 stays well inside that. If a daily limit were ever reached, saving pauses until the next day (progress stays safe in the browser) and you are never charged.
+It runs on Google Firebase's free plan, which needs no credit card. The free plan allows 50,000 sign-ins a month, 1 GB of data, and 20,000 saves and 50,000 reads a day. The site saves at most every 2 minutes while a student is active, and a few seconds after they finish a quiz or run assignment tests, so a class of 1,000 stays well inside that. If a daily limit were ever reached, saving pauses until the next day (progress stays safe in the browser) and you are never charged.
 
 ### Setting it up (about 15 minutes, once)
 
 1. Go to [console.firebase.google.com](https://console.firebase.google.com), sign in with a Google account, and click **Create a project**. Name it (for example `cramming`). You can turn Google Analytics off.
 2. **Turn on Google sign-in:** in the left menu choose **Build → Authentication → Get started**. On the **Sign-in method** tab, click **Google**, switch it on, choose a support email and click **Save**.
-3. **Allow your website address:** still in Authentication, open the **Settings** tab → **Authorized domains** → **Add domain**. Add `www.cramming.net` and `cramming.net` (and `YOUR-NAME.github.io` if you still use that address).
-4. **Create the database:** **Build → Firestore Database → Create database**. Pick the **Standard** edition, a location near your students (for example `us-west2` for California), and **Start in production mode**.
-5. **Set the security rules:** open `firestore.rules` from this folder, replace `your-email@sdsu.edu` with your own email (add teaching assistants too, comma separated, all lowercase), and change `sdsu[.]edu` if your school is different. In Firestore, open the **Rules** tab, delete what's there, paste the whole file and click **Publish**. These rules are what keep each student's data private, so don't skip this step.
-6. **Connect the website:** click the gear icon → **Project settings**. Under **Your apps**, click the web icon `</>`, give it a nickname, and click **Register app** (you don't need Firebase Hosting). Copy the four values `apiKey`, `authDomain`, `projectId` and `appId` into the `firebase` section of `app/config.js`.
-7. Push the change to GitHub. Once the site has republished, open it, sign in with your SDSU account, and you'll see an **Instructor** link at the top.
+3. **Allow your website address:** still in Authentication, open the **Settings** tab → **Authorized domains** → **Add domain**. Add `www.cramming.net` and `cramming.net`.
+4. **Create the database:** **Build → Firestore Database → Create database**. Pick the **Standard** edition, a location near your students (for example `us-west2`), and **Start in production mode**.
+5. **Set the security rules:** open `firestore.rules`, replace `your-email@sdsu.edu` in `admins()` with your own SDSU email (all lowercase; add other admins separated by commas), and change `sdsu[.]edu` if your school is different. In Firestore, open the **Rules** tab, delete what's there, paste the whole file and click **Publish**.
+6. **Connect the website:** gear icon → **Project settings** → **Your apps** → web icon `</>` → nickname → **Register app** (no Firebase Hosting). Copy `apiKey`, `authDomain`, `projectId` and `appId` into the `firebase` section of `app/config.js`, then push.
 
-The `apiKey` in `config.js` is meant to be public; it only identifies your Firebase project. What protects the data is the rules from step 5.
+The `apiKey` in `config.js` is meant to be public; it only identifies your Firebase project. The rules from step 5 are what protect the data.
 
-**Adding or removing an instructor:** edit the list in the rules (step 5) and click **Publish** again.
+### Adding a class and its roster
 
-**Turning sign-in off again:** empty the `apiKey` value in `app/config.js` and push. The site goes back to saving in each browser.
+1. Sign in on the site with your admin email and click **Admin → New class**.
+2. **Class name:** for example `CS150 Fall 2026`. **Term:** `Fall 2026`.
+3. Tick the **exams** that belong to this class (the folders under `exams/`).
+4. **Roster:** in Canvas, open the course's **People** page, scroll to the bottom so everyone is loaded, select the whole table (from the "Name" heading to the last student), copy, and paste it into the box. A CSV file works too, such as a Gradebook export. The site reads the Name, Login ID (or Email), SIS ID (RedID), Section and Role columns. Teachers and TAs become instructors; observers are left out.
+5. Check the preview: the number of students, the emails (they must be the SDSU accounts students sign in with) and any skipped rows. Then click **Create class**.
+
+**Adds and drops:** open the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
+
+**A new term:** create a new class (for example `CS150 Spring 2027`) with that term's exams and roster. Each class's dashboard only shows its own students.
+
+**Turning sign-in off again:** empty the `apiKey` value in `app/config.js` and push. The site goes back to saving in each browser, open to everyone.
 
 **Before collecting student data,** check your department's rules. Scores linked to student names are student records (FERPA in the US). The sign-in page tells students that their instructor can see their progress and code.

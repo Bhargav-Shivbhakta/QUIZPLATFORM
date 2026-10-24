@@ -3,6 +3,7 @@ import { getManifest, getExam } from '../data.js';
 import * as store from '../store.js';
 import { esc, ring, plural, toneFor, confirmDialog } from '../ui.js';
 import { readiness, fmtDate, MODES } from '../engine.js';
+import * as cloud from '../cloud.js';
 import { listCourses, chosenCourses, newCourses, saveChoice, courseLabel } from './subjects.js';
 
 function countdown(dateStr) {
@@ -15,9 +16,52 @@ function countdown(dateStr) {
   return `Exam in ${plural(days, 'day')}`;
 }
 
+export function examCard(e, { big = false, grouped = false, ready = null } = {}) {
+  const attempts = store.getAttempts(e.id);
+  const last = attempts[attempts.length - 1];
+  const best = attempts.filter((a) => a.mode === 'exam').reduce((m, a) => Math.max(m, a.score.pct), -1);
+  return `
+  <a class="exam-card ${big ? 'big' : ''}" href="#/exam/${encodeURIComponent(e.id)}">
+    <div class="exam-card-main">
+      ${e.course && !grouped ? `<p class="course">${esc(e.course)}</p>` : ''}
+      <h2>${esc(e.title)}</h2>
+      ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
+      <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, real exam has ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
+      ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
+      ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best real exam ${best}%` : ''}</p>` : ''}
+    </div>
+    ${big && ready ? (() => { const r = ready; return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
+    <span class="exam-card-go">${big ? 'Start studying' : 'Open'}</span>
+  </a>`;
+}
+
+export async function readinessFor(ids) {
+  const m = new Map();
+  await Promise.all(ids.map(async (id) => {
+    try { const ex = await getExam(id); m.set(id, readiness(ex, store.getStats(ex.id), store.getAttempts(ex.id))); } catch {}
+  }));
+  return m;
+}
+
+export function resumeBanner() {
+  const session = store.getSession();
+  return session ? `
+    <div class="resume-banner" role="region" aria-label="Unfinished quiz">
+      <div>
+        <strong>You have an unfinished ${esc(MODES[session.mode]?.label.toLowerCase() || 'quiz')}</strong>
+        <span class="muted">${esc(session.examTitle)} · ${Object.keys(session.answers).length} of ${session.questionIds.length} answered · started ${esc(fmtDate(session.startedAt))}</span>
+      </div>
+      <div class="row">
+        <button class="btn" data-discard>Discard</button>
+        <a class="btn primary" href="#/quiz">Resume</a>
+      </div>
+    </div>` : '';
+}
+
 const slug = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 export async function render(main, params = {}) {
+  if (cloud.enabled) return (await import('./classes.js')).render(main, params);
   const manifest = await getManifest();
   const all = manifest.exams;
   const courseFilter = params.course || '';
@@ -78,24 +122,7 @@ export async function render(main, params = {}) {
       </div>
     </div>` : '';
 
-  const card = (e, big = false, grouped = false) => {
-    const attempts = store.getAttempts(e.id);
-    const last = attempts[attempts.length - 1];
-    const best = attempts.filter((a) => a.mode === 'exam').reduce((m, a) => Math.max(m, a.score.pct), -1);
-    return `
-    <a class="exam-card ${big ? 'big' : ''}" href="#/exam/${encodeURIComponent(e.id)}">
-      <div class="exam-card-main">
-        ${e.course && !grouped ? `<p class="course">${esc(e.course)}</p>` : ''}
-        <h2>${esc(e.title)}</h2>
-        ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
-        <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, real exam has ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
-        ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
-        ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best real exam ${best}%` : ''}</p>` : ''}
-      </div>
-      ${big && readyMap.get(e.id) ? (() => { const r = readyMap.get(e.id); return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
-      <span class="exam-card-go">${big ? 'Start studying' : 'Open'}</span>
-    </a>`;
-  };
+  const card = (e, big = false, grouped = false) => examCard(e, { big, grouped, ready: readyMap.get(e.id) });
 
   // Several subjects: one section per course, each with its own current exam
   const shownCourses = courses.filter((c) => exams.some((e) => (e.course || '') === c));

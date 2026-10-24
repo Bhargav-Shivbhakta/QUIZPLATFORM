@@ -1652,3 +1652,38 @@ body.signed-out .topnav { display: none; }
   .inst-topics .t-tried { grid-column: 1 / -1; }
   .inst-tools input[type=search] { min-width: 0; max-width: none; width: 100%; }
 }
+.stat-tile .of { font-size: 1rem; color: var(--muted); font-weight: 600; }
+.section-pick { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1rem; font-weight: 600; }
+.section-pick select { min-height: 40px; padding: .3rem .5rem; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); }
+
+/* classes landing */
+.class-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem; }
+.class-head .btn .icon { width: 18px; height: 18px; }
+.class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.class-card {
+  display: grid; gap: .35rem; padding: 1.2rem 1.3rem; border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); color: var(--ink); text-decoration: none; box-shadow: var(--shadow-1); transition: box-shadow .15s, transform .15s;
+}
+@media (hover: hover) { .class-card:hover { box-shadow: var(--shadow-2); transform: translateY(-2px); } }
+.class-course { font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--accent); }
+.class-name { font-size: 1.3rem; font-weight: 700; }
+.class-foot { display: flex; justify-content: space-between; align-items: center; margin-top: .4rem; }
+.role-tag { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.admin-note { margin-top: 1.5rem; }
+.not-enrolled strong { overflow-wrap: anywhere; }
+
+/* admin */
+.class-admin-list { display: grid; gap: .8rem; }
+.class-admin { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.class-admin h2 { margin-bottom: .2rem; }
+.class-admin p { margin: 0 0 .3rem; }
+.class-admin-main { min-width: 0; flex: 1 1 320px; }
+.admin-edit input[name], .admin-edit textarea { width: 100%; padding: .55rem .7rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); font-size: 16px; }
+.admin-edit textarea[name=paste] { font-family: var(--mono); font-size: 13px; margin-top: .6rem; }
+.admin-edit .field { display: grid; gap: .3rem; margin-bottom: .6rem; }
+.exam-group { margin: .5rem 0 .3rem; font-weight: 700; }
+.roster-preview { margin-top: .8rem; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.roster-preview p { margin: 0 0 .5rem; }
+.roster-preview .table-wrap { margin-bottom: .6rem; background: var(--surface); border-radius: 8px; }
+.skipped summary { cursor: pointer; font-weight: 700; min-height: 36px; display: flex; align-items: center; }
+.skipped ul { margin: .3rem 0 .5rem; padding-left: 1.2rem; font-size: .88rem; display: grid; gap: .2rem; }
