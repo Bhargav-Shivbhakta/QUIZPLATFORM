@@ -113,6 +113,7 @@ console.log('\nExam files in this repo');
 const examsDir = path.join(ROOT, 'exams');
 const examFiles = [];
 (function walk(dir, depth) {
+  if (!fs.existsSync(dir)) return; // exams can all live on the site instead
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.name.startsWith('.')) continue;
     const full = path.join(dir, e.name);
