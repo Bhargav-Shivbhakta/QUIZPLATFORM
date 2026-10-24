@@ -61,7 +61,7 @@ export async function render(main, params = {}, query = {}) {
         <div>
           <p class="eyebrow">Instructor</p>
           <h1>Class dashboard</h1>
-          <p class="muted">Updates within a couple of minutes of students studying. Only you can see this page.</p>
+          <p class="muted">Updates when students leave the site after studying, and after quizzes and assignment test runs (at most every 10 minutes). Only staff of this class can see it.</p>
         </div>
         <div class="row">
           <label class="field inline"><span class="sr-only">Class</span>
@@ -309,7 +309,8 @@ export async function render(main, params = {}, query = {}) {
       const view = m.el.querySelector('[data-code-view]');
       view.innerHTML = '<p class="muted">Loading code…</p>';
       try {
-        const d = await cloud.studentCode(classId, r.uid, examId);
+        // the code comes with the student's summary (older summaries keep it in a separate record)
+        const d = r.codes ? r : await cloud.studentCode(classId, r.uid, examId);
         const code = d?.codes?.[b.dataset.code];
         const a = asgList.find((x) => x.slug === b.dataset.code);
         view.innerHTML = code == null ? '<p class="muted">No saved code for this assignment.</p>'

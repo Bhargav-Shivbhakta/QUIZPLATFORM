@@ -3,7 +3,9 @@
 // The site still works from localStorage. When sign-in is on, this module:
 //  - signs students in with Google, allowing only the school's email domain
 //  - on sign-in, copies the student's saved progress down and merges it with this device
-//  - copies changes back up, a few times a minute at most, to stay inside the free quota
+//  - keeps progress in the browser while the student studies and copies it up when they close
+//    the tab, when they leave the site on a phone or tablet, from Settings → Save now, and
+//    otherwise (quiz finished, tests run, switching away on a computer) at most every 30 minutes
 //  - reads which classes the student is enrolled in (rosters uploaded by the admin)
 //  - writes a small summary per exam into each of the student's classes for the instructor dashboard
 //
@@ -28,8 +30,15 @@ export const domain = String(config.allowedEmailDomain || '').replace(/^@/, '').
 
 const EXAM_KEY = /^(attempts|qstats|saved|notes|asg):(.+)$/;
 const CODE_KEY = /^code:([^:]+):(.+)$/;
-const SOON_MS = 4000;        // after finishing a quiz or running tests
-const LATER_MS = 120 * 1000; // everything else (answers, typing)
+const SOON_MS = 4000;
+const GAP_MS = 30 * 60 * 1000;       // while studying on a computer: at most one save every 30 minutes
+const LEAVE_GAP_MS = 10 * 60 * 1000; // phones/tablets: leaving the site saves (not more than once every 10 minutes)
+// Records each student's device may write per day. 300 students × 60 = 18,000,
+// inside the free plan's 20,000 a day. Change it in config.js with  dailySaveLimit: 60
+const DAILY_LIMIT = Number(config.dailySaveLimit) > 0 ? Number(config.dailySaveLimit) : 60;
+const touchDevice = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+// how long until the next save is allowed
+const untilAllowed = (gap) => Math.max(SOON_MS, lastFlushAt + gap - Date.now());
 
 let fb = null;               // loaded Firebase modules + instances
 let user = null;
@@ -45,6 +54,9 @@ let timer = null;
 let timerAt = 0;
 let flushing = null;
 let lastSynced = 0;
+let lastFlushAt = 0;
+let forceNext = false;   // reset and erase are saved even past the daily allowance
+const hasPending = () => dirtyExams.size > 0 || dirtyCode.size > 0 || dirtyUser;
 let syncError = '';
 
 export const whenReady = () => ready;
@@ -117,8 +129,15 @@ export async function init() {
   window.addEventListener('qp:changed', (e) => markDirty(e.detail));
   window.addEventListener('qp:reset-exam', (e) => { if (user) resetExamCloud(e.detail); });
   window.addEventListener('qp:erase-all', () => { if (user) eraseAllCloud(); });
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
-  window.addEventListener('pagehide', () => flush());
+  // the main save: when the student leaves the site
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'hidden' || !hasPending()) return;
+    // a phone or tablet may be locked or switched to another device next, so save now;
+    // on a computer this is often just a quick look at another tab
+    const wait = lastFlushAt + (touchDevice() ? LEAVE_GAP_MS : GAP_MS) - Date.now();
+    if (wait <= 0) flush(); else schedule(wait);
+  });
+  window.addEventListener('pagehide', () => { if (hasPending()) flush(); });
   window.addEventListener('online', () => schedule(SOON_MS));
 }
 
@@ -305,16 +324,17 @@ function markDirty(key) {
   let m;
   if ((m = EXAM_KEY.exec(key))) {
     dirtyExams.add(m[2]);
-    schedule(m[1] === 'attempts' || m[1] === 'asg' ? SOON_MS : LATER_MS);
+    const important = m[1] === 'attempts' || m[1] === 'asg';
+    schedule(important ? untilAllowed(GAP_MS) : Math.max(untilAllowed(GAP_MS), GAP_MS / 2));
   } else if ((m = CODE_KEY.exec(key))) {
     dirtyCode.add(m[1]);
     const at = getSyncMeta(m[1]).codeAt || {};
     at[m[2]] = Date.now();
     setSyncMeta(m[1], { codeAt: at });
-    schedule(LATER_MS);
+    schedule(untilAllowed(GAP_MS));
   } else if (key === 'settings') {
     dirtyUser = true;
-    schedule(LATER_MS);
+    schedule(untilAllowed(GAP_MS));
   }
   emitSync();
 }
@@ -338,6 +358,10 @@ async function afterSignIn(u) {
     fb.getDocs(fb.collection(base, 'exams')),
     fb.getDocs(fb.collection(base, 'code')),
   ]);
+  // what this device already had before downloading (anything else came from the account, so it needn't be sent back)
+  const localExam = new Set(), localCode = new Set();
+  for (const k of store.allKeys()) { let m; if ((m = EXAM_KEY.exec(k))) localExam.add(m[2]); else if ((m = CODE_KEY.exec(k))) localCode.add(m[1]); }
+  const pushed = { ...(store.get('pushed', {})) };
   // settings: a new device takes the saved class choice
   const cloudSettings = userSnap.exists() ? userSnap.data().settings : null;
   if (cloudSettings) {
@@ -345,8 +369,35 @@ async function afterSignIn(u) {
     if (local.subjects == null && cloudSettings.subjects) {
       store.quietly(() => store.saveSettings({ subjects: cloudSettings.subjects, subjectsSeen: cloudSettings.subjectsSeen || null }));
     }
+    const now = store.getSettings();
+    const mine = { subjects: now.subjects ?? null, subjectsSeen: now.subjectsSeen ?? null };
+    if (JSON.stringify(mine) === JSON.stringify({ subjects: cloudSettings.subjects ?? null, subjectsSeen: cloudSettings.subjectsSeen ?? null })) pushed.user = fingerprint(mine);
   }
-  // progress
+  // code: newest copy of each assignment wins (older accounts keep code in a separate record)
+  const mergeCode = (examId, d) => {
+    if (!d.codes) return;
+    const meta = getSyncMeta(examId);
+    const localAt = { ...(meta.codeAt || {}) };
+    for (const [slug, code] of Object.entries(d.codes)) {
+      const cloudAt = d.codeAt?.[slug] || 0;
+      const have = store.getCode(examId, slug);
+      if (have == null || cloudAt > (localAt[slug] || 0)) {
+        store.quietly(() => store.saveCode(examId, slug, code));
+        localAt[slug] = cloudAt;
+      }
+    }
+    setSyncMeta(examId, { codeAt: localAt });
+  };
+  const combined = new Set(examSnaps.docs.filter((x) => x.data().codes).map((x) => x.id));
+  for (const snap of codeSnaps.docs) {
+    if (combined.has(snap.id)) continue; // already combined into the progress record
+    const d = snap.data();
+    const meta = getSyncMeta(snap.id);
+    if (d.resetAt && d.resetAt > (meta.at || 0)) clearLocalExam(snap.id);
+    mergeCode(snap.id, d);
+    setSyncMeta(snap.id, { at: Date.now() });
+  }
+  // progress (and, since this version, code in the same record)
   for (const snap of examSnaps.docs) {
     const d = snap.data();
     const examId = snap.id;
@@ -355,25 +406,16 @@ async function afterSignIn(u) {
     const data = {};
     for (const [k, v] of Object.entries(d.keys || {})) if (typeof v === 'string') data[`${k}:${examId}`] = v;
     store.quietly(() => store.importAll({ app: 'quiz-platform', data }));
+    mergeCode(examId, d);
     setSyncMeta(examId, { at: Date.now(), resetAt: d.resetAt || 0 });
-  }
-  // code: newest copy wins
-  for (const snap of codeSnaps.docs) {
-    const d = snap.data();
-    const examId = snap.id;
-    const meta = getSyncMeta(examId);
-    if (d.resetAt && d.resetAt > (meta.at || 0)) clearLocalExam(examId);
-    const localAt = { ...(meta.codeAt || {}) };
-    for (const [slug, code] of Object.entries(d.codes || {})) {
-      const cloudAt = d.codeAt?.[slug] || 0;
-      const have = store.getCode(examId, slug);
-      if (have == null || cloudAt > (localAt[slug] || 0)) {
-        store.quietly(() => store.saveCode(examId, slug, code));
-        localAt[slug] = cloudAt;
-      }
+    // the account already has exactly this, so it needn't be sent back
+    // (unless the code is still in the old separate record: then it is combined once)
+    if (!localExam.has(examId) && !localCode.has(examId) && (d.codes || !Object.keys(codesFor(examId)).length)) {
+      pushed['exam:' + examId] = fingerprint([examPayload(examId), codesFor(examId), d.resetAt || 0]);
+      setSyncMeta(examId, { sumAt: Date.now() });
     }
-    setSyncMeta(examId, { at: Date.now(), codeAt: localAt });
   }
+  store.quietly(() => store.set('pushed', pushed));
   lastSynced = Date.now();
   syncError = '';
   // upload anything this device had that the account didn't (and refresh the summaries)
@@ -460,49 +502,70 @@ const who = () => ({ uid: user.uid, email: user.email.toLowerCase(), name: user.
 export function flush() {
   if (!user || !fb) return Promise.resolve();
   if (flushing) return flushing.then(() => (dirtyExams.size || dirtyCode.size || dirtyUser ? flush() : undefined));
-  if (!navigator.onLine) { schedule(LATER_MS); return Promise.resolve(); }
+  if (!navigator.onLine) { schedule(untilAllowed(GAP_MS)); return Promise.resolve(); }
   clearTimeout(timer); timer = null;
   const exams = [...dirtyExams], codes = [...dirtyCode], doUser = dirtyUser;
+  const force = forceNext; forceNext = false;
   dirtyExams.clear(); dirtyCode.clear(); dirtyUser = false;
   const base = fb.doc(fb.db, 'users', user.uid);
   const me = who();
   flushing = (async () => {
     try {
-      const jobs = [];
+      const pushed = { ...(store.get('pushed', {})) };       // fingerprints of what the account already has
+      const changed = (key, obj) => { const h = fingerprint(obj); if (pushed[key] === h) return false; pushed[key] = h; return true; };
+      const writes = [];   // [doc, data, options]
+      const done = [];     // bookkeeping to run once the writes succeed
       if (doUser) {
         const s = store.getSettings();
-        jobs.push(fb.setDoc(base, { ...me, lastSeen: Date.now(), settings: { subjects: s.subjects ?? null, subjectsSeen: s.subjectsSeen ?? null } }, { merge: true }));
+        const settings = { subjects: s.subjects ?? null, subjectsSeen: s.subjectsSeen ?? null };
+        // only when the class choice changed
+        if (changed('user', settings)) writes.push([base, { ...me, lastSeen: Date.now(), settings }, { merge: true }]);
       }
-      for (const examId of exams) {
+      // One save writes at most two records per exam: the student's progress (with their code)
+      // and the dashboard summary (with the instructor's copy of the code).
+      for (const examId of new Set([...exams, ...codes])) {
         const meta = getSyncMeta(examId);
-        jobs.push(fb.setDoc(fb.doc(base, 'exams', examId), { ...me, examId, keys: examPayload(examId), resetAt: meta.resetAt || 0, updatedAt: Date.now() }));
+        const keys = examPayload(examId);
+        const codesNow = codesFor(examId);
+        const progressChanged = changed('exam:' + examId, [keys, codesNow, meta.resetAt || 0]);
+        if (progressChanged) {
+          writes.push([fb.doc(base, 'exams', examId), { ...me, examId, keys, codes: codesNow, codeAt: meta.codeAt || {}, resetAt: meta.resetAt || 0, updatedAt: Date.now() }]);
+        }
         const classes = classesWithExam(examId);
-        if (classes.length) {
-          jobs.push(summaryFor(examId).then((sum) => Promise.all(classes.map((c) =>
-            fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'summaries', `${user.uid}_${examId}`), { ...me, ...sum, classId: c.id, section: c.section || '', updatedAt: Date.now() })))));
+        // the summary is worked out from the progress, so it only needs sending when that changed
+        // (or if this device has never sent one and didn't just download the progress)
+        if (classes.length && (progressChanged || !meta.sumAt)) {
+          const sum = await summaryFor(examId);
+          if (changed('sum:' + examId, { ...sum, lastActive: 0, codes: codesNow })) {
+            done.push(() => setSyncMeta(examId, { sumAt: Date.now() }));
+            for (const c of classes) writes.push([fb.doc(fb.db, 'classes', c.id, 'summaries', `${user.uid}_${examId}`), { ...me, ...sum, codes: codesNow, codeAt: meta.codeAt || {}, classId: c.id, section: c.section || '', updatedAt: Date.now() }]);
+          }
         }
       }
-      for (const examId of codes) {
-        const meta = getSyncMeta(examId);
-        const codesNow = {};
-        for (const k of store.allKeys()) { const m = CODE_KEY.exec(k); if (m && m[1] === examId) codesNow[m[2]] = store.getRaw(k); }
-        const codeDoc = { ...me, examId, codes: codesNow, codeAt: meta.codeAt || {}, resetAt: meta.resetAt || 0, updatedAt: Date.now() };
-        jobs.push(fb.setDoc(fb.doc(base, 'code', examId), codeDoc));
-        for (const c of classesWithExam(examId)) jobs.push(fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'code', `${user.uid}_${examId}`), { ...codeDoc, classId: c.id }));
+      if (writes.length) {
+        // each student has a daily allowance so the whole site stays inside the free plan
+        const today = savesToday();
+        if (!force && today.n + writes.length > DAILY_LIMIT) { const e = new Error('daily allowance used'); e.code = 'daily-limit'; throw e; }
+        await Promise.all(writes.map(([ref, data, opts]) => (opts ? fb.setDoc(ref, data, opts) : fb.setDoc(ref, data))));
+        store.quietly(() => store.set('saves', { day: today.day, n: today.n + writes.length }));
+        lastFlushAt = Date.now(); // only real saves count towards the gaps
       }
-      await Promise.all(jobs);
+      done.forEach((f) => f());
+      store.quietly(() => store.set('pushed', pushed));
       for (const examId of new Set([...exams, ...codes])) setSyncMeta(examId, { at: Date.now() });
       lastSynced = Date.now();
       syncError = '';
     } catch (e) {
       console.error('Sync failed', e);
       exams.forEach((x) => dirtyExams.add(x)); codes.forEach((x) => dirtyCode.add(x)); if (doUser) dirtyUser = true;
-      syncError = e?.code === 'resource-exhausted'
+      syncError = e?.code === 'daily-limit'
+        ? "You've used today's saves to your account. Keep studying: your progress is safe on this device and will be saved to your account after midnight."
+        : e?.code === 'resource-exhausted'
         ? "Today's free saving limit was reached. Your progress is safe on this device and will be saved tomorrow."
         : e?.code === 'permission-denied'
         ? 'Your account is not allowed to save progress. Sign out and sign in with your school account.'
         : 'Saving to your account failed. It will try again automatically.';
-      schedule(e?.code === 'resource-exhausted' ? 60 * 60 * 1000 : LATER_MS);
+      schedule(e?.code === 'daily-limit' ? untilTomorrow() : e?.code === 'resource-exhausted' ? 60 * 60 * 1000 : 5 * 60 * 1000);
     } finally {
       flushing = null;
       emitSync();
@@ -511,10 +574,42 @@ export function flush() {
   return flushing;
 }
 
+// This exam's assignment code on this device: { slug: code }
+function codesFor(examId) {
+  const out = {};
+  for (const k of store.allKeys()) { const m = CODE_KEY.exec(k); if (m && m[1] === examId) out[m[2]] = store.getRaw(k); }
+  return out;
+}
+
+// Saves are counted per Pacific day, the same day Firebase's free allowance uses
+const pacific = (d = new Date()) => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((p) => [p.type, p.value]));
+function savesToday() {
+  const p = pacific();
+  const day = `${p.year}-${p.month}-${p.day}`;
+  const s = store.get('saves', {});
+  return { day, n: s.day === day ? s.n || 0 : 0 };
+}
+// time until just after midnight Pacific, spread over half an hour so everyone doesn't save at once
+function untilTomorrow() {
+  const p = pacific();
+  const left = 86400 - (Number(p.hour) * 3600 + Number(p.minute) * 60 + Number(p.second));
+  return (left + 60) * 1000 + Math.floor(Math.random() * 30 * 60 * 1000);
+}
+export const savesLeftToday = () => Math.max(0, DAILY_LIMIT - savesToday().n);
+
+// A short fingerprint of what was saved, so identical data is never sent twice
+function fingerprint(obj) {
+  const str = JSON.stringify(obj);
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + ':' + str.length;
+}
+
 async function resetExamCloud(examId) {
   const now = Date.now();
   setSyncMeta(examId, { resetAt: now, codeAt: {} });
   dirtyExams.add(examId); dirtyCode.add(examId);
+  forceNext = true;
   await flush();
 }
 
@@ -524,6 +619,7 @@ async function eraseAllCloud() {
     const manifest = await getManifest();
     for (const e of manifest.exams) { setSyncMeta(e.id, { resetAt: Date.now(), codeAt: {} }); dirtyExams.add(e.id); dirtyCode.add(e.id); }
     dirtyUser = true;
+    forceNext = true;
     await flush();
   } catch (e) { console.error(e); }
 }
