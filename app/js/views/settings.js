@@ -47,11 +47,16 @@ export async function render(main) {
         <fieldset><legend>Text size</legend><div class="chip-row">
           ${radio('textSize', 's', 'Small', s.textSize)}${radio('textSize', 'm', 'Medium', s.textSize)}${radio('textSize', 'l', 'Large', s.textSize)}
         </div></fieldset>
+        <fieldset><legend>Reading</legend>
+          <div class="chip-row">${radio('readFont', 'standard', 'Standard font', s.readFont)}${radio('readFont', 'easy', 'Easier reading', s.readFont)}</div>
+          <p class="muted small fieldset-help reading-help">Easier reading uses the Lexend font with wider letter and line spacing, which many readers with dyslexia find easier.</p>
+          <div class="chip-row">${radio('contrast', 'normal', 'Normal contrast', s.contrast)}${radio('contrast', 'high', 'High contrast', s.contrast)}</div>
+        </fieldset>
         <fieldset><legend>In practice modes, show answers</legend><div class="chip-row">
           ${radio('feedback', 'instant', 'After each question', s.feedback)}${radio('feedback', 'end', 'At the end', s.feedback)}
         </div></fieldset>
         <fieldset><legend>Quiz options</legend>
-          <label class="check"><input type="checkbox" name="shuffleChoices" ${s.shuffleChoices ? 'checked' : ''}><span>Shuffle answer choices in practice (the real exam keeps the original order)</span></label>
+          <label class="check"><input type="checkbox" name="shuffleChoices" ${s.shuffleChoices ? 'checked' : ''}><span>Shuffle answer choices in practice (the timed practice test keeps the original order)</span></label>
           <label class="check"><input type="checkbox" name="confirmSubmit" ${s.confirmSubmit ? 'checked' : ''}><span>Ask before submitting even when every question is answered</span></label>
         </fieldset>
       </form>
@@ -116,7 +121,7 @@ export async function render(main) {
   main.querySelector('[data-prefs]').addEventListener('change', (ev) => {
     const f = ev.currentTarget;
     store.saveSettings({
-      theme: f.theme.value, textSize: f.textSize.value, feedback: f.feedback.value,
+      theme: f.theme.value, textSize: f.textSize.value, feedback: f.feedback.value, readFont: f.readFont.value, contrast: f.contrast.value,
       shuffleChoices: f.shuffleChoices.checked, confirmSubmit: f.confirmSubmit.checked,
     });
     applyTheme();

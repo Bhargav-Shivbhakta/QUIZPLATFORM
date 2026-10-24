@@ -26,9 +26,9 @@ export function examCard(e, { big = false, grouped = false, ready = null } = {})
       ${e.course && !grouped ? `<p class="course">${esc(e.course)}</p>` : ''}
       <h2>${esc(e.title)}</h2>
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
-      <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, real exam has ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
+      <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, timed test of ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
       ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
-      ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best real exam ${best}%` : ''}</p>` : ''}
+      ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best timed test ${best}%` : ''}</p>` : ''}
     </div>
     ${big && ready ? (() => { const r = ready; return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
     <span class="exam-card-go">${big ? 'Start studying' : 'Open'}</span>
@@ -155,6 +155,7 @@ export async function render(main, params = {}) {
     return;
   }
 
+  const panel = featured ? await (await import('./nextup.js')).studyPanel(featured) : '';
   main.innerHTML = `
     <section class="page home">
       <header class="home-head">
@@ -163,8 +164,10 @@ export async function render(main, params = {}) {
         ${mine}
       </header>
       ${freshNote}
-      ${resume}
-      ${card(featured, true)}
+      ${panel && session?.examId === featured?.id ? '' : resume}
+      ${panel}
+      ${panel ? '<h2 class="section-title">Your exam</h2>' : ''}
+      ${card(featured, !panel)}
       ${others.length ? `<h2 class="section-title">Other exams</h2><div class="exam-grid">${others.map((e) => card(e)).join('')}</div>` : ''}
       ${archived.length ? `<h2 class="section-title">Past exams</h2><p class="muted section-sub">Still available for practice.</p><div class="exam-grid">${archived.map((e) => card(e)).join('')}</div>` : ''}
       ${previews.length ? `<h2 class="section-title">Previews</h2><p class="muted section-sub">Loaded from a file on this device. Not published.</p><div class="exam-grid">${previews.map((e) => card(e)).join('')}</div>` : ''}

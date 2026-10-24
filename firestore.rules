@@ -38,6 +38,31 @@ service cloud.firestore {
       allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
       allow write: if isAdmin();
 
+      // Announcements: the class's instructors post them, everyone in the class reads them.
+      match /announcements/{annId} {
+        allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
+        allow create, update: if (isAdmin() || teaches(classId))
+          && request.resource.data.text is string && request.resource.data.text.size() <= 500
+          && request.resource.data.authorEmail == myEmail();
+        allow delete: if isAdmin() || teaches(classId);
+      }
+
+      // Question reports from students: they create/replace their own, instructors read and resolve.
+      match /reports/{reportId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if enrolledIn(classId)
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.classId == classId
+          && request.resource.data.examId in classDoc(classId).exams
+          && reportId.matches(request.auth.uid + '_.*')
+          && request.resource.data.note.size() <= 600
+          && request.resource.data.status == 'open';
+        allow update: if (isAdmin() || teaches(classId))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt']);
+        allow delete: if isAdmin();
+      }
+
       // A student's summary and code for one exam, readable by that class's instructors.
       // Document id is "<uid>_<examId>"; students can only write their own, for exams of this class.
       match /{kind}/{docId} {

@@ -4,6 +4,7 @@ import * as cloud from '../cloud.js';
 import { esc, icon, plural, toast, confirmDialog } from '../ui.js';
 import { fmtDate } from '../engine.js';
 import { parseRoster, classIdFrom } from '../roster.js';
+import { CLASS_COLORS } from '../colors.js';
 
 export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled || !cloud.isAdmin()) {
@@ -36,7 +37,7 @@ export async function render(main, params = {}, query = {}) {
         ${classes.map((c) => `
           <article class="class-admin">
             <div class="class-admin-main">
-              <h2>${esc(c.name)}</h2>
+              <h2><span class="class-dot" style="--sw:${(CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch}"></span>${esc(c.name)}</h2>
               <p class="muted small">${esc([c.course, c.term].filter(Boolean).join(' · '))}${c.updatedAt ? ` · roster updated ${esc(fmtDate(c.updatedAt))}` : ''}</p>
               <p><strong>${plural(c.studentCount || 0, 'student')}</strong> · ${(c.exams || []).map((id) => esc(examTitle(id))).join(', ') || '<span class="bad">no exams chosen</span>'}</p>
               <p class="muted small">Teaching staff: ${(c.staff || (c.instructors || []).map((email) => ({ email, role: 'instructor', sections: [] }))).map((x) => `${esc(x.name || x.email)} (${x.role === 'ta' ? 'TA' : 'instructor'}${x.sections?.length ? ' · ' + x.sections.map(esc).join(', ') : ''})`).join(', ') || 'none'}</p>
@@ -82,6 +83,12 @@ async function editor(main, cls, exams, classes) {
         <fieldset><legend>Exams in this class</legend>
           ${courses.map((c) => `<p class="muted small exam-group">${esc(c || 'Other exams')}</p><div class="chip-row">${exams.filter((e) => (e.course || '') === c).map((e) => `
             <label class="chip"><input type="checkbox" name="exam" value="${esc(e.id)}" ${cls?.exams?.includes(e.id) ? 'checked' : ''}><span>${esc(e.title)}${e.archived ? ' (past)' : ''}</span></label>`).join('')}</div>`).join('')}
+          <p class="muted small fieldset-help" style="margin-top:.8rem">Exam dates (optional): students see a countdown and a daily plan.</p>
+          <div class="exam-dates" data-exam-dates></div>
+        </fieldset>
+        <fieldset><legend>Colour</legend>
+          <p class="muted small fieldset-help">Pages for this class use this colour, so students in several classes can tell them apart.</p>
+          <div class="color-swatches">${CLASS_COLORS.map((c, i) => `<label class="swatch" style="--sw:${c.swatch}"><input type="radio" name="color" value="${c.id}" ${(cls?.color || 'blue') === c.id ? 'checked' : ''}><span>${c.label}</span></label>`).join('')}</div>
         </fieldset>
         <fieldset><legend>Roster</legend>
           ${!isNew ? `<p class="small">Current roster: <strong>${plural(studentsOf(current).length, 'student')}</strong>. Upload a new roster to replace it, or leave this empty to keep it.</p>` : ''}
@@ -107,6 +114,18 @@ async function editor(main, cls, exams, classes) {
   const updId = () => { if (idEl) idEl.textContent = classIdFrom(form.name.value) || '…'; };
   form.name.addEventListener('input', updId); updId();
   form.addEventListener('change', () => showErr(''));
+
+  const dates = { ...(cls?.examDates || {}) };
+  const datesEl = main.querySelector('[data-exam-dates]');
+  function paintDates() {
+    const picked = [...form.querySelectorAll('input[name=exam]:checked')].map((i) => exams.find((e) => e.id === i.value)).filter(Boolean);
+    datesEl.innerHTML = picked.map((e) => `<label class="exam-date-row"><span><strong>${esc(e.title)}</strong>${!dates[e.id] && e.examDate ? ` <span class="muted small">(question file says ${esc(e.examDate)})</span>` : ''}</span><input type="date" data-date="${esc(e.id)}" value="${esc(dates[e.id] || '')}" aria-label="Exam date for ${esc(e.title)}"></label>`).join('');
+  }
+  paintDates();
+  form.addEventListener('change', (ev) => {
+    if (ev.target.name === 'exam') paintDates();
+    if (ev.target.dataset.date) { if (ev.target.value) dates[ev.target.dataset.date] = ev.target.value; else delete dates[ev.target.dataset.date]; }
+  });
 
   const staffEl = main.querySelector('[data-staff]');
   function paintStaff() {
@@ -208,7 +227,9 @@ async function editor(main, cls, exams, classes) {
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const r = await cloud.saveClass({ id, name, course: exam0?.course || '', term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people });
+      const r = await cloud.saveClass({ id, name, course: exam0?.course || '', term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people,
+        color: form.querySelector('input[name=color]:checked')?.value || 'blue',
+        examDates: Object.fromEntries(Object.entries(dates).filter(([k]) => examIds.includes(k))) });
       await cloud.refreshAccess();
       toast(`${name} saved: ${plural(r.total, 'person', 'people')} on the roster${!isNew ? `, ${r.added} added, ${r.removed} removed` : ''}`, 'good');
       location.hash = '#/admin';

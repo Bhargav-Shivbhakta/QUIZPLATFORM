@@ -6,6 +6,13 @@ import * as store from '../store.js';
 import * as cloud from '../cloud.js';
 import { esc, icon, plural, confirmDialog } from '../ui.js';
 import { examCard, readinessFor, resumeBanner } from './home.js';
+import { studyPanel } from './nextup.js';
+import { announcementBanners, bindAnnouncements } from './announce.js';
+import { CLASS_COLORS } from '../colors.js';
+
+const swatch = (c) => (CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch;
+const withDate = (e, cls) => (e && cls.examDates?.[e.id] ? { ...e, examDate: cls.examDates[e.id] } : e);
+function daysTo(d) { if (!d) return null; const t = new Date(d + 'T00:00:00'); if (isNaN(t)) return null; const n = Math.ceil((t - new Date(new Date().toDateString())) / 86400000); return n >= 0 ? n : null; }
 
 export async function render(main, params = {}) {
   const manifest = await getManifest();
@@ -35,10 +42,11 @@ export async function render(main, params = {}) {
         ${classes.map((c) => {
           const exams = (c.exams || []).map((id) => byId.get(id)).filter(Boolean);
           return `
-          <a class="class-card" href="#/class/${encodeURIComponent(c.id)}">
+          <a class="class-card" style="--sw:${swatch(c)}" href="#/class/${encodeURIComponent(c.id)}">
             <span class="class-course">${esc(c.course || '')}${c.term ? ` · ${esc(c.term)}` : ''}</span>
             <span class="class-name">${esc(c.name)}</span>
             <span class="muted small">${exams.map((e) => esc(e.title)).join(' · ') || 'No exams yet'}</span>
+            ${(() => { const soon = exams.map((e) => ({ e, n: daysTo(c.examDates?.[e.id] || e.examDate) })).filter((x) => x.n != null).sort((a, b) => a.n - b.n)[0]; return soon ? `<span class="countdown-chip">${icon('clock')} ${esc(soon.e.title)} ${soon.n === 0 ? 'is today' : `in ${soon.n} day${soon.n === 1 ? '' : 's'}`}</span>` : ''; })()}
             <span class="class-foot">${cloud.isStaffRole(c.role) ? `<span class="tag role-tag">${c.role === 'ta' ? 'TA' : 'Instructor'}</span>` : c.section ? `<span class="tag">Section ${esc(c.section)}</span>` : ''}<span class="exam-card-go">Open</span></span>
           </a>`;
         }).join('')}
@@ -49,13 +57,13 @@ export async function render(main, params = {}) {
 }
 
 async function classPage(main, cls, byId, several) {
-  const exams = (cls.exams || []).map((id) => byId.get(id)).filter(Boolean);
+  const exams = (cls.exams || []).map((id) => withDate(byId.get(id), cls)).filter(Boolean);
   const current = exams.filter((e) => !e.archived);
   const past = exams.filter((e) => e.archived);
   const featured = current.find((e) => e.active) || current[0];
   const others = current.filter((e) => e !== featured);
-  const ready = await readinessFor(featured ? [featured.id] : []);
   const teacher = cloud.isStaffRole(cls.role);
+  const [ready, panel, ann] = await Promise.all([readinessFor(featured ? [featured.id] : []), featured && !teacher ? studyPanel(featured) : '', announcementBanners(cls.id, { staff: teacher })]);
   main.innerHTML = `
     <section class="page home class-home">
       ${several ? '<nav class="crumbs"><a href="#/">My classes</a></nav>' : ''}
@@ -67,12 +75,16 @@ async function classPage(main, cls, byId, several) {
         </div>
         ${teacher ? `<a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a>` : ''}
       </header>
-      ${resumeBanner()}
-      ${featured ? examCard(featured, { big: true, grouped: true, ready: ready.get(featured.id) }) : '<div class="empty-state"><p>No exams have been added to this class yet.</p></div>'}
+      ${ann}
+      ${panel && store.getSession()?.examId === featured?.id ? '' : resumeBanner()}
+      ${panel}
+      ${panel ? `<h2 class="section-title">Your exam${others.length ? 's' : ''}</h2>` : ''}
+      ${featured ? examCard(featured, { big: !panel, grouped: true, ready: ready.get(featured.id) }) : '<div class="empty-state"><p>No exams have been added to this class yet.</p></div>'}
       ${others.length ? `<h2 class="section-title">Also in this class</h2><div class="exam-grid">${others.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
       ${past.length ? `<h2 class="section-title">Past exams</h2><p class="muted section-sub">Still available for practice.</p><div class="exam-grid">${past.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
     </section>`;
   bindDiscard(main, () => classPage(main, cls, byId, several));
+  bindAnnouncements(main);
 }
 
 function notEnrolled(main) {

@@ -6,6 +6,7 @@ import { gradeQuestion, isAnswered, correctAnswerLabel, TYPE_LABELS } from '../p
 import { finishSession, recordAnswer, fmtDuration, EXAM_LIKE } from '../engine.js';
 import { toggleCalculator, closeCalculator } from '../calculator.js';
 import { go } from '../main.js';
+import { canReport, openReport } from '../report.js';
 
 const LETTERS = 'ABCDEFGHIJKLMNOP';
 
@@ -30,7 +31,7 @@ export async function render(main) {
   const instant = s.feedback === 'instant';
   const examLike = EXAM_LIKE.has(s.mode);
   const savedSet = new Set(store.getSaved(exam.id));
-  const N = s.questionIds.length;
+  let N = s.questionIds.length;
 
   main.innerHTML = `
     <div class="quiz ${instant ? 'instant' : 'end-mode'}">
@@ -135,7 +136,29 @@ export async function render(main) {
         <p class="verdict">${ok ? icon('check') + ' Correct' : icon('x') + ' Not quite'}</p>
         ${showAnswer && !ok ? `<p class="accepted">Correct answer: <strong>${md(correctAnswerLabel(qq), { inline: true })}</strong></p>` : ''}
         ${qq.explanation ? `<div class="explanation prose">${md(qq.explanation)}</div>` : ''}
+        ${!ok && !examLike && !s.similar?.[qq.id] && similarFor(qq) ? `<button class="btn small similar-btn" data-similar>${icon('shuffle')} Try a similar question</button>` : ''}
       </div>`;
+  }
+
+  // A question from the same topic that isn't in this quiz yet: new ones first, then ones missed before
+  function similarFor(qq) {
+    const stats = store.getStats(exam.id);
+    const inQuiz = new Set(s.questionIds);
+    const pool = exam.questions.filter((x) => x.topic === qq.topic && !inQuiz.has(x.id));
+    if (!pool.length) return null;
+    const rank = (x) => (!stats[x.id]?.seen ? 0 : stats[x.id]?.lastCorrect === false ? 1 : 2) + (x.difficulty === qq.difficulty ? 0 : 0.5) + Math.random() * 0.4;
+    return pool.sort((a, b) => rank(a) - rank(b))[0];
+  }
+  function addSimilar() {
+    const qq = q();
+    const next = similarFor(qq);
+    if (!next) return;
+    s.similar = { ...(s.similar || {}), [qq.id]: next.id };
+    s.questionIds.splice(s.current + 1, 0, next.id);
+    N = s.questionIds.length;
+    save();
+    goTo(s.current + 1);
+    toast('Added a similar question from ' + qq.topic);
   }
 
   function renderCard() {
@@ -154,6 +177,7 @@ export async function render(main) {
         <span class="qtools">
           <button class="tool ${s.flags[id] ? 'on' : ''}" data-flag aria-pressed="${!!s.flags[id]}" title="Flag for review (F)">${icon('flag')}<span>${s.flags[id] ? 'Flagged' : 'Flag'}</span></button>
           <button class="tool ${savedSet.has(id) ? 'on star' : ''}" data-save aria-pressed="${savedSet.has(id)}" title="Save to study later (S)">${icon('star')}<span>${savedSet.has(id) ? 'Saved' : 'Save'}</span></button>
+          ${!examLike && canReport(exam.id) ? `<button class="tool" data-report title="Report a problem with this question" aria-label="Report a problem with this question">${icon('report')}</button>` : ''}
         </span>
       </header>
       <div class="qtext prose">${md(qq.text)}</div>
@@ -372,6 +396,8 @@ export async function render(main) {
     if (t.dataset.jump !== undefined) return goTo(Number(t.dataset.jump));
     if ('flag' in t.dataset) return toggleFlag();
     if ('save' in t.dataset) return toggleSave();
+    if ('similar' in t.dataset) return addSimilar();
+    if ('report' in t.dataset) { const qq = q(); return openReport({ examId: exam.id, qid: qq.id, label: `Question ${qq.id}`, text: qq.text }); }
     if ('hint' in t.dataset) return showHint();
     if ('prev' in t.dataset) return goTo(s.current - 1);
     if ('next' in t.dataset) return next();
@@ -459,6 +485,22 @@ export async function render(main) {
 
   renderCard();
   paintTime();
+
+  // Phones: swipe left/right on the question to move between questions
+  let touch = null;
+  card.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1 || ev.target.closest('pre, .table-wrap, input, textarea')) { touch = null; return; }
+    touch = { x: ev.touches[0].clientX, y: ev.touches[0].clientY, t: Date.now() };
+  }, { passive: true });
+  card.addEventListener('touchend', (ev) => {
+    if (!touch) return;
+    const dx = ev.changedTouches[0].clientX - touch.x, dy = ev.changedTouches[0].clientY - touch.y;
+    const fast = Date.now() - touch.t < 600;
+    touch = null;
+    if (!fast || Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    if (dx < 0 && s.current < N - 1) goTo(s.current + 1);
+    else if (dx > 0 && s.current > 0) goTo(s.current - 1);
+  }, { passive: true });
 
   return () => {
     clearInterval(interval);

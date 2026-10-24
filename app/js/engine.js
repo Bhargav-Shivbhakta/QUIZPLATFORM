@@ -4,8 +4,8 @@ import * as store from './store.js';
 export const MODES = {
   topic:   { label: 'Topic practice',      feedback: 'instant', timer: false },
   bank:    { label: 'Full question bank',  feedback: 'instant', timer: false },
-  exam:    { label: 'Real exam',           feedback: 'end',     timer: true  },
-  mock:    { label: 'Mock exam',           feedback: 'end',     timer: true  },
+  exam:    { label: 'Timed practice test', feedback: 'end',     timer: true  },
+  mock:    { label: 'Random practice test', feedback: 'end',    timer: true  },
   custom:  { label: 'Custom exam',         feedback: 'end',     timer: true  },
   smart:   { label: 'Smart review',        feedback: 'instant', timer: false },
   mistakes:{ label: 'My mistakes',         feedback: 'instant', timer: false },

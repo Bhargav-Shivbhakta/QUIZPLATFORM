@@ -50,6 +50,8 @@ let syncError = '';
 export const whenReady = () => ready;
 export const currentUser = () => user;
 export const isAdmin = () => admin;
+// The class this exam belongs to for this person (first match), used for colours and exam dates
+export const classForExam = (examId) => myClasses().find((c) => (c.exams || []).includes(examId)) || null;
 export const myClasses = () => Object.entries(enrollment).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 export const isStaffRole = (role) => role === 'instructor' || role === 'ta';
 export const teachingClasses = () => myClasses().filter((c) => isStaffRole(c.role));
@@ -318,6 +320,8 @@ async function summaryFor(examId) {
     lastAnswer,
     asg: Object.fromEntries(Object.entries(asg).map(([slug, a]) => [slug, { best: a.best || 0, total: a.total || 0, done: !!a.done, attempts: a.attempts || 0, hints: a.hints || 0, updated: a.updated || 0 }])),
     asgDone: Object.values(asg).filter((a) => a.done).length,
+    // per question: [times right, times wrong, last answer right (1) or wrong (0)] for the dashboard's most-missed list
+    qs: Object.fromEntries(Object.entries(stats).filter(([, x]) => x.seen).map(([qid, x]) => [qid, [x.right || 0, x.wrong || 0, x.lastCorrect === false ? 0 : 1]])),
   };
   if (exam) {
     const r = readiness(exam, stats, attempts);
@@ -405,6 +409,52 @@ async function eraseAllCloud() {
   } catch (e) { console.error(e); }
 }
 
+// ---------------------------------------------------------------- announcements
+const annCache = new Map();
+export async function listAnnouncements(classId, { fresh = false } = {}) {
+  await load();
+  const hit = annCache.get(classId);
+  if (hit && !fresh && Date.now() - hit.at < 120000) return hit.list;
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'announcements'));
+  const today = new Date().toLocaleDateString('en-CA');
+  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+  annCache.set(classId, { at: Date.now(), list });
+  return list.map((a) => ({ ...a, expired: !!a.until && a.until < today }));
+}
+export async function postAnnouncement(classId, { text, until }) {
+  await load();
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId, 'announcements', id), { text: text.slice(0, 500), until: until || '', author: user.displayName || user.email, authorEmail: user.email.toLowerCase(), createdAt: Date.now() });
+  annCache.delete(classId);
+}
+export async function deleteAnnouncement(classId, id) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.delete(fb.doc(fb.db, 'classes', classId, 'announcements', id));
+  await b.commit();
+  annCache.delete(classId);
+}
+
+// ---------------------------------------------------------------- question reports
+export const canReport = (examId) => enabled && !!user && classesWithExam(examId).length > 0;
+export async function reportQuestion({ examId, qid, text, reason, note }) {
+  await load();
+  const c = classesWithExam(examId)[0];
+  if (!c) throw new Error('You need to be on a class roster to send reports.');
+  await fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'reports', `${user.uid}_${examId}_${qid}`.replace(/[\/]/g, '-')), {
+    ...who(), classId: c.id, examId, qid, text, reason, note: note.slice(0, 600), section: c.section || '', status: 'open', createdAt: Date.now(),
+  });
+}
+export async function classReports(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'reports'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+export async function setReportStatus(classId, id, status) {
+  await load();
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId, 'reports', id), { status, resolvedBy: user.email.toLowerCase(), resolvedAt: Date.now() }, { merge: true });
+}
+
 // ---------------------------------------------------------------- instructor reads
 export async function classSummaries(classId) {
   await load();
@@ -436,7 +486,7 @@ export async function listClasses() {
 
 // staff:    [{ name, email, role: 'instructor' | 'ta', sections: [] }]   (no sections = all sections)
 // students: [{ email, name, redId, section }]
-export async function saveClass({ id, name, course, term, exams, staff, students }) {
+export async function saveClass({ id, name, course, term, exams, staff, students, color = 'blue', examDates = {} }) {
   await load();
   const prevPeople = await getRoster(id).catch(() => []);
   const staffList = [];
@@ -448,13 +498,15 @@ export async function saveClass({ id, name, course, term, exams, staff, students
   const everyone = new Map();
   for (const p of students) if (!staffList.some((x) => x.email === p.email)) everyone.set(p.email, { ...p, role: 'student' });
   for (const s of staffList) everyone.set(s.email, { email: s.email, name: s.name, redId: '', section: s.sections.join(', '), sections: s.sections, role: s.role });
-  const info = { name, course: course || '', term: term || '', exams };
+  const info = { name, course: course || '', term: term || '', exams, color, examDates };
   const ops = [];
   ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, staff: staffList, instructors: staffList.map((x) => x.email), studentCount: [...everyone.values()].filter((p) => p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
   ops.push((b) => b.set(fb.doc(fb.db, 'rosters', id), { classId: id, people: [...everyone.values()], updatedAt: Date.now() }));
   for (const p of everyone.values()) {
     const entry = { ...info, role: p.role, section: p.section || '' };
     if (p.role !== 'student') entry.sections = p.sections || [];
+    // clear the old entry first so removed fields (like an exam date) really disappear
+    ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { classes: { [id]: fb.deleteField() } }, { merge: true }));
     ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { email: p.email, classes: { [id]: entry } }, { merge: true }));
   }
   const removed = prevPeople.filter((p) => !everyone.has(p.email));

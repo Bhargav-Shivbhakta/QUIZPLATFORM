@@ -14,7 +14,7 @@ export function render(main) {
         <div class="signin-card">
           <svg class="brand-mark big" viewBox="0 0 28 28" aria-hidden="true"><circle cx="9" cy="9" r="5.5"/><circle cx="19" cy="9" r="5.5" class="filled"/><circle cx="9" cy="19" r="5.5"/><circle cx="19" cy="19" r="5.5"/></svg>
           <h1>${esc(config.siteName)}</h1>
-          <p class="lead">Practice questions, real exams and programming assignments. Sign in with your ${esc(school)} account to start.</p>
+          <p class="lead">Practice questions, timed practice tests and programming assignments. Sign in with your ${esc(school)} account to start.</p>
           ${err ? `<p class="signin-error" role="alert">${icon('x')} <span>${esc(err)}</span></p>` : ''}
           <button class="btn big signin-btn" data-signin ${busy ? 'disabled' : ''}>${GOOGLE_G}<span>${busy ? 'Opening sign-in…' : `Sign in with your ${esc(school)} account`}</span></button>
           <p class="muted small">Use your <strong>@${esc(cloud.domain)}</strong> email. You'll sign in through your school's usual login page.</p>

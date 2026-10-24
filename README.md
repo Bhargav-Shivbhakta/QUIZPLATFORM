@@ -4,8 +4,8 @@ A free practice-exam website for your students. No logins, no database, no serve
 
 Students open a link and can:
 
-- **Take the real exam:** the actual exam questions in order, with a timer, scored at the end (answer choices are shuffled each time)
-- **Mock exam:** a fresh exam every time, drawn from the whole bank with the same length and topic mix as the real one
+- **Timed practice test:** the questions marked `on-exam`, in order, with a timer, scored at the end (answer choices are shuffled each time)
+- **Random practice test:** a fresh exam every time, drawn from the whole bank with the same length and topic mix as the real one
 - **Practice by topic,** run the **full question bank,** or build a **custom exam** (topics, difficulty, length, timer)
 - Use **smart review** (spaced repetition), **my mistakes**, **saved questions** and **flashcards**
 - **Browse** every question with search, answers and private notes
@@ -124,7 +124,7 @@ course: BIOL 101 · Fall 2026     # optional
 description: Covers chapters 5–8 # optional, shown on the home screen
 active: true                     # the exam students see first
 archived: false                  # true = listed under "Past exams"
-time_limit: 75                   # minutes for "Take the real exam"
+time_limit: 75                   # minutes for the "Timed practice test"
 pass_mark: 70                    # target score, in percent (optional)
 exam_date: 2026-11-18            # optional, shows a countdown
 ---
@@ -146,11 +146,11 @@ What is the base case in a recursive factorial?
 | `## Q1 · …` | Starts a question. `Q1` is its ID: any letters/numbers, unique within the file. **Keep IDs stable** so students' progress carries over when you edit. |
 | `single` `multi` `truefalse` `numeric` `text` | Question type. Optional: if left out it's guessed from the answers. |
 | `easy` `medium` `hard` | Difficulty (default `medium`). |
-| `on-exam` | Part of "Take the real exam", in file order. Mock exams copy the topic mix of these questions. If no question has it, the real exam uses every question. |
+| `on-exam` | Part of the "Timed practice test", in file order. Random practice tests copy the topic mix of these questions. If no question has it, the real exam uses every question. |
 | `2pts` | Worth 2 points (default 1). |
 | `- [ ]` / `- [x]` | Answer choices. `[x]` marks the correct one(s). |
 | `= answer` | Answer for true/false, numeric and fill-in questions. |
-| `> Hint:` | Optional hint (practice modes only, never in the real exam). |
+| `> Hint:` | Optional hint (practice modes only, never in the timed tests). |
 | `> Explanation:` | Shown after answering. More `>` lines continue it. |
 | `<!-- CHECK: note -->` | A note to yourself. Shows as a warning until you delete it. |
 
@@ -248,6 +248,14 @@ Write a program that prices one movie ticket. ...
 
 ---
 
+### Extras for students
+
+- **Try a similar question:** after a wrong answer in practice, one click adds another question from the same topic.
+- **Coding helpers:** **Format** fixes indentation (only spaces change, never the code), suggestions pop up while typing on a computer (type `sout` then Tab for `System.out.println();`, `fori` for a for loop), and after **Run** with a sample input the output is compared with the expected output line by line.
+- **Reading options** in Settings: an easier-reading font (Lexend, wider spacing) and a high-contrast theme.
+
+---
+
 ## 5. Checking and previewing on your computer (optional)
 
 This needs [Node.js](https://nodejs.org) 18 or newer.
@@ -267,7 +275,7 @@ You can also check a file without installing anything. On the live site, click *
 
 - **Progress and assignment code live in each browser.** Code is saved automatically as students type. Students who switch devices or clear their browser data lose it unless they use Export/Import in Settings. Private/incognito windows don't keep it after closing.
 - **Question IDs matter.** If you rename `Q7` to `Q8`, students' history for that question is treated as a new question. Changing the wording or answers is fine.
-- **The real exam timer** keeps counting across a page reload (time spent away from the tab is not counted). When it runs out, answers are submitted automatically.
+- **The timed test timer** keeps counting across a page reload (time spent away from the tab is not counted). When it runs out, answers are submitted automatically.
 - **No tracking, no analytics, no cookies.** The only outside request is loading the fonts from Google Fonts. To remove it, delete the two `fonts.googleapis.com` lines in `app/index.html`; the site falls back to system fonts.
 
 ---
@@ -306,6 +314,12 @@ The `apiKey` in `config.js` is meant to be public; it only identifies your Fireb
 6. Check the preview: the number of students, the emails (they must be the SDSU accounts students sign in with) and any skipped rows. Then click **Create class**.
 
 **Changing TAs or their sections later:** open the class, click **Edit / new roster**, change the Teaching staff rows and click **Save changes**. You don't need to paste the roster again.
+
+**Colour and exam dates:** each class has a colour (its pages use it, so students in several classes can tell them apart) and an optional date for each exam. Students then see "Midterm 2 in 5 days" on their class page. A date set here overrides any `exam_date` in the question file.
+
+**Announcements:** instructors open **Dashboard → Announcements**, type a message (for example "Exam room changed to GMCS 333"), optionally choose "Show until", and click **Post**. It appears at the top of every student's class page until it expires or is deleted; students can dismiss it on their device.
+
+**Question reports and most-missed questions:** students can flag a question they think is wrong or unclear (the flag icon on a question). Reports appear on the dashboard, where instructors mark them resolved. The dashboard also lists the questions most students currently get wrong, with a **View** button.
 
 **Adds and drops:** open the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
 

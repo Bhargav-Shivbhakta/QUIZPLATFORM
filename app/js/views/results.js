@@ -45,6 +45,8 @@ export async function render(main, { id, attempt: attemptId }, query) {
   // previous attempt of same mode for comparison
   const prev = store.getAttempts(exam.id).filter((x) => x.mode === a.mode && x.finishedAt < a.finishedAt).pop();
   const delta = prev ? Math.round((pct - prev.score.pct) * 10) / 10 : null;
+  const earlier = store.getAttempts(exam.id).filter((x) => x.mode === a.mode && x.finishedAt < a.finishedAt);
+  const best = earlier.length && a.score.count >= 5 && pct > Math.max(...earlier.map((x) => x.score.pct));
 
   let filter = query.filter || (wrongIds.length ? 'wrong' : 'all');
 
@@ -55,6 +57,7 @@ export async function render(main, { id, attempt: attemptId }, query) {
         ${ring(pct, { size: 148, stroke: 12, label: `${pct}%`, sub: `${a.score.correct} of ${a.score.count} right`, tone })}
         <div class="result-text">
           <h1>${esc(a.label)}</h1>
+          ${best || (delta != null && delta > 0) ? `<p class="result-badges">${best ? `<span class="pill good">${icon('star')} New personal best</span>` : ''}${delta > 0 ? `<span class="pill good">+${delta}% since last time</span>` : ''}</p>` : ''}
           <p class="muted">${esc(fmtDate(a.finishedAt))}${a.timedOut ? ' · Time ran out' : ''}</p>
           <dl class="facts-list">
             <div><dt>Score</dt><dd>${a.score.earned} / ${a.score.total} points</dd></div>

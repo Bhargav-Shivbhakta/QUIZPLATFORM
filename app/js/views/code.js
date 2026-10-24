@@ -6,6 +6,8 @@ import { md, highlight } from '../render.js';
 import { CodeJar } from '../../vendor/codejar.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
+import { formatJava } from '../java/format-code.js';
+import { attachSuggestions } from '../java/suggest.js';
 
 const humanize = (name) => {
   let s = name.replace(/^test\d*_?/i, '') || name;
@@ -85,6 +87,7 @@ export async function render(main, { id, slug }) {
           <div class="editor-head">
             <span class="file-tab">${icon('note')} ${esc(fileName)}</span>
             <span class="spacer"></span>
+            <button class="tool" data-format title="Fix the indentation (Shift+Alt+F)">${icon('code')}<span>Format</span></button>
             <button class="tool" data-reset title="Start over from the starter code">${icon('shuffle')}<span>Reset</span></button>
             <button class="tool" data-download title="Download ${esc(fileName)}">${icon('download')}<span>Download</span></button>
           </div>
@@ -104,7 +107,10 @@ export async function render(main, { id, slug }) {
               <textarea data-input rows="3" spellcheck="false" aria-label="Program input" placeholder="What the program reads, as if you typed it. For example: 30 Fri 19 n"></textarea>
               ${a.tests.some((t) => t.sample) ? `<div class="chip-row small">Load a sample: ${a.tests.filter((t) => t.sample).map((t) => `<button class="link-btn" data-load-input="${esc(t.name)}">${esc(humanize(t.name))}</button>`).join('')}</div>` : ''}
             </div>
-            <pre class="console-out" data-con-panel="output" data-output tabindex="0" hidden><span class="muted">Click Run to see what your program prints.</span></pre>
+            <div class="console-output" data-con-panel="output" hidden>
+              <pre class="console-out" data-output tabindex="0"><span class="muted">Click Run to see what your program prints.</span></pre>
+              <div class="compare" data-compare aria-live="polite"></div>
+            </div>
           </div>
         </section>
       </div>
@@ -150,6 +156,16 @@ export async function render(main, { id, slug }) {
     saveTimer = setTimeout(() => { store.saveCode(exam.id, a.slug, code); saved.textContent = 'Saved on this device'; }, 400);
   });
   saved.textContent = store.getCode(exam.id, a.slug) != null ? 'Saved on this device' : '';
+  const detachSuggest = attachSuggestions({ jar, editor: editorEl, host: $('[data-editor-wrap]') });
+  function formatCode() {
+    const before = jar.toString();
+    const after = formatJava(before);
+    if (after === before) { toast('Your code is already neatly indented'); return; }
+    const line = before.slice(0, jar.save().start).split('\n').length;
+    jar.updateCode(after);
+    goToLine(line);
+    toast('Indentation fixed. Only spaces changed, not your code.');
+  }
 
   function goToLine(line) {
     pane = 'code'; syncPane();
@@ -297,6 +313,7 @@ export async function render(main, { id, slug }) {
     pane = 'code'; syncPane();
     setConsole('output');
     out.innerHTML = '<span class="muted">Running…</span>';
+    $('[data-compare]').innerHTML = '';
     setBusy(true, 'Running…');
     const r = await runJava(jar.toString(), inputEl.value, { className: a.cls, fileName }).catch((err) => ({ crash: String(err.message || err) }));
     setBusy(false);
@@ -321,10 +338,29 @@ export async function render(main, { id, slug }) {
       + (r.stderr && !r.outputLimit ? `\n<span class="bad">${esc(r.stderr)}</span>` : '');
     out.scrollTop = 0;
     status.textContent = r.timedOut || r.outputLimit ? 'Stopped' : r.exception ? 'Crashed' : `Finished in ${r.ms ?? 0} ms`;
+    showCompare(r);
     if (r.exception && /NoSuchElementException/.test(r.exception.cls)) {
       out.innerHTML += '\n<span class="muted">Tip: your program tried to read more input than the Input box has.</span>';
     }
   }
+  // After Run: if the input is one of the sample tests, compare with its expected output
+  const words = (x) => normalizeOutput(x).split(/\s+/).filter(Boolean).join(' ');
+  function showCompare(r) {
+    const box = $('[data-compare]');
+    const sample = a.tests.find((t) => t.sample && words(t.input) === words(inputEl.value));
+    if (!sample) {
+      box.innerHTML = a.tests.some((t) => t.sample) ? '<p class="muted small">Tip: load a sample input (Input tab) and Run to compare your output with the expected output.</p>' : '';
+      return;
+    }
+    const d = diffLines(sample.output, r.stdout || '');
+    if (d.first < 0) { box.innerHTML = `<p class="compare-ok">${icon('check')} Matches the expected output for the sample "${esc(humanize(sample.name))}".</p>`; return; }
+    box.innerHTML = `<p class="compare-bad">${icon('x')} Different from the expected output for the sample "${esc(humanize(sample.name))}", first on line ${d.first + 1}.</p>
+      <div class="diff" role="table" aria-label="Expected and actual output">
+        <div class="diff-row diff-hd" role="row"><span role="columnheader">#</span><span role="columnheader">Expected</span><span role="columnheader">Your output</span></div>
+        ${d.rows.map((row) => `<div class="diff-row ${row.same ? '' : 'bad'} ${row.i === d.first ? 'first' : ''}" role="row"><span role="cell">${row.i + 1}</span><span role="cell">${row.ex === undefined ? '<em class="muted">(no line)</em>' : showWs(row.ex) || '&nbsp;'}</span><span role="cell">${row.ac === undefined ? '<em class="muted">(missing)</em>' : showWs(row.ac) || '&nbsp;'}</span></div>`).join('')}
+      </div>`;
+  }
+
   async function doTest() {
     if (busy) return;
     setBusy(true, 'Testing…');
@@ -369,6 +405,7 @@ export async function render(main, { id, slug }) {
       setTimeout(() => URL.revokeObjectURL(link.href), 2000);
       return;
     }
+    if ('format' in b.dataset) return formatCode();
     if ('reset' in b.dataset) {
       const ok = await confirmDialog({ title: 'Start over?', body: `<p>Your code will be replaced with the original starter code. Download it first if you want to keep a copy.</p>`, confirm: 'Reset code', danger: true });
       if (ok) { jar.updateCode(a.starter); code = a.starter; store.clearCode(exam.id, a.slug); paintGutter(); saved.textContent = ''; toast('Code reset to the starter'); }
@@ -379,6 +416,7 @@ export async function render(main, { id, slug }) {
     if (modalOpen()) return;
     const mod = ev.ctrlKey || ev.metaKey;
     if (mod && ev.key === 'Enter') { ev.preventDefault(); if (ev.shiftKey) doRun(); else doTest(); }
+    else if (ev.shiftKey && ev.altKey && (ev.code === 'KeyF')) { ev.preventDefault(); formatCode(); }
     else if (mod && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); store.saveCode(exam.id, a.slug, jar.toString()); saved.textContent = 'Saved on this device'; toast('Saved on this device'); }
   };
   document.addEventListener('keydown', onKey);
@@ -390,6 +428,7 @@ export async function render(main, { id, slug }) {
     store.saveCode(exam.id, a.slug, jar.toString());
     if (jar.toString() === a.starter) store.clearCode(exam.id, a.slug);
     document.removeEventListener('keydown', onKey);
+    detachSuggest();
     jar.destroy();
   };
 }

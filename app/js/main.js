@@ -1,8 +1,9 @@
 import config from '../config.js';
 import * as store from './store.js';
-import { esc, toast } from './ui.js';
+import { esc, toast, closeModal, icon } from './ui.js';
 import { closeCalculator } from './calculator.js';
 import * as cloud from './cloud.js';
+import { applyClassColor } from './colors.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
@@ -25,6 +26,9 @@ const routes = [
 ];
 
 let cleanup = null;
+const SKELETON = `<section class="page skeleton" aria-busy="true" aria-label="Loading">
+  <span class="sk sk-eyebrow"></span><span class="sk sk-title"></span><span class="sk sk-line"></span>
+  <span class="sk sk-block"></span><div class="sk-row"><span class="sk sk-card"></span><span class="sk sk-card"></span><span class="sk sk-card"></span></div></section>`;
 let renderToken = 0;
 
 export function go(hash) {
@@ -48,6 +52,7 @@ async function route() {
   const main = old.cloneNode(false);
   old.replaceWith(main);
   closeCalculator();
+  closeModal(); // a dialog never outlives the page it was opened on (e.g. after pressing Back)
   let r = routes.find((x) => x.re.test(path));
   if (cloud.enabled) {
     await cloud.whenReady();
@@ -73,6 +78,7 @@ async function route() {
     main.innerHTML = `<section class="page narrow empty-state"><h1>This exam isn't part of your classes</h1><p>You can only open exams from classes you're enrolled in.</p><a class="btn primary" href="#/">Go to my classes</a></section>`;
     return;
   }
+  const skTimer = setTimeout(() => { if (token === renderToken && !main.childElementCount) main.innerHTML = SKELETON; }, 120);
   try {
     const mod = await r.view();
     if (token !== renderToken) return;
@@ -80,6 +86,17 @@ async function route() {
     const result = await mod.render(main, params, query);
     if (token !== renderToken) { if (typeof result === 'function') result(); return; }
     cleanup = typeof result === 'function' ? result : null;
+    clearTimeout(skTimer);
+    main.querySelector('.skeleton')?.remove();
+    main.classList.add('page-in');
+    // pages that belong to one class take that class's colour
+    let cls = null;
+    if (cloud.enabled && cloud.currentUser()) {
+      const mine = cloud.myClasses();
+      cls = params.classId ? mine.find((x) => x.id === params.classId) : params.id ? cloud.classForExam(params.id) : (path === '/' || path === '') && mine.length === 1 ? mine[0] : null;
+    }
+    applyClassColor(cls?.color);
+    if (cloud.enabled && cloud.currentUser()) main.querySelectorAll('.crumbs a[href="#/"]').forEach((a) => { if (a.textContent.trim() === 'Exams') a.textContent = 'My classes'; });
     if (!query.keepScroll) window.scrollTo(0, 0);
     const h1 = main.querySelector('h1');
     document.title = (h1 ? h1.textContent.trim() + ' · ' : '') + config.siteName;
@@ -98,6 +115,14 @@ export function applyTheme() {
   const root = document.documentElement;
   if (s.theme === 'system') delete root.dataset.theme; else root.dataset.theme = s.theme;
   root.dataset.size = s.textSize;
+  root.dataset.font = s.readFont || 'standard';
+  root.dataset.contrast = s.contrast || 'normal';
+  if (s.readFont === 'easy' && !document.getElementById('font-easy')) {
+    const l = document.createElement('link');
+    l.id = 'font-easy'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap';
+    document.head.appendChild(l);
+  }
   const dark = s.theme === 'dark' || (s.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
   const l = document.getElementById('hl-light'), d = document.getElementById('hl-dark');
   if (l && d) { l.disabled = dark; d.disabled = !dark; }
@@ -110,7 +135,7 @@ function paintChrome() {
   const nav = document.querySelector('.topnav');
   nav.querySelector('[data-nav="instructor"]')?.remove();
   nav.querySelector('[data-nav="admin"]')?.remove();
-  nav.querySelector('.account-chip')?.remove();
+  document.querySelector('.topbar .account-chip')?.remove();
   if (cloud.isInstructor()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/instructor" data-nav="instructor">Instructor</a>');
   if (cloud.isAdmin()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/admin" data-nav="admin">Admin</a>');
   const home = nav.querySelector('[data-nav="home"]');
@@ -118,9 +143,17 @@ function paintChrome() {
   if (u) {
     const name = u.displayName || u.email;
     const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
-    nav.insertAdjacentHTML('beforeend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
+    nav.insertAdjacentHTML('afterend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
   }
   document.body.classList.toggle('signed-out', cloud.enabled && !u);
+  // phones: the same links as a bottom tab bar, within thumb reach
+  document.querySelector('.tabbar')?.remove();
+  const tabs = [...nav.querySelectorAll('a[data-nav]')].map((a) => {
+    const ic = { home: 'home', instructor: 'chart', admin: 'users', settings: 'settings', author: 'note' }[a.dataset.nav] || 'grid';
+    const label = { home: cloud.enabled && u ? 'Classes' : 'Exams', instructor: 'Dashboard' }[a.dataset.nav] || a.textContent;
+    return `<a href="${a.getAttribute('href')}" data-nav="${a.dataset.nav}">${icon(ic)}<span>${esc(label)}</span></a>`;
+  });
+  document.getElementById('main').insertAdjacentHTML('afterend', `<nav class="tabbar" aria-label="Main">${tabs.join('')}</nav>`);
   const cur = routes.find((x) => x.re.test(parseHash().path));
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === cur?.nav));
 }

@@ -59,6 +59,8 @@ const DEFAULT_SETTINGS = {
   subjects: null,         // courses the student picked; null = not chosen yet
   subjectsSeen: null,     // courses that existed when they last chose (to flag new ones)
   editorFont: 'm',        // code editor text size
+  readFont: 'standard',   // standard | easy (Lexend, wider spacing)
+  contrast: 'normal',     // normal | high
 };
 export function getSettings() { return { ...DEFAULT_SETTINGS, ...get('settings', {}) }; }
 export function saveSettings(patch) { const s = { ...getSettings(), ...patch }; set('settings', s); return s; }

@@ -41,8 +41,9 @@ export async function render(main, { id, mode }, query) {
     main.innerHTML = `
       <section class="page narrow setup">
         ${back}
-        <h1>${mock ? 'Take a mock exam' : 'Take the real exam'}</h1>
-        ${mock ? `<p class="lead">A new set of ${n} questions every time, picked from all ${exam.questions.length} with the same topic mix as the real exam.</p>` : ''}
+        <h1>${mock ? 'Random practice test' : 'Timed practice test'}</h1>
+        <p class="note practice-note">Practice only. Your score here is for you and doesn't count toward your grade.</p>
+        ${mock ? `<p class="lead">A new set of ${n} questions every time, picked from all ${exam.questions.length} with the same topic mix as the timed practice test.</p>` : ''}
         <div class="exam-rules">
           <dl class="facts-list">
             <div><dt>Questions</dt><dd>${n}${pts !== n ? ` (${pts} points)` : ''}</dd></div>
@@ -50,16 +51,16 @@ export async function render(main, { id, mode }, query) {
             ${exam.passMark ? `<div><dt>Target</dt><dd>${exam.passMark}%</dd></div>` : ''}
           </dl>
           <ul class="rules">
-            ${mock ? '<li>Questions are grouped by topic, like the real exam, but chosen at random.</li>' : '<li>Questions appear in the same order as the real exam. Answer choices are shuffled each time.</li>'}
-            <li>Topic and difficulty labels and hints are hidden, like on the real test.</li>
+            ${mock ? '<li>Questions are grouped by topic, like the timed practice test, but chosen at random.</li>' : '<li>The same questions in the same order every time. Answer choices are shuffled each time.</li>'}
+            <li>Topic and difficulty labels and hints are hidden, like on a real test.</li>
             <li>You won't see right or wrong answers until you submit.</li>
             <li>You can skip questions, flag them, and come back before submitting.</li>
             ${exam.timeLimit ? '<li>The timer can\'t be paused. When it runs out, your answers are submitted automatically.</li>' : ''}
             <li>If you close the tab, you can resume from the home screen. The timer keeps your used time.</li>
           </ul>
-          ${!qs.length && !mock ? '<p class="note">No questions are marked as being on the real exam, so this uses the whole bank.</p>' : ''}
+          ${!qs.length && !mock ? '<p class="note">No questions are marked for the timed practice test, so this uses the whole bank.</p>' : ''}
         </div>
-        <div class="row end setup-actions"><a class="btn" href="#/exam/${e}">Cancel</a><button class="btn primary big" data-start>Start ${mock ? 'mock exam' : 'exam'}</button></div>
+        <div class="row end setup-actions"><a class="btn" href="#/exam/${e}">Cancel</a><button class="btn primary big" data-start>Start ${mock ? 'random test' : 'timed test'}</button></div>
       </section>`;
     main.querySelector('[data-start]').onclick = () => startSession(exam, mode, {});
     return;
@@ -142,11 +143,11 @@ export async function render(main, { id, mode }, query) {
           <label class="field"><span>Timer</span>
             <select name="timer">
               <option value="off" ${mode !== 'custom' ? 'selected' : ''}>No time limit</option>
-              <option value="auto" ${mode === 'custom' ? 'selected' : ''}>Real-exam pace (${Math.round(perQ * 10) / 10} min per question)</option>
+              <option value="auto" ${mode === 'custom' ? 'selected' : ''}>Test pace (${Math.round(perQ * 10) / 10} min per question)</option>
               <option value="custom">Set minutes…</option>
             </select>
           </label>
-          <p class="muted small field-help" data-pace-help>${perQ ? `Real-exam pace gives you the same time per question as the real exam (${exam.timeLimit} minutes for ${exam.questions.filter((q) => q.onExam).length} questions), so a shorter quiz gets a shorter timer.` : ''}</p>
+          <p class="muted small field-help" data-pace-help>${perQ ? `Test pace gives you the same time per question as the timed practice test (${exam.timeLimit} minutes for ${exam.questions.filter((q) => q.onExam).length} questions), so a shorter quiz gets a shorter timer.` : ''}</p>
           <label class="field" data-minutes hidden><span>Minutes</span><input type="number" name="minutes" min="1" max="600" value="30"></label>` : ''}
         </fieldset>
         <fieldset>
@@ -206,7 +207,7 @@ export async function render(main, { id, mode }, query) {
       ? 'Pick at least one topic to start.'
       : n === 0
       ? 'No questions match. Choose more topics or difficulties.'
-      : `${plural(take, 'question')}${mode !== 'smart' && take < n ? ` (from ${n} matching)` : ''}${mins ? `, ${mins} minute${mins === 1 ? '' : 's'}${form.timer.value === 'auto' ? ' at real-exam pace' : ''}` : ', no time limit'}`;
+      : `${plural(take, 'question')}${mode !== 'smart' && take < n ? ` (from ${n} matching)` : ''}${mins ? `, ${mins} minute${mins === 1 ? '' : 's'}${form.timer.value === 'auto' ? ' at test pace' : ''}` : ', no time limit'}`;
     out.classList.toggle('bad', n === 0 && !noTopic);
     form.querySelector('[type="submit"]').disabled = n === 0;
     const minField = form.querySelector('[data-minutes]');

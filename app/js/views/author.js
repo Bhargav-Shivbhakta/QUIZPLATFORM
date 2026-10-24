@@ -52,7 +52,7 @@ export async function render(main) {
         <ul class="small">
           <li><strong>Types:</strong> single, multi, truefalse, numeric, text. If you leave it out, the type is guessed from the answers.</li>
           <li><strong>Difficulty:</strong> easy, medium (default), hard.</li>
-          <li><strong>on-exam</strong> puts the question in "Take the real exam", in file order.</li>
+          <li><strong>on-exam</strong> puts the question in the "Timed practice test", in file order.</li>
           <li><strong>2pts</strong> makes a question worth 2 points.</li>
           <li>Images: put them in the exam's <code>images/</code> folder and write <code>![description](images/file.png)</code>.</li>
           <li>Write <code>&lt;!-- CHECK: reason --&gt;</code> to leave yourself a note. It shows as a warning until you remove it.</li>
@@ -85,7 +85,7 @@ export async function render(main) {
     report.innerHTML = `
       <div class="report ${res.errors.length ? 'bad' : 'good'}">
         <h2>${res.errors.length ? `${plural(res.errors.length, 'problem')} to fix` : 'Ready to publish'}</h2>
-        <p><strong>${esc(res.meta.title)}</strong>: ${plural(res.questions.length, 'question')}, ${plural(res.topics.length, 'topic')}, ${res.questions.filter((q) => q.onExam).length} on the real exam${res.meta.timeLimit ? `, ${res.meta.timeLimit} minutes` : ''}.</p>
+        <p><strong>${esc(res.meta.title)}</strong>: ${plural(res.questions.length, 'question')}, ${plural(res.topics.length, 'topic')}, ${res.questions.filter((q) => q.onExam).length} in the timed practice test${res.meta.timeLimit ? `, ${res.meta.timeLimit} minutes` : ''}.</p>
         <p class="muted small">${Object.entries(counts).map(([t, n]) => `${n} ${TYPE_LABELS[t] ? TYPE_LABELS[t].toLowerCase() : t}`).join(' · ')}${noExpl ? ` · ${noExpl} without an explanation` : ''}</p>
         ${res.errors.length ? `<ul class="issues">${res.errors.map((x) => issue(x, 'err')).join('')}</ul>` : ''}
         ${res.warnings.length ? `<h3>${plural(res.warnings.length, 'warning')}</h3><ul class="issues">${res.warnings.map((x) => issue(x, 'warn')).join('')}</ul>` : ''}
