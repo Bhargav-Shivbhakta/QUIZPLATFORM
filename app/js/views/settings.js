@@ -3,6 +3,8 @@ import { getManifest } from '../data.js';
 import { esc, icon, toast, confirmDialog } from '../ui.js';
 import { applyTheme } from '../main.js';
 import { listCourses, chosenCourses, courseOptions, saveChoice } from './subjects.js';
+import * as cloud from '../cloud.js';
+import { fmtDate } from '../engine.js';
 
 export async function render(main) {
   const s = store.getSettings();
@@ -17,6 +19,18 @@ export async function render(main) {
   main.innerHTML = `
     <section class="page narrow settings">
       <h1>Settings</h1>
+      ${cloud.currentUser() ? `
+      <section class="account-box" aria-label="Your account">
+        <div class="account-who">
+          <strong>${esc(cloud.currentUser().displayName || cloud.currentUser().email)}</strong>
+          <span class="muted small">${esc(cloud.currentUser().email)}</span>
+          <span class="small sync-line" data-sync aria-live="polite"></span>
+        </div>
+        <div class="row">
+          <button class="btn" data-sync-now>${icon('upload')} Save now</button>
+          <button class="btn" data-signout>Sign out</button>
+        </div>
+      </section>` : ''}
       ${courses.length > 1 || (courses.length === 1 && courses[0].name) ? `
       <form class="setup-form" data-my-subjects id="subjects">
         <fieldset><legend>My classes</legend>
@@ -42,7 +56,9 @@ export async function render(main) {
       </form>
 
       <h2 class="section-title">Your data</h2>
-      <p class="muted">Everything is stored only in this browser on this device (about ${store.storageUsedKB()} KB). To study on another device, export here and import there. Clearing your browser data erases it.</p>
+      ${cloud.currentUser()
+        ? '<p class="muted">Your progress and assignment code are saved to your school account, so you can sign in on any device. Your instructor can see them. Reset and erase below also remove them from your account.</p>'
+        : `<p class="muted">Everything is stored only in this browser on this device (about ${store.storageUsedKB()} KB). To study on another device, export here and import there. Clearing your browser data erases it.</p>`}
       <div class="data-actions">
         <div class="data-row">
           <div><strong>Export progress</strong><span class="muted small">Downloads a small file with your scores, history, saved questions, notes and assignment code.</span></div>
@@ -58,11 +74,33 @@ export async function render(main) {
           <button class="btn danger-outline" data-reset="${esc(e.id)}" data-title="${esc(e.title)}">Reset</button>
         </div>`).join('')}
         <div class="data-row">
-          <div><strong>Erase everything</strong><span class="muted small">Removes all progress and settings from this browser.</span></div>
+          <div><strong>Erase everything</strong><span class="muted small">${cloud.currentUser() ? 'Removes all your progress and code from your account and this browser.' : 'Removes all progress and settings from this browser.'}</span></div>
           <button class="btn danger-outline" data-wipe>${icon('trash')} Erase</button>
         </div>
       </div>
     </section>`;
+
+  const syncEl = main.querySelector('[data-sync]');
+  const paintSync = () => {
+    if (!syncEl) return;
+    const st = cloud.syncState();
+    syncEl.className = 'small sync-line ' + (st.error ? 'bad' : 'good');
+    syncEl.textContent = st.error ? st.error
+      : st.pending ? 'Saving soon…'
+      : st.lastSynced ? `Saved to your account ${Date.now() - st.lastSynced < 60000 ? 'just now' : fmtDate(st.lastSynced)}` : 'Connected';
+  };
+  paintSync();
+  window.addEventListener('qp:sync', paintSync);
+  const syncTick = setInterval(paintSync, 30000);
+  main.querySelector('[data-sync-now]')?.addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    await cloud.flush();
+    ev.currentTarget.disabled = false;
+    toast(cloud.syncState().error ? cloud.syncState().error : 'Saved to your account', cloud.syncState().error ? 'bad' : 'good');
+  });
+  main.querySelector('[data-signout]')?.addEventListener('click', async () => {
+    if (await confirmDialog({ title: 'Sign out?', body: '<p>Your progress is saved to your account. It will be removed from this browser, so the next person using this device starts fresh.</p>', confirm: 'Sign out' })) await cloud.signOut();
+  });
 
   const subjForm = main.querySelector('[data-my-subjects]');
   subjForm?.addEventListener('change', (ev) => {
@@ -120,4 +158,5 @@ export async function render(main) {
       render(main);
     }
   };
+  return () => { window.removeEventListener('qp:sync', paintSync); clearInterval(syncTick); };
 }

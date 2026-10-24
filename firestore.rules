@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// Security rules for student sign-in. Paste this whole file into
+// Firebase console → Firestore Database → Rules, then click Publish.
+//
+// 1. Put your instructor email(s) in the list below (lowercase).
+// 2. Change sdsu[.]edu if your school uses a different email ending.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function instructors() {
+      return ['your-email@sdsu.edu'];
+    }
+
+    function schoolAccount() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@sdsu[.]edu$');
+    }
+    function isInstructor() {
+      return schoolAccount() && request.auth.token.email.lower() in instructors();
+    }
+    function isOwner(uid) {
+      return schoolAccount() && request.auth.uid == uid;
+    }
+    // Each document a student writes must be labelled with their own account.
+    function validWrite(uid) {
+      return request.resource.data.uid == uid
+        && request.resource.data.email == request.auth.token.email.lower();
+    }
+
+    // A student's own data: only they can write it; they and instructors can read it.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isInstructor();
+      allow create, update: if isOwner(uid) && validWrite(uid);
+      allow delete: if false;
+
+      match /{kind}/{examId} {
+        allow read: if isOwner(uid) || isInstructor();
+        allow create, update: if isOwner(uid) && validWrite(uid)
+          && kind in ['exams', 'summaries', 'code']
+          && request.resource.data.examId == examId;
+        allow delete: if false;
+      }
+    }
+
+    // The instructor dashboard lists every student's summary at once.
+    match /{path=**}/summaries/{examId} {
+      allow read: if isInstructor();
+    }
+
+    // The site checks this to decide whether to show the Instructor link.
+    match /instructors/{email} {
+      allow read: if isInstructor();
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

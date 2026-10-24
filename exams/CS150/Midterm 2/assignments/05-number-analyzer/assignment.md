@@ -16,7 +16,11 @@ Read integers until **0** is entered, then print statistics about them.
 - Every other value counts: track the count, sum, minimum, maximum and how many are even.
 
 ## Output
-If no values counted, print `No numbers entered`. Otherwise print:
+If no values counted, print this line (no period at the end):
+```
+No numbers entered
+```
+Otherwise print:
 ```
 Count: 4
 Sum: 54

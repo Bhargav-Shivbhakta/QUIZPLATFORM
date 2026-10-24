@@ -51,8 +51,8 @@ export async function render(main, { id }) {
       <div class="ready-panel">
         ${ring(ready.score, { size: 140, stroke: 12, label: ready.score + '%', sub: ready.label, tone: toneFor(ready.score / 100) })}
         <div>
-          <h2>Exam readiness</h2>
-          <p class="muted">Based on how well you know each question, how much of the bank you've covered${ready.parts.recent != null ? ', and your recent full-length scores' : ''}.</p>
+          <h2>Quiz readiness</h2>
+          <p class="muted">Based on how well you know each question, how much of the bank you've covered${ready.parts.recent != null ? ', and your recent full-length scores' : ''}.${exam.assignmentCount ? ` Programming assignments aren't part of this score; see them on the <a href="#/assignments/${encodeURIComponent(exam.id)}">assignments page</a>.` : ''}</p>
           <ul class="ready-parts">
             <li><span>Covered</span>${meter(ready.parts.coverage, { tone: toneFor(ready.parts.coverage) })}<span>${seen}/${exam.questions.length}</span></li>
             <li><span>Mastered</span>${meter(ready.parts.mastery, { tone: toneFor(ready.parts.mastery) })}<span>${Math.round(ready.parts.mastery * 100)}%</span></li>

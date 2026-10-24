@@ -26,10 +26,14 @@ Complete every method marked `TODO`, then write `main`. Keep the method headers 
 Print the menu once, then use a **do-while** loop to read orders until the item number is **0**:
 - invalid item number: print `Invalid item: X` (do **not** read a quantity)
 - valid item, invalid quantity: print `Invalid quantity: Q`
-- otherwise add to that item's count and print `Added Q x Name`. Ordering the same item twice adds up.
+- otherwise add to that item's count and print `Added Q x Name` (for example `Added 2 x Coffee`). Ordering the same item twice adds up.
 
 ## Receipt
-If nothing was ordered, print `No items ordered. Goodbye!`. Otherwise print each ordered item in menu order, then the totals. Tax is **7.75%** of (subtotal - discount).
+If nothing was ordered, print exactly:
+```
+No items ordered. Goodbye!
+```
+Otherwise print each ordered item in menu order, then the totals. Tax is **7.75%** of (subtotal - discount).
 ```
 --- Receipt ---
 Coffee x 2: $5.00

@@ -92,7 +92,7 @@ export async function render(main, params = {}) {
         ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
         ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best real exam ${best}%` : ''}</p>` : ''}
       </div>
-      ${big && readyMap.get(e.id) ? (() => { const r = readyMap.get(e.id); return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Readiness</span></div>`; })() : ''}
+      ${big && readyMap.get(e.id) ? (() => { const r = readyMap.get(e.id); return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
       <span class="exam-card-go">${big ? 'Start studying' : 'Open'}</span>
     </a>`;
   };

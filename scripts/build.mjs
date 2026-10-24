@@ -189,6 +189,15 @@ export function buildAll({ write = true, quiet = false } = {}) {
   copy('@highlightjs/cdn-assets/styles/github.min.css', 'hljs/light.css');
   copy('@highlightjs/cdn-assets/styles/github-dark.min.css', 'hljs/dark.css');
   copy('codejar/dist/codejar.js', 'codejar.js');
+  // Firebase (sign-in and saving progress to student accounts). The browser builds import each
+  // other from Google's CDN; point them at our own copies so the site loads nothing from outside.
+  fs.mkdirSync(path.join(vendor, 'firebase'), { recursive: true });
+  for (const f of ['firebase-app.js', 'firebase-auth.js', 'firebase-firestore-lite.js']) {
+    const src = path.join(NM, 'firebase', f);
+    if (!fs.existsSync(src)) throw new Error(`Missing firebase/${f}. Run "npm install" first.`);
+    const code = fs.readFileSync(src, 'utf8').replace(/https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/(firebase-[a-z-]+\.js)/g, './$1');
+    fs.writeFileSync(path.join(vendor, 'firebase', f), code);
+  }
 
   const dataDir = path.join(DIST, 'data');
   fs.mkdirSync(dataDir, { recursive: true });

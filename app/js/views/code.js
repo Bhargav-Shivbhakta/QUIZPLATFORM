@@ -211,6 +211,7 @@ export async function render(main, { id, slug }) {
           ${a.hints.slice(0, shown).map((h, i) => `<li class="prose"><span class="hint-n">Hint ${i + 1}</span>${md(h)}</li>`).join('')}
         </ol>
         ${shown < a.hints.length ? `<button class="btn small" data-more-hint>${icon('bulb')} ${shown ? 'Show the next hint' : 'Show a hint'} <span class="muted">(${shown + 1} of ${a.hints.length})</span></button>` : '<p class="muted small">That was the last hint.</p>'}` : ''}
+      <p class="muted small exact-note">Output must match character for character. Text in <code>code font</code> or in a grey box is exact; a period after it in a sentence is not part of the output.</p>
       <div class="asg-nav">
         ${nextA ? `<a class="btn" href="#/code/${e}/${nextA.slug}">Next: ${esc(nextA.title)} ${icon('right')}</a>` : `<a class="btn" href="#/assignments/${e}">All assignments</a>`}
       </div>`;

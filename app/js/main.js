@@ -2,6 +2,7 @@ import config from '../config.js';
 import * as store from './store.js';
 import { esc, toast } from './ui.js';
 import { closeCalculator } from './calculator.js';
+import * as cloud from './cloud.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
@@ -16,6 +17,7 @@ const routes = [
   { re: /^\/assignments\/([^/]+)$/, keys: ['id'], view: () => import('./views/assignments.js'), nav: 'home' },
   { re: /^\/code\/([^/]+)\/([^/]+)$/, keys: ['id', 'slug'], view: () => import('./views/code.js'), nav: 'home', focus: true },
   { re: /^\/subjects$/, view: () => import('./views/subjects.js'), nav: 'home' },
+  { re: /^\/instructor$/, view: () => import('./views/instructor.js'), nav: 'instructor' },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
 ];
@@ -44,7 +46,13 @@ async function route() {
   const main = old.cloneNode(false);
   old.replaceWith(main);
   closeCalculator();
-  const r = routes.find((x) => x.re.test(path));
+  let r = routes.find((x) => x.re.test(path));
+  if (cloud.enabled) {
+    await cloud.whenReady();
+    if (token !== renderToken) return;
+    // everything except the instructors' file checker needs a signed-in student
+    if (!cloud.currentUser() && path !== '/author') r = { re: /.*/, view: () => import('./views/signin.js'), nav: '' };
+  }
   document.body.classList.toggle('focus-mode', !!r?.focus);
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === r?.nav));
   if (!r) {
@@ -84,10 +92,34 @@ export function applyTheme() {
   if (l && d) { l.disabled = dark; d.disabled = !dark; }
 }
 
+function paintChrome() {
+  const foot = document.getElementById('sitefoot');
+  const u = cloud.currentUser();
+  foot.innerHTML = `<span>${esc(cloud.enabled ? config.signedInFooter || '' : config.footer)}</span><a href="#/author">For instructors: check a question file</a>`;
+  const nav = document.querySelector('.topnav');
+  nav.querySelector('[data-nav="instructor"]')?.remove();
+  nav.querySelector('.account-chip')?.remove();
+  if (cloud.isInstructor()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/instructor" data-nav="instructor">Instructor</a>');
+  if (u) {
+    const name = u.displayName || u.email;
+    const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
+    nav.insertAdjacentHTML('beforeend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
+  }
+  document.body.classList.toggle('signed-out', cloud.enabled && !u);
+  const cur = routes.find((x) => x.re.test(parseHash().path));
+  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === cur?.nav));
+}
+
 function init() {
   document.getElementById('site-name').textContent = config.siteName;
-  const foot = document.getElementById('sitefoot');
-  foot.innerHTML = `<span>${esc(config.footer)}</span><a href="#/author">For instructors: check a question file</a>`;
+  paintChrome();
+  let lastUid = null;
+  window.addEventListener('qp:auth', () => {
+    paintChrome();
+    const uid = cloud.currentUser()?.uid || null;
+    if (uid !== lastUid) { lastUid = uid; route(); }
+  });
+  cloud.init();
   applyTheme();
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
   window.addEventListener('hashchange', route);

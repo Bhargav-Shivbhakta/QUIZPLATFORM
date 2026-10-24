@@ -15,7 +15,12 @@ Students open a link and can:
 
 On their first visit, students **pick their classes** (for example CS150). The home page then shows only those classes; they can change this any time in **Settings → My classes**.
 
-**Privacy:** each student's progress is stored **only in their own browser**. Nothing is sent anywhere, so students can't see each other's data, and you don't see it either. Students can move progress between devices with **Settings → Export / Import**.
+**Two ways to run it:**
+
+- **Without sign-in (default):** each student's progress is stored only in their own browser. The details are below.
+- **With school sign-in (optional, free):** students sign in with their school Google account (for example `@sdsu.edu` only), their progress and assignment code follow them to any device, and you get an **Instructor dashboard** with every student's progress. See [Student sign-in](#7-student-sign-in-optional).
+
+**Privacy without sign-in:** each student's progress is stored **only in their own browser**. Nothing is sent anywhere, so students can't see each other's data, and you don't see it either. Students can move progress between devices with **Settings → Export / Import**.
 
 ---
 
@@ -264,3 +269,34 @@ You can also check a file without installing anything. On the live site, click *
 - **Question IDs matter.** If you rename `Q7` to `Q8`, students' history for that question is treated as a new question. Changing the wording or answers is fine.
 - **The real exam timer** keeps counting across a page reload (time spent away from the tab is not counted). When it runs out, answers are submitted automatically.
 - **No tracking, no analytics, no cookies.** The only outside request is loading the fonts from Google Fonts. To remove it, delete the two `fonts.googleapis.com` lines in `app/index.html`; the site falls back to system fonts.
+
+---
+
+## 7. Student sign-in (optional)
+
+With sign-in on:
+
+- Students must sign in with a school Google account. Only emails ending in `@sdsu.edu` are accepted (change `allowedEmailDomain` in `app/config.js` for another school). SDSU email is Google, so students go through the normal SDSUid login.
+- Each student's answers, scores, saved questions, notes and assignment code are saved to their account and appear on any device they sign in from. Signing out removes them from that browser, so shared lab computers are safe.
+- You get an **Instructor** page showing every student: last active, questions tried, accuracy, quiz readiness, best real-exam score, assignments completed, the class's weakest topics, and each student's assignment code. You can download it all as a CSV.
+- Students can only ever see their own data.
+
+It runs on Google Firebase's free plan, which needs no credit card. The free plan allows 50,000 sign-ins a month, 1 GB of data, and 20,000 saves and 50,000 reads a day. The site saves at most every 90 seconds while a student is active, and a few seconds after they finish a quiz or run assignment tests, so a class of 1,000 stays well inside that. If a daily limit were ever reached, saving pauses until the next day (progress stays safe in the browser) and you are never charged.
+
+### Setting it up (about 15 minutes, once)
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com), sign in with a Google account, and click **Create a project**. Name it (for example `cramming`). You can turn Google Analytics off.
+2. **Turn on Google sign-in:** in the left menu choose **Build → Authentication → Get started**. On the **Sign-in method** tab, click **Google**, switch it on, choose a support email and click **Save**.
+3. **Allow your website address:** still in Authentication, open the **Settings** tab → **Authorized domains** → **Add domain**. Add `www.cramming.net` and `cramming.net` (and `YOUR-NAME.github.io` if you still use that address).
+4. **Create the database:** **Build → Firestore Database → Create database**. Pick the **Standard** edition, a location near your students (for example `us-west2` for California), and **Start in production mode**.
+5. **Set the security rules:** open `firestore.rules` from this folder, replace `your-email@sdsu.edu` with your own email (add teaching assistants too, comma separated, all lowercase), and change `sdsu[.]edu` if your school is different. In Firestore, open the **Rules** tab, delete what's there, paste the whole file and click **Publish**. These rules are what keep each student's data private, so don't skip this step.
+6. **Connect the website:** click the gear icon → **Project settings**. Under **Your apps**, click the web icon `</>`, give it a nickname, and click **Register app** (you don't need Firebase Hosting). Copy the four values `apiKey`, `authDomain`, `projectId` and `appId` into the `firebase` section of `app/config.js`.
+7. Push the change to GitHub. Once the site has republished, open it, sign in with your SDSU account, and you'll see an **Instructor** link at the top.
+
+The `apiKey` in `config.js` is meant to be public; it only identifies your Firebase project. What protects the data is the rules from step 5.
+
+**Adding or removing an instructor:** edit the list in the rules (step 5) and click **Publish** again.
+
+**Turning sign-in off again:** empty the `apiKey` value in `app/config.js` and push. The site goes back to saving in each browser.
+
+**Before collecting student data,** check your department's rules. Scores linked to student names are student records (FERPA in the US). The sign-in page tells students that their instructor can see their progress and code.

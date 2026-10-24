@@ -70,7 +70,7 @@ export async function render(main, params = {}, query = {}) {
   main.innerHTML = `
     <section class="page narrow subject-picker">
       ${first ? `<p class="eyebrow">Welcome to ${esc(config.siteName)}</p>` : '<nav class="crumbs"><a href="#/">Home</a></nav>'}
-      <h1>Which ${courses.length > 1 ? 'classes are' : 'class is'} you studying for?</h1>
+      <h1>Which ${courses.length > 1 ? 'classes' : 'class'} are you studying for?</h1>
       <p class="lead">${courses.length > 1 ? 'Pick one or more. Your home page will only show these.' : 'Select your class to get started.'} You can change this any time in Settings.</p>
       <form data-subjects>
         <fieldset class="subject-grid">

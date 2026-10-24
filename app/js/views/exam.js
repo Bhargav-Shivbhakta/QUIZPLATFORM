@@ -32,9 +32,9 @@ export async function render(main, { id }) {
           <h1>${esc(exam.title)}</h1>
           <p class="muted">${plural(exam.questions.length, 'question')} across ${plural(exam.topics.length, 'topic')}${exam.preview ? ' · Preview from your file' : ''}</p>
         </div>
-        <a class="hub-ready" href="#/progress/${e}" aria-label="Readiness ${ready.score}%. See progress">
+        <a class="hub-ready" href="#/progress/${e}" aria-label="Quiz readiness ${ready.score}%. See progress">
           ${ring(ready.score, { size: 96, stroke: 9, label: ready.score + '%', tone: toneFor(ready.score / 100) })}
-          <span><strong>${esc(ready.label)}</strong><span class="muted">See my progress</span></span>
+          <span><span class="muted small">Quiz readiness</span><strong>${esc(ready.label)}</strong><span class="muted">See my progress</span></span>
         </a>
       </header>
 

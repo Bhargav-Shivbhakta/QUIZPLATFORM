@@ -142,10 +142,11 @@ export async function render(main, { id, mode }, query) {
           <label class="field"><span>Timer</span>
             <select name="timer">
               <option value="off" ${mode !== 'custom' ? 'selected' : ''}>No time limit</option>
-              <option value="auto" ${mode === 'custom' ? 'selected' : ''}>Exam pace (about ${Math.round(perQ * 10) / 10} min per question)</option>
+              <option value="auto" ${mode === 'custom' ? 'selected' : ''}>Real-exam pace (${Math.round(perQ * 10) / 10} min per question)</option>
               <option value="custom">Set minutes…</option>
             </select>
           </label>
+          <p class="muted small field-help" data-pace-help>${perQ ? `Real-exam pace gives you the same time per question as the real exam (${exam.timeLimit} minutes for ${exam.questions.filter((q) => q.onExam).length} questions), so a shorter quiz gets a shorter timer.` : ''}</p>
           <label class="field" data-minutes hidden><span>Minutes</span><input type="number" name="minutes" min="1" max="600" value="30"></label>` : ''}
         </fieldset>
         <fieldset>
@@ -205,11 +206,13 @@ export async function render(main, { id, mode }, query) {
       ? 'Pick at least one topic to start.'
       : n === 0
       ? 'No questions match. Choose more topics or difficulties.'
-      : `${plural(take, 'question')}${mode !== 'smart' && take < n ? ` (from ${n} matching)` : ''}${mins ? `, ${mins} minutes` : ''}`;
+      : `${plural(take, 'question')}${mode !== 'smart' && take < n ? ` (from ${n} matching)` : ''}${mins ? `, ${mins} minute${mins === 1 ? '' : 's'}${form.timer.value === 'auto' ? ' at real-exam pace' : ''}` : ', no time limit'}`;
     out.classList.toggle('bad', n === 0 && !noTopic);
     form.querySelector('[type="submit"]').disabled = n === 0;
     const minField = form.querySelector('[data-minutes]');
     if (minField) minField.hidden = form.timer.value !== 'custom';
+    const paceHelp = form.querySelector('[data-pace-help]');
+    if (paceHelp) paceHelp.hidden = form.timer.value !== 'auto';
   };
   form.addEventListener('change', update);
   form.addEventListener('input', update);

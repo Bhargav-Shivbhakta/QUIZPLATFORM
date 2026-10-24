@@ -1,5 +1,6 @@
 // Everything a student does is saved in their own browser (localStorage).
-// Nothing is ever sent anywhere.
+// When student sign-in is on, cloud.js listens for 'qp:changed' events and
+// copies the changes to the student's account.
 
 const PREFIX = 'qp1:';
 let memoryFallback = {};
@@ -17,7 +18,13 @@ export const storageAvailable = () => storageOk;
 function rawGet(key) {
   try { return storageOk ? localStorage.getItem(PREFIX + key) : memoryFallback[key] ?? null; } catch { return null; }
 }
+let quiet = 0;
+// Run fn without announcing changes (used when copying data down from the cloud)
+export function quietly(fn) { quiet++; try { return fn(); } finally { quiet--; } }
+const changed = (key) => { if (!quiet) window.dispatchEvent(new CustomEvent('qp:changed', { detail: key })); };
+
 function rawSet(key, value) {
+  changed(key);
   try {
     if (storageOk) localStorage.setItem(PREFIX + key, value);
     else memoryFallback[key] = value;
@@ -29,6 +36,7 @@ function rawSet(key, value) {
   }
 }
 function rawRemove(key) {
+  changed(key);
   try { if (storageOk) localStorage.removeItem(PREFIX + key); else delete memoryFallback[key]; } catch {}
 }
 
@@ -203,6 +211,7 @@ export function resetExam(examId) {
   }
   const s = getSession();
   if (s && s.examId === examId) clearSession();
+  window.dispatchEvent(new CustomEvent('qp:reset-exam', { detail: examId }));
 }
 
 export function resetEverything() {
@@ -215,7 +224,19 @@ export function resetEverything() {
     keys.forEach((k) => localStorage.removeItem(k));
   }
   memoryFallback = {};
+  window.dispatchEvent(new CustomEvent('qp:erase-all'));
 }
+
+// All keys currently stored (without the prefix)
+export function allKeys() {
+  if (!storageOk) return Object.keys(memoryFallback);
+  const out = [];
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(PREFIX)) out.push(k.slice(PREFIX.length)); }
+  return out;
+}
+export const getRaw = (key) => rawGet(key);
+export const setRaw = (key, value) => rawSet(key, value);
+export const removeRaw = (key) => rawRemove(key);
 
 export function storageUsedKB() {
   let n = 0;

@@ -5,11 +5,11 @@ import { esc, icon, meter, plural } from '../ui.js';
 export function statusOf(a, prog, examId) {
   const p = prog[a.slug];
   const total = a.tests.length + a.checks.length;
-  if (p?.done) return { key: 'done', label: 'Completed', detail: `${total} of ${total} passed` };
-  if (p?.attempts) return { key: 'progress', label: 'In progress', detail: `${p.best} of ${total} passed` };
+  if (p?.done) return { key: 'done', label: 'Completed', detail: `All ${total} checks passed` };
+  if (p?.attempts) return { key: 'progress', label: 'In progress', detail: `${p.best} of ${total} checks passed` };
   const code = store.getCode(examId, a.slug);
   if (code != null && code !== a.starter) return { key: 'progress', label: 'Started', detail: 'Not tested yet' };
-  return { key: 'new', label: 'Not started', detail: plural(a.tests.length, 'test') };
+  return { key: 'new', label: 'Not started', detail: a.checks.length ? `${plural(a.tests.length, 'test')} + ${plural(a.checks.length, 'code requirement')}` : plural(a.tests.length, 'test') };
 }
 
 export async function render(main, { id }) {
