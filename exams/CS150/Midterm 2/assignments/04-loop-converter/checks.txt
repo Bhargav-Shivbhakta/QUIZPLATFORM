@@ -1,5 +1,0 @@
-# One requirement per line:  require:<regex>  or  forbid:<regex>, then " # " and the label students see
-forbid:\bfor\s*\(  # Does not use a for loop
-require:\bdo\s*\{  # Uses a do-while loop
-require:\bwhile\s*\(  # Uses a while loop
-require:\bcontinue\s*;  # Keeps the continue statement

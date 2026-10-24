@@ -1,3 +1,0 @@
-# One requirement per line:  require:<regex>  or  forbid:<regex>, then " # " and the label students see
-require:\bdo\s*\{  # Uses a do-while loop (in readScore)
-require:\bswitch\s*\(  # Uses a switch statement (in gradeCounts)

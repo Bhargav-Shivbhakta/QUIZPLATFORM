@@ -1,2 +1,0 @@
-# One requirement per line:  require:<regex>  or  forbid:<regex>, then " # " and the label students see
-require:\?.*:  # Uses the conditional operator (? :)

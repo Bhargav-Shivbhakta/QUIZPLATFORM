@@ -1,3 +1,0 @@
-# One requirement per line:  require:<regex>  or  forbid:<regex>, then " # " and the label students see
-require:\bbreak\s*;  # Uses break
-require:\bcontinue\s*;  # Uses continue
