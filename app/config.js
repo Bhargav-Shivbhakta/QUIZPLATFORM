@@ -11,10 +11,10 @@ export default {
   // Leave apiKey empty to run without sign-in. To turn sign-in on, follow
   // "Student sign-in" in README.md and paste the values from your Firebase project here.
   firebase: {
-    apiKey: '',
-    authDomain: '',     // e.g. 'cramming-abc12.firebaseapp.com'
-    projectId: '',      // e.g. 'cramming-abc12'
-    appId: '',
+    apiKey: 'AIzaSyAiPB9tlNskI7CmDUPndQsRL-huqMBlm1k',
+    authDomain: 'cramming-a5962.firebaseapp.com',     // e.g. 'cramming-abc12.firebaseapp.com'
+    projectId: 'cramming-a5962',      // e.g. 'cramming-abc12'
+    appId: '1:795803451120:web:d1171e150451535f68cc35',
   },
   // Only accounts with this email ending can sign in (also enforced by firestore.rules)
   allowedEmailDomain: 'sdsu.edu',
