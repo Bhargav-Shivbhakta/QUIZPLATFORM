@@ -302,7 +302,10 @@ The `apiKey` in `config.js` is meant to be public; it only identifies your Fireb
 2. **Class name:** for example `CS150 Fall 2026`. **Term:** `Fall 2026`.
 3. Tick the **exams** that belong to this class (the folders under `exams/`).
 4. **Roster:** in Canvas, open the course's **People** page, scroll to the bottom so everyone is loaded, select the whole table (from the "Name" heading to the last student), copy, and paste it into the box. A CSV file works too, such as a Gradebook export. The site reads the Name, Login ID (or Email), SIS ID (RedID), Section and Role columns. Teachers and TAs become instructors; observers are left out.
-5. Check the preview: the number of students, the emails (they must be the SDSU accounts students sign in with) and any skipped rows. Then click **Create class**.
+5. **Teaching staff:** Teachers and TAs found in the roster are listed automatically. For each person you can edit the name and email, set the role (**Instructor** or **TA**), and for TAs tick the sections they look after. A TA's dashboard shows only those sections (tick none to show them the whole class). Click **Add an instructor or TA** for anyone not in the Canvas roster.
+6. Check the preview: the number of students, the emails (they must be the SDSU accounts students sign in with) and any skipped rows. Then click **Create class**.
+
+**Changing TAs or their sections later:** open the class, click **Edit / new roster**, change the Teaching staff rows and click **Save changes**. You don't need to paste the roster again.
 
 **Adds and drops:** open the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
 

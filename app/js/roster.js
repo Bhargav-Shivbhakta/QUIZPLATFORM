@@ -74,13 +74,13 @@ export function parseRoster(text, domain = 'sdsu.edu') {
       name: /^[^,]+,\s*[^,]+$/.test(name) && /student|sortable/i.test(rows[hi].cells[cols.name]) ? name.split(',').reverse().map((x) => x.trim()).join(' ') : name, // "Doe, Jane" -> "Jane Doe"
       redId: get('redId').replace(/\D/g, '') || get('redId'),
       section: get('section'),
-      role: /teacher|instructor|\bta\b|teaching assistant/i.test(role) ? 'instructor' : 'student',
+      role: /\bta\b|teaching assistant/i.test(role) ? 'ta' : /teacher|instructor/i.test(role) ? 'instructor' : 'student',
     };
     const prev = byEmail.get(email);
     if (prev) {
-      // same person listed twice (e.g. two sections): keep one row, join sections, instructor wins
+      // same person listed twice (e.g. two sections): keep one row, join sections, staff role wins
       if (person.section && !prev.section.split(', ').includes(person.section)) prev.section = [prev.section, person.section].filter(Boolean).join(', ');
-      if (person.role === 'instructor') prev.role = 'instructor';
+      if (person.role !== 'student' && (prev.role === 'student' || person.role === 'instructor')) prev.role = person.role;
       continue;
     }
     byEmail.set(email, person);

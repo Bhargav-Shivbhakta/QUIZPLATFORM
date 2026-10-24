@@ -74,7 +74,14 @@ export async function render(main, params = {}, query = {}) {
     main.querySelector('[data-exam]').innerHTML = examsOf().map((e) => `<option value="${esc(e.id)}" ${e.id === examId ? 'selected' : ''}>${esc(e.title)}</option>`).join('') || '<option>No exams</option>';
   };
   fillExams();
-  const inSection = (r) => !section || (r.section || '').split(', ').includes(section);
+  // TAs only see the sections the admin assigned them (instructors and admins see everything)
+  const mySections = () => { const c = cls(); return !cloud.isAdmin() && c.role === 'ta' && (c.sections || []).length ? c.sections : null; };
+  const inSection = (r) => {
+    const secs = (r.section || '').split(', ').filter(Boolean);
+    const allowed = mySections();
+    if (allowed && !secs.some((x) => allowed.includes(x))) return false;
+    return !section || secs.includes(section);
+  };
   const started = () => rows.filter((r) => !r.never && inSection(r));
   const enrolled = () => rows.filter((r) => !r.dropped && inSection(r));
 
@@ -85,7 +92,7 @@ export async function render(main, params = {}, query = {}) {
       let sums;
       [sums, roster, asgList] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), getAssignments(examId).catch(() => [])]);
       sums = sums.filter((x) => x.examId === examId);
-      const students = roster.filter((p) => p.role !== 'instructor');
+      const students = roster.filter((p) => !p.role || p.role === 'student');
       const byEmail = new Map(students.map((p) => [p.email, p]));
       rows = sums.map((x) => { const p = byEmail.get(x.email); return { ...x, name: p?.name || x.name, redId: p?.redId || '', section: p?.section || x.section || '', dropped: !p }; });
       const have = new Set(rows.map((r) => r.email));
@@ -196,8 +203,10 @@ export async function render(main, params = {}, query = {}) {
   }
 
   function paint() {
-    const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].sort();
-    const sectionPicker = sections.length > 1 ? `<label class="field inline section-pick"><span>Section</span><select data-section><option value="">All sections</option>${sections.map((x) => `<option ${x === section ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>` : '';
+    const allowed = mySections();
+    const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort();
+    const taNote = allowed ? `<p class="ta-note">${icon('note')}<span>You're a TA for ${allowed.length > 1 ? 'sections' : 'section'} <strong>${allowed.map(esc).join(', ')}</strong>, so you see those students only.</span></p>` : '';
+    const sectionPicker = taNote + (sections.length > 1 ? `<label class="field inline section-pick"><span>Section</span><select data-section><option value="">${allowed ? 'All my sections' : 'All sections'}</option>${sections.map((x) => `<option ${x === section ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>` : '');
     if (!rows.length) {
       body.innerHTML = `<div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`;
       return;

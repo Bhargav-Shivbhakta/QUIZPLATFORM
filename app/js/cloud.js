@@ -9,7 +9,7 @@
 //
 // Firestore layout (see firestore.rules):
 //   admins/{email}                          exists only to test "am I an admin?" (the list lives in the rules)
-//   classes/{classId}                       name, course, term, exams[], instructors[], counts
+//   classes/{classId}                       name, course, term, exams[], staff[] (name, email, role, sections), instructors[] (staff emails)
 //   classes/{classId}/summaries/{uid_exam}  one student's summary for one exam (instructors read these)
 //   classes/{classId}/code/{uid_exam}       one student's assignment code for one exam
 //   rosters/{classId}                       the uploaded roster (admin and the class's instructors only)
@@ -51,7 +51,8 @@ export const whenReady = () => ready;
 export const currentUser = () => user;
 export const isAdmin = () => admin;
 export const myClasses = () => Object.entries(enrollment).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-export const teachingClasses = () => myClasses().filter((c) => c.role === 'instructor');
+export const isStaffRole = (role) => role === 'instructor' || role === 'ta';
+export const teachingClasses = () => myClasses().filter((c) => isStaffRole(c.role));
 export const isInstructor = () => admin || teachingClasses().length > 0;
 export const isEnrolled = () => admin || myClasses().length > 0;
 // Exams this person may open: those of their classes (admins see everything)
@@ -329,7 +330,7 @@ async function summaryFor(examId) {
 }
 
 // The student's classes that include this exam (instructors' own practice isn't reported)
-const classesWithExam = (examId) => myClasses().filter((c) => c.role !== 'instructor' && (c.exams || []).includes(examId));
+const classesWithExam = (examId) => myClasses().filter((c) => !isStaffRole(c.role) && (c.exams || []).includes(examId));
 
 const who = () => ({ uid: user.uid, email: user.email.toLowerCase(), name: user.displayName || user.email.split('@')[0] });
 
@@ -433,20 +434,28 @@ export async function listClasses() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 }
 
-// people: [{ email, name, redId, section, role: 'student' | 'instructor' }]
-export async function saveClass({ id, name, course, term, exams, instructors, people }) {
+// staff:    [{ name, email, role: 'instructor' | 'ta', sections: [] }]   (no sections = all sections)
+// students: [{ email, name, redId, section }]
+export async function saveClass({ id, name, course, term, exams, staff, students }) {
   await load();
   const prevPeople = await getRoster(id).catch(() => []);
-  const staff = [...new Set([...instructors, ...people.filter((p) => p.role === 'instructor').map((p) => p.email)].map((e) => e.toLowerCase()))];
+  const staffList = [];
+  for (const s of staff) {
+    const email = s.email.trim().toLowerCase();
+    if (!email || staffList.some((x) => x.email === email)) continue;
+    staffList.push({ name: (s.name || '').trim(), email, role: s.role === 'ta' ? 'ta' : 'instructor', sections: s.role === 'ta' ? [...new Set(s.sections || [])] : [] });
+  }
   const everyone = new Map();
-  for (const p of people) everyone.set(p.email, p);
-  for (const e of staff) everyone.set(e, { ...(everyone.get(e) || { email: e, name: '', redId: '', section: '' }), role: 'instructor' });
+  for (const p of students) if (!staffList.some((x) => x.email === p.email)) everyone.set(p.email, { ...p, role: 'student' });
+  for (const s of staffList) everyone.set(s.email, { email: s.email, name: s.name, redId: '', section: s.sections.join(', '), sections: s.sections, role: s.role });
   const info = { name, course: course || '', term: term || '', exams };
   const ops = [];
-  ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, instructors: staff, studentCount: people.filter((p) => p.role !== 'instructor').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
+  ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, staff: staffList, instructors: staffList.map((x) => x.email), studentCount: [...everyone.values()].filter((p) => p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
   ops.push((b) => b.set(fb.doc(fb.db, 'rosters', id), { classId: id, people: [...everyone.values()], updatedAt: Date.now() }));
   for (const p of everyone.values()) {
-    ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { email: p.email, classes: { [id]: { ...info, role: p.role, section: p.section || '' } } }, { merge: true }));
+    const entry = { ...info, role: p.role, section: p.section || '' };
+    if (p.role !== 'student') entry.sections = p.sections || [];
+    ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { email: p.email, classes: { [id]: entry } }, { merge: true }));
   }
   const removed = prevPeople.filter((p) => !everyone.has(p.email));
   for (const p of removed) ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { classes: { [id]: fb.deleteField() } }, { merge: true }));

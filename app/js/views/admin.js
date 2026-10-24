@@ -39,7 +39,7 @@ export async function render(main, params = {}, query = {}) {
               <h2>${esc(c.name)}</h2>
               <p class="muted small">${esc([c.course, c.term].filter(Boolean).join(' · '))}${c.updatedAt ? ` · roster updated ${esc(fmtDate(c.updatedAt))}` : ''}</p>
               <p><strong>${plural(c.studentCount || 0, 'student')}</strong> · ${(c.exams || []).map((id) => esc(examTitle(id))).join(', ') || '<span class="bad">no exams chosen</span>'}</p>
-              <p class="muted small">Instructors: ${(c.instructors || []).map(esc).join(', ') || 'none'}</p>
+              <p class="muted small">Teaching staff: ${(c.staff || (c.instructors || []).map((email) => ({ email, role: 'instructor', sections: [] }))).map((x) => `${esc(x.name || x.email)} (${x.role === 'ta' ? 'TA' : 'instructor'}${x.sections?.length ? ' · ' + x.sections.map(esc).join(', ') : ''})`).join(', ') || 'none'}</p>
             </div>
             <div class="row">
               <a class="btn" href="#/instructor?class=${encodeURIComponent(c.id)}">${icon('grid')} Dashboard</a>
@@ -63,6 +63,11 @@ async function editor(main, cls, exams, classes) {
   let current = [];
   if (!isNew) { try { current = await cloud.getRoster(cls.id); } catch {} }
   let parsed = null;
+  const studentsOf = (list) => list.filter((p) => !p.role || p.role === 'student');
+  const staffFromRoster = (p) => ({ name: p.name || '', email: p.email, role: p.role === 'ta' ? 'ta' : 'instructor', sections: p.role !== 'ta' ? [] : p.sections || (p.section ? p.section.split(', ').filter(Boolean) : []) });
+  let staff = cls?.staff ? cls.staff.map((x) => ({ ...x, sections: [...(x.sections || [])] }))
+    : (cls?.instructors || []).map((email) => { const p = current.find((q) => q.email === email); return p ? staffFromRoster(p) : { name: '', email, role: 'instructor', sections: [] }; });
+  const sectionPool = () => [...new Set([...studentsOf(parsed && !parsed.error ? parsed.people : current).flatMap((p) => (p.section || '').split(', ').filter(Boolean)), ...staff.flatMap((x) => x.sections)])].sort();
   const courses = [...new Set(exams.map((e) => e.course || ''))];
   main.innerHTML = `
     <section class="page narrow admin-edit">
@@ -78,16 +83,17 @@ async function editor(main, cls, exams, classes) {
           ${courses.map((c) => `<p class="muted small exam-group">${esc(c || 'Other exams')}</p><div class="chip-row">${exams.filter((e) => (e.course || '') === c).map((e) => `
             <label class="chip"><input type="checkbox" name="exam" value="${esc(e.id)}" ${cls?.exams?.includes(e.id) ? 'checked' : ''}><span>${esc(e.title)}${e.archived ? ' (past)' : ''}</span></label>`).join('')}</div>`).join('')}
         </fieldset>
-        <fieldset><legend>Instructors</legend>
-          <p class="muted small fieldset-help">Teachers and TAs in the roster are added automatically. Add anyone else here, one email per line.</p>
-          <textarea name="instructors" rows="2" placeholder="professor@sdsu.edu">${esc((cls?.instructors || []).filter((e) => !current.some((p) => p.email === e && p.role === 'instructor')).join('\n'))}</textarea>
-        </fieldset>
         <fieldset><legend>Roster</legend>
-          ${!isNew ? `<p class="small">Current roster: <strong>${plural(current.filter((p) => p.role !== 'instructor').length, 'student')}</strong>${current.some((p) => p.role === 'instructor') ? ` and ${plural(current.filter((p) => p.role === 'instructor').length, 'instructor')}` : ''}. Upload a new roster to replace it, or leave this empty to keep it.</p>` : ''}
+          ${!isNew ? `<p class="small">Current roster: <strong>${plural(studentsOf(current).length, 'student')}</strong>. Upload a new roster to replace it, or leave this empty to keep it.</p>` : ''}
           <p class="muted small fieldset-help">In Canvas, open the course's <strong>People</strong> page, select the whole table and copy it, then paste below. A CSV file works too (for example a Gradebook export). It needs a Name column and a Login ID or Email column.</p>
           <div class="row"><label class="btn">${icon('upload')} Choose CSV file<input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" data-file hidden></label><span class="muted small" data-file-name></span></div>
           <textarea name="paste" rows="5" placeholder="…or paste the roster table here" spellcheck="false"></textarea>
           <div data-preview aria-live="polite"></div>
+        </fieldset>
+        <fieldset><legend>Teaching staff</legend>
+          <p class="muted small fieldset-help">Instructors see the whole class. TAs see only the sections you tick (tick none to give them every section). Teachers and TAs found in the roster are added here automatically.</p>
+          <div class="staff-list" data-staff></div>
+          <button class="btn small" type="button" data-add-staff>${icon('note')} Add an instructor or TA</button>
         </fieldset>
         <p class="form-error bad small" data-err role="alert" hidden></p>
         <div class="row"><a class="btn" href="#/admin">Cancel</a><button class="btn primary big" type="submit">${isNew ? 'Create class' : 'Save changes'}</button></div>
@@ -102,23 +108,69 @@ async function editor(main, cls, exams, classes) {
   form.name.addEventListener('input', updId); updId();
   form.addEventListener('change', () => showErr(''));
 
+  const staffEl = main.querySelector('[data-staff]');
+  function paintStaff() {
+    const pool = sectionPool();
+    staffEl.innerHTML = staff.length ? staff.map((x, i) => `
+      <div class="staff-row" data-i="${i}">
+        <label class="field"><span>Name</span><input data-s="name" value="${esc(x.name)}" placeholder="Taylor Tran" autocomplete="off"></label>
+        <label class="field"><span>Email</span><input data-s="email" type="email" value="${esc(x.email)}" placeholder="ttran@${esc(cloud.domain)}" autocomplete="off"></label>
+        <label class="field"><span>Role</span><select data-s="role"><option value="instructor" ${x.role !== 'ta' ? 'selected' : ''}>Instructor</option><option value="ta" ${x.role === 'ta' ? 'selected' : ''}>TA</option></select></label>
+        <div class="staff-sections">
+          <span class="small strong">Sections</span>
+          ${x.role !== 'ta' ? '<span class="muted small">All sections (instructor)</span>'
+            : pool.length ? `<div class="chip-row">${pool.map((sec) => `<label class="chip small-chip"><input type="checkbox" data-sec="${esc(sec)}" ${x.sections.includes(sec) ? 'checked' : ''}><span>${esc(sec)}</span></label>`).join('')}</div>
+              <span class="muted small">${x.sections.length ? `Sees ${plural(x.sections.length, 'section')}` : 'None ticked: sees every section'}</span>`
+            : '<span class="muted small">Add the roster above to choose sections.</span>'}
+        </div>
+        <button class="icon-btn small" type="button" data-remove-staff aria-label="Remove ${esc(x.name || x.email || 'this person')}">${icon('trash')}</button>
+      </div>`).join('') : '<p class="muted small">No instructors or TAs yet.</p>';
+  }
+  paintStaff();
+  staffEl.addEventListener('input', (ev) => {
+    const row = ev.target.closest('[data-i]'); if (!row) return;
+    const x = staff[Number(row.dataset.i)];
+    if (ev.target.dataset.s === 'name') x.name = ev.target.value;
+    if (ev.target.dataset.s === 'email') x.email = ev.target.value.trim().toLowerCase();
+  });
+  staffEl.addEventListener('change', (ev) => {
+    const row = ev.target.closest('[data-i]'); if (!row) return;
+    const x = staff[Number(row.dataset.i)];
+    if (ev.target.dataset.s === 'role') { x.role = ev.target.value; paintStaff(); }
+    if (ev.target.dataset.sec != null) {
+      x.sections = ev.target.checked ? [...new Set([...x.sections, ev.target.dataset.sec])] : x.sections.filter((s) => s !== ev.target.dataset.sec);
+      paintStaff();
+    }
+  });
+  staffEl.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-remove-staff]'); if (!b) return;
+    staff.splice(Number(b.closest('[data-i]').dataset.i), 1); paintStaff();
+  });
+  main.querySelector('[data-add-staff]').addEventListener('click', () => {
+    staff.push({ name: '', email: '', role: 'ta', sections: [] }); paintStaff();
+    staffEl.querySelector('.staff-row:last-child [data-s=name]').focus();
+  });
+
   function showPreview(text) {
     if (!text.trim()) { parsed = null; preview.innerHTML = ''; return; }
     parsed = parseRoster(text, cloud.domain);
     if (parsed.error) { preview.innerHTML = `<p class="bad small">${esc(parsed.error)}</p>`; return; }
-    const students = parsed.people.filter((p) => p.role !== 'instructor');
-    const staff = parsed.people.filter((p) => p.role === 'instructor');
+    const students = studentsOf(parsed.people);
+    const rosterStaff = parsed.people.filter((p) => p.role !== 'student');
+    let newStaff = 0;
+    for (const p of rosterStaff) if (!staff.some((x) => x.email === p.email)) { staff.push(staffFromRoster(p)); newStaff++; }
+    paintStaff();
     const sections = [...new Set(students.flatMap((p) => p.section.split(', ').filter(Boolean)))];
-    const removed = current.filter((p) => !parsed.people.some((q) => q.email === p.email));
-    const added = parsed.people.filter((p) => !current.some((q) => q.email === p.email));
+    const removed = studentsOf(current).filter((p) => !parsed.people.some((q) => q.email === p.email));
+    const added = students.filter((p) => !current.some((q) => q.email === p.email));
     preview.innerHTML = `
       <div class="roster-preview">
-        <p><strong>${plural(students.length, 'student')}</strong>${staff.length ? ` and <strong>${plural(staff.length, 'instructor')}</strong> (${staff.map((p) => esc(p.name || p.email)).join(', ')})` : ''} found${sections.length ? ` in ${plural(sections.length, 'section')}` : ''}.
+        <p><strong>${plural(students.length, 'student')}</strong>${rosterStaff.length ? ` and <strong>${plural(rosterStaff.length, 'teacher/TA', 'teachers/TAs')}</strong> (${rosterStaff.map((p) => esc(p.name || p.email)).join(', ')})` : ''} found${sections.length ? ` in ${plural(sections.length, 'section')}` : ''}.${newStaff ? ` <span class="small">${plural(newStaff, 'person', 'people')} added to Teaching staff below.</span>` : ''}
         ${!isNew ? `<br><span class="small">${added.length} new, ${removed.length} will lose access${removed.length ? `: ${removed.slice(0, 5).map((p) => esc(p.name || p.email)).join(', ')}${removed.length > 5 ? '…' : ''}` : ''}.</span>` : ''}</p>
         <p class="muted small">Columns used: ${Object.entries(parsed.columns).map(([k, v]) => `${esc(v)} → ${k === 'login' ? 'email' : k === 'redId' ? 'RedID' : k}`).join(', ')}</p>
         <div class="table-wrap"><table class="inst-table compact">
           <thead><tr><th>Name</th><th>Email (used to sign in)</th><th>RedID</th><th>Section</th><th>Role</th></tr></thead>
-          <tbody>${parsed.people.slice(0, 8).map((p) => `<tr><td>${esc(p.name)}</td><td>${esc(p.email)}</td><td>${esc(p.redId)}</td><td>${esc(p.section)}</td><td>${p.role}</td></tr>`).join('')}
+          <tbody>${parsed.people.slice(0, 8).map((p) => `<tr><td>${esc(p.name)}</td><td>${esc(p.email)}</td><td>${esc(p.redId)}</td><td>${esc(p.section)}</td><td>${p.role === 'ta' ? 'TA' : p.role}</td></tr>`).join('')}
           ${parsed.people.length > 8 ? `<tr><td colspan="5" class="muted">…and ${parsed.people.length - 8} more</td></tr>` : ''}</tbody>
         </table></div>
         ${parsed.skipped.length ? `<details class="skipped" open><summary class="bad">${plural(parsed.skipped.length, 'row')} skipped</summary><ul>${parsed.skipped.map((s) => `<li><span class="muted">Line ${s.line}:</span> ${esc(s.text)} <strong>(${esc(s.reason)})</strong></li>`).join('')}</ul></details>` : ''}
@@ -141,20 +193,22 @@ async function editor(main, cls, exams, classes) {
     const name = form.name.value.trim();
     const id = isNew ? classIdFrom(name) : cls.id;
     const examIds = [...form.querySelectorAll('input[name=exam]:checked')].map((i) => i.value);
-    const instructors = form.instructors.value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
-    const badInstr = instructors.filter((x) => !x.endsWith('@' + cloud.domain));
+    const staffNow = staff.filter((x) => x.email || x.name);
+    const noEmail = staffNow.filter((x) => !x.email).map((x) => x.name);
+    const badInstr = staffNow.filter((x) => x.email && !/^[^\s@]+@[^\s@]+$/.test(x.email) || x.email && !x.email.endsWith('@' + cloud.domain)).map((x) => x.email);
     if (!name) return showErr('Give the class a name, for example "CS150 Fall 2026".');
     if (isNew && classes.some((c) => c.id === id)) return showErr(`A class with the ID "${id}" already exists. Use a different name or edit that class.`);
     if (!examIds.length) return showErr('Choose at least one exam for this class.');
-    if (badInstr.length) return showErr(`Instructor emails must end in @${cloud.domain}: ${badInstr.join(', ')}`);
+    if (noEmail.length) return showErr(`Add an email for ${noEmail.join(', ')} in Teaching staff.`);
+    if (badInstr.length) return showErr(`Teaching staff emails must be @${cloud.domain} addresses: ${badInstr.join(', ')}`);
     if (parsed?.error) return showErr(parsed.error);
-    const people = parsed ? parsed.people : current;
+    const people = studentsOf(parsed ? parsed.people : current);
     if (isNew && !people.length) return showErr('Add the roster: paste the Canvas People table or choose a CSV file.');
     const exam0 = (await getManifest()).exams.find((e) => e.id === examIds[0]);
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const r = await cloud.saveClass({ id, name, course: exam0?.course || '', term: form.term.value.trim(), exams: examIds, instructors, people });
+      const r = await cloud.saveClass({ id, name, course: exam0?.course || '', term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people });
       await cloud.refreshAccess();
       toast(`${name} saved: ${plural(r.total, 'person', 'people')} on the roster${!isNew ? `, ${r.added} added, ${r.removed} removed` : ''}`, 'good');
       location.hash = '#/admin';

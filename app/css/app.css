@@ -1687,3 +1687,28 @@ body.signed-out .topnav { display: none; }
 .roster-preview .table-wrap { margin-bottom: .6rem; background: var(--surface); border-radius: 8px; }
 .skipped summary { cursor: pointer; font-weight: 700; min-height: 36px; display: flex; align-items: center; }
 .skipped ul { margin: .3rem 0 .5rem; padding-left: 1.2rem; font-size: .88rem; display: grid; gap: .2rem; }
+.staff-list { display: grid; gap: .7rem; margin: .4rem 0 .8rem; }
+.staff-row {
+  display: grid; grid-template-columns: 1fr 1.3fr 130px auto; gap: .5rem .7rem; align-items: end;
+  padding: .8rem .9rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.staff-row .field { margin: 0; }
+.staff-row select { min-height: 42px; padding: .4rem .5rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); width: 100%; }
+.staff-row input { width: 100%; padding: .5rem .65rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); font-size: 16px; }
+.staff-sections { grid-column: 1 / -2; display: grid; gap: .3rem; }
+.staff-row > .icon-btn { grid-column: -2; grid-row: 1; align-self: end; }
+.strong { font-weight: 700; }
+label.chip.small-chip span { padding: .2rem .6rem; font-size: .85rem; }
+@media (max-width: 640px) {
+  .staff-row { grid-template-columns: 1fr auto; }
+  .staff-row .field { grid-column: 1; }
+  .staff-sections { grid-column: 1 / -1; }
+}
+.ta-note { display: flex; gap: .5rem; align-items: center; padding: .6rem .8rem; border-radius: var(--radius-sm); background: var(--accent-soft); border: 1px solid var(--accent-line); margin: 0 0 1rem; } .ta-note .icon { width: 18px; height: 18px; flex: none; }
+/* many nav items (admins, instructors) on phones */
+@media (max-width: 560px) {
+  .topnav { gap: 0; min-width: 0; }
+  .topnav a { padding: .4rem .55rem; font-size: .85rem; }
+  .topbar:has(.topnav a[data-nav="instructor"]) .brand span { display: none; }
+  .account-chip { width: 32px; height: 32px; }
+}

@@ -10,7 +10,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function admins() {
-      return ['bshivbhakta@sdsu.edu','pkraft@sdsu.edu'];
+      return ['your-email@sdsu.edu'];
     }
 
     function schoolAccount() {

@@ -25,7 +25,7 @@ export async function render(main) {
           <strong>${esc(cloud.currentUser().displayName || cloud.currentUser().email)}</strong>
           <span class="muted small">${esc(cloud.currentUser().email)}</span>
           <span class="small sync-line" data-sync aria-live="polite"></span>
-          ${cloud.myClasses().length ? `<span class="small">Classes: ${cloud.myClasses().map((c) => esc(c.name) + (c.role === 'instructor' ? ' (instructor)' : c.section ? ` (section ${esc(c.section)})` : '')).join(', ')}</span>` : ''}
+          ${cloud.myClasses().length ? `<span class="small">Classes: ${cloud.myClasses().map((c) => esc(c.name) + (c.role === 'instructor' ? ' (instructor)' : c.role === 'ta' ? ' (TA)' : c.section ? ` (section ${esc(c.section)})` : '')).join(', ')}</span>` : ''}
         </div>
         <div class="row">
           <button class="btn" data-sync-now>${icon('upload')} Save now</button>

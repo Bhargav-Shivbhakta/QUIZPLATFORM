@@ -39,7 +39,7 @@ export async function render(main, params = {}) {
             <span class="class-course">${esc(c.course || '')}${c.term ? ` · ${esc(c.term)}` : ''}</span>
             <span class="class-name">${esc(c.name)}</span>
             <span class="muted small">${exams.map((e) => esc(e.title)).join(' · ') || 'No exams yet'}</span>
-            <span class="class-foot">${c.role === 'instructor' ? '<span class="tag role-tag">Instructor</span>' : c.section ? `<span class="tag">Section ${esc(c.section)}</span>` : ''}<span class="exam-card-go">Open</span></span>
+            <span class="class-foot">${cloud.isStaffRole(c.role) ? `<span class="tag role-tag">${c.role === 'ta' ? 'TA' : 'Instructor'}</span>` : c.section ? `<span class="tag">Section ${esc(c.section)}</span>` : ''}<span class="exam-card-go">Open</span></span>
           </a>`;
         }).join('')}
       </div>
@@ -55,7 +55,7 @@ async function classPage(main, cls, byId, several) {
   const featured = current.find((e) => e.active) || current[0];
   const others = current.filter((e) => e !== featured);
   const ready = await readinessFor(featured ? [featured.id] : []);
-  const teacher = cls.role === 'instructor';
+  const teacher = cloud.isStaffRole(cls.role);
   main.innerHTML = `
     <section class="page home class-home">
       ${several ? '<nav class="crumbs"><a href="#/">My classes</a></nav>' : ''}
@@ -63,7 +63,7 @@ async function classPage(main, cls, byId, several) {
         <div>
           <p class="eyebrow">${esc(cls.course || config.siteName)}${cls.term ? ` · ${esc(cls.term)}` : ''}${cls.section && !teacher ? ` · Section ${esc(cls.section)}` : ''}</p>
           <h1>${esc(cls.name)}</h1>
-          <p class="tagline">${teacher ? 'You are an instructor for this class.' : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
+          <p class="tagline">${teacher ? (cls.role === 'ta' ? `You are a TA for this class${cls.sections?.length ? ` (${cls.sections.length > 1 ? 'sections' : 'section'} ${esc(cls.sections.join(', '))})` : ''}.` : 'You are an instructor for this class.') : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
         </div>
         ${teacher ? `<a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a>` : ''}
       </header>
