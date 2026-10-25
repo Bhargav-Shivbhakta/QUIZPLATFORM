@@ -98,10 +98,11 @@ function notEnrolled(main) {
     </section>`;
   main.querySelector('[data-signout]').onclick = () => cloud.signOut();
   main.querySelector('[data-recheck]').onclick = async (ev) => {
-    ev.currentTarget.disabled = true;
-    await cloud.refreshAccess();
+    const btn = ev.currentTarget; // (ev.currentTarget is empty again after an await)
+    btn.disabled = true;
+    try { await cloud.refreshAccess(); } catch (e) { console.error(e); }
     if (cloud.isEnrolled()) { window.dispatchEvent(new HashChangeEvent('hashchange')); return; }
-    if (!cloud.isEnrolled()) { ev.currentTarget.disabled = false; ev.currentTarget.textContent = 'Still not on a roster. Check again'; }
+    if (!cloud.isEnrolled()) { btn.disabled = false; btn.textContent = 'Still not on a roster. Check again'; }
   };
 }
 

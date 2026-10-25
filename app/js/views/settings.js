@@ -99,9 +99,9 @@ export async function render(main) {
   window.addEventListener('qp:sync', paintSync);
   const syncTick = setInterval(paintSync, 30000);
   main.querySelector('[data-sync-now]')?.addEventListener('click', async (ev) => {
-    ev.currentTarget.disabled = true;
-    await cloud.flush();
-    ev.currentTarget.disabled = false;
+    const btn = ev.currentTarget; // (ev.currentTarget is empty again after an await)
+    btn.disabled = true;
+    try { await cloud.flush(); } finally { btn.disabled = false; }
     toast(cloud.syncState().error ? cloud.syncState().error : 'Saved to your account', cloud.syncState().error ? 'bad' : 'good');
   });
   main.querySelector('[data-signout]')?.addEventListener('click', async () => {
@@ -153,7 +153,7 @@ export async function render(main) {
     if (await confirmDialog({ title: `Reset ${b.dataset.title}?`, body: '<p>Your scores, history, saved questions, notes and any assignment code for this exam will be erased from this browser. This can\'t be undone. Export first if you want a backup.</p>', confirm: 'Reset', danger: true })) {
       store.resetExam(b.dataset.reset);
       toast(`${b.dataset.title} reset`);
-      render(main);
+      window.dispatchEvent(new HashChangeEvent('hashchange')); // re-open the page cleanly (its timers are cleaned up)
     }
   }));
   main.querySelector('[data-wipe]').onclick = async () => {
@@ -161,7 +161,7 @@ export async function render(main) {
       store.resetEverything();
       applyTheme();
       toast('Everything erased');
-      render(main);
+      window.dispatchEvent(new HashChangeEvent('hashchange')); // re-open the page cleanly (its timers are cleaned up)
     }
   };
   return () => { window.removeEventListener('qp:sync', paintSync); clearInterval(syncTick); };

@@ -173,6 +173,20 @@ function init() {
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
   window.addEventListener('hashchange', route);
   window.addEventListener('qp:storage-full', () => toast("Your browser's storage is full. Export your progress in Settings, then clear old data.", 'bad'));
+  // Safety net: an unexpected error never leaves the page silently broken. Log it, tell the
+  // student once (not a flood of messages), and keep the page usable.
+  let lastErrToast = 0;
+  const onUnexpected = (err) => {
+    console.error('Unexpected error', err);
+    const msg = String(err?.message || err || '');
+    // ignore noise from browser extensions and failed font/image loads
+    if (/extension|ResizeObserver loop|Script error|Load failed|Failed to fetch dynamically/i.test(msg) && !/qp/.test(msg)) return;
+    if (Date.now() - lastErrToast < 15000) return;
+    lastErrToast = Date.now();
+    toast('Something went wrong. Please try that again, or reload the page if it keeps happening.', 'bad');
+  };
+  window.addEventListener('error', (e) => { if (e.error) onUnexpected(e.error); });
+  window.addEventListener('unhandledrejection', (e) => onUnexpected(e.reason));
   if (!store.storageAvailable()) {
     setTimeout(() => toast("This browser is blocking saving (private mode?). Progress won't be kept after you close the tab.", 'bad'), 600);
   }

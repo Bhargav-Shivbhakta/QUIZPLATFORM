@@ -300,12 +300,17 @@ export async function render(main) {
   function showHint() { const qq = q(); if (!qq.hint || examLike) return; s.hintsUsed[qq.id] = true; save(); renderCard(); }
 
   // ---------- timer ----------
-  let lastTick = performance.now();
+  // Timed tests that can't be paused follow the real clock, also while the student is in another
+  // tab or app (browsers slow down timers in the background, so time is measured, not counted).
+  // Practice quizzes only count time while the page is in front, so a break doesn't inflate it.
+  const wallClock = !!s.timeLimitSec && !s.canPause;
+  let lastTick = Date.now();
   let activityMs = 0;
   let warned5 = false, warned1 = false, submitting = false;
   function tick() {
-    const now = performance.now();
-    const dt = Math.min(5000, now - lastTick); // ignore long sleeps (laptop closed)
+    const now = Date.now();
+    const gap = Math.max(0, now - lastTick); // never negative if the computer's clock is changed
+    const dt = wallClock ? gap : Math.min(5000, gap); // practice: ignore long sleeps (laptop closed)
     lastTick = now;
     if (!s.paused) {
       s.elapsedMs += dt;
@@ -344,7 +349,7 @@ export async function render(main) {
     s.paused = p;
     $('[data-overlay]', main).hidden = !p;
     if (p) { closeCalculator(); $('[data-resume]', main).focus(); }
-    lastTick = performance.now();
+    lastTick = Date.now();
     save();
   }
 
@@ -478,7 +483,11 @@ export async function render(main) {
     modal({ title: 'Keyboard shortcuts', body: `<dl class="shortcuts">${rows.map(([a, b]) => `<div><dt><kbd>${esc(a)}</kbd></dt><dd>${esc(b)}</dd></div>`).join('')}</dl>` });
   }
 
-  const onVis = () => { if (document.visibilityState === 'hidden' && s) save(); lastTick = performance.now(); };
+  const onVis = () => {
+    if (document.visibilityState === 'hidden' && s) save();
+    if (wallClock) tick(); // back in front: catch up straight away (and submit if time ran out)
+    else lastTick = Date.now();
+  };
   document.addEventListener('visibilitychange', onVis);
   const onUnload = () => { if (s) save(); };
   window.addEventListener('pagehide', onUnload);

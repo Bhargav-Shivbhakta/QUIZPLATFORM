@@ -501,7 +501,8 @@ const who = () => ({ uid: user.uid, email: user.email.toLowerCase(), name: user.
 
 export function flush() {
   if (!user || !fb) return Promise.resolve();
-  if (flushing) return flushing.then(() => (dirtyExams.size || dirtyCode.size || dirtyUser ? flush() : undefined));
+  // a save is already running: try again once it ends (on a later turn, never in a tight loop)
+  if (flushing) return flushing.then(() => new Promise((r) => setTimeout(r, 0))).then(() => (hasPending() ? flush() : flushing || undefined));
   if (!navigator.onLine) { schedule(untilAllowed(GAP_MS)); return Promise.resolve(); }
   clearTimeout(timer); timer = null;
   const exams = [...dirtyExams], codes = [...dirtyCode], doUser = dirtyUser;
@@ -509,7 +510,13 @@ export function flush() {
   dirtyExams.clear(); dirtyCode.clear(); dirtyUser = false;
   const base = fb.doc(fb.db, 'users', user.uid);
   const me = who();
-  flushing = (async () => {
+  // `flushing` must be set before the save runs: a save with nothing to send finishes without
+  // waiting, and its "finally" would otherwise run before this assignment, leaving `flushing`
+  // set for good (every later save then waited on it forever and froze the page)
+  let finish;
+  flushing = new Promise((r) => (finish = r));
+  (async () => {
+    await null;
     try {
       const pushed = { ...(store.get('pushed', {})) };       // fingerprints of what the account already has
       const changed = (key, obj) => { const h = fingerprint(obj); if (pushed[key] === h) return false; pushed[key] = h; return true; };
@@ -568,6 +575,7 @@ export function flush() {
       schedule(e?.code === 'daily-limit' ? untilTomorrow() : e?.code === 'resource-exhausted' ? 60 * 60 * 1000 : 5 * 60 * 1000);
     } finally {
       flushing = null;
+      finish();
       emitSync();
     }
   })();
