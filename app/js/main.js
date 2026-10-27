@@ -9,6 +9,7 @@ const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/admin$/, view: () => import('./views/admin.js'), nav: 'admin' },
+  { re: /^\/overview$/, view: () => import('./views/overview.js'), nav: 'admin' },
   { re: /^\/content\/([^/]+)$/, keys: ['classId'], view: () => import('./views/content.js'), nav: 'instructor' },
   { re: /^\/course\/([^/]+)$/, keys: ['course'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/exam\/([^/]+)$/, keys: ['id'], view: () => import('./views/exam.js'), nav: 'home' },
@@ -138,7 +139,7 @@ function paintChrome() {
   nav.querySelector('[data-nav="admin"]')?.remove();
   document.querySelector('.topbar .account-chip')?.remove();
   if (cloud.isInstructor()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/instructor" data-nav="instructor">Instructor</a>');
-  if (cloud.isAdmin()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/admin" data-nav="admin">Admin</a>');
+  if (cloud.isAdmin()) nav.querySelector('[data-nav="settings"]').insertAdjacentHTML('beforebegin', '<a href="#/overview" data-nav="admin">Admin</a>');
   const home = nav.querySelector('[data-nav="home"]');
   if (home) home.textContent = cloud.enabled && u ? 'My classes' : 'Exams';
   if (u) {

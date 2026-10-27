@@ -2012,3 +2012,43 @@ a.more-item:hover .more-name { color: var(--accent); }
 .upload-panel > * { min-width: 0; }
 .paste-box textarea { max-width: 100%; box-sizing: border-box; }
 @media (max-width: 400px) { .upload-panel { padding: .9rem .8rem; } }
+
+/* ---- admin: platform overview ---- */
+.ov-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .7rem; margin: 0 0 1.2rem; }
+.ov-tiles .stat-tile { min-width: 0; }
+@media (max-width: 900px) { .ov-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ov-panel { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); padding: 1.1rem 1.2rem; margin: 0 0 1.2rem; min-width: 0; }
+.ov-panel h2 { font-size: 1.15rem; margin: 0 0 .2rem; }
+.ov-chart-wrap { position: relative; margin: .6rem 0 .2rem; }
+.ov-chart { display: block; width: 100%; height: auto; overflow: visible; }
+.ov-grid { stroke: var(--line); stroke-width: 1; }
+.ov-axis { stroke: var(--line-strong); stroke-width: 1; }
+.ov-tick { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.ov-bar { fill: var(--accent); }
+.ov-hit { fill: transparent; cursor: default; }
+.ov-col:focus { outline: none; }
+.ov-col.on .ov-bar, .ov-col:focus-visible .ov-bar { fill: var(--ink); }
+.ov-col:focus-visible .ov-hit { stroke: var(--accent); stroke-width: 2; }
+.ov-tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--ink); color: var(--surface); font-size: .85rem; padding: .3rem .6rem; border-radius: 6px; white-space: nowrap; pointer-events: none; z-index: 2; }
+.ov-table-toggle { margin-top: .6rem; }
+.ov-table-toggle summary { cursor: pointer; color: var(--accent); font-size: .92rem; min-height: 32px; display: inline-flex; align-items: center; }
+.ov-table-toggle .table-wrap { max-height: 320px; overflow: auto; }
+.page.overview { max-width: 1200px; }
+.ov-class-link { font-weight: 700; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+.ov-class-link:hover { color: var(--accent); text-decoration-color: currentColor; }
+.warn-tag { background: var(--flag-soft); color: var(--ok); border-color: transparent; font-weight: 600; }
+@media (max-width: 640px) { .ov-panel { padding: .9rem .8rem; } }
+.ov-classes .inst-table th, .ov-classes .inst-table td { padding: .55rem .6rem; }
+.ov-classes .inst-table td:first-child { white-space: normal; min-width: 9rem; }
+/* overview classes: cards below laptop width (two per row on tablets) */
+@media (max-width: 1000px) {
+  .ov-classes .inst-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ov-classes .inst-table, .ov-classes .inst-table tr { display: block; }
+  .ov-classes .inst-table tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .6rem; }
+  .ov-classes .inst-table tr { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: .3rem .2rem; min-width: 0; }
+  .ov-classes .inst-table tbody tr:hover { background: var(--surface); }
+  .ov-classes .inst-table td { display: flex; justify-content: space-between; gap: 1rem; border: 0; padding: .3rem .7rem; white-space: normal; text-align: right; }
+  .ov-classes .inst-table td:first-child { display: block; text-align: left; padding-bottom: .45rem; border-bottom: 1px solid var(--line); margin-bottom: .2rem; min-width: 0; }
+  .ov-classes .inst-table td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: .85rem; text-align: left; }
+  .ov-classes { overflow: visible; }
+}

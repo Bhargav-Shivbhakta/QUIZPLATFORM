@@ -334,6 +334,13 @@ Uploaded exams are only readable by people on the class roster, unlike files in 
 
 **Question reports and most-missed questions:** students can flag a question they think is wrong or unclear (the flag icon on a question). Reports appear on the dashboard, where instructors mark them resolved. The dashboard also lists the questions most students currently get wrong, with a **View** button.
 
+**Platform overview (admins):** **Admin** in the menu opens the overview of every class:
+- totals: students on rosters, how many have signed in, active today / this week / last 30 days, quizzes finished, questions answered, assignments completed;
+- a chart of students active each day for the last 30 days (also as a table);
+- one row per class with sign-ins, weekly activity, average readiness and accuracy, assignments done, open reports and the next exam. Click a class to open its dashboard.
+
+**Manage classes** on that page goes to class and roster editing. Opening the overview reads about one record per student per exam, plus one per person who has signed in, and keeps the result for 10 minutes; **Refresh** reads it fresh. A student counts as active on a day they answered questions, finished a quiz or worked on an assignment. This comes from the progress they already save, so it costs no extra saves.
+
 **Adds and drops:** open the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
 
 **A new term:** create a new class (for example `CS150 Spring 2027`) with that term's exams and roster. Each class's dashboard only shows its own students.

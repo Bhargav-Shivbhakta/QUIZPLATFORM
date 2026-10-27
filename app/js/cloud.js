@@ -491,7 +491,22 @@ async function summaryFor(examId) {
     out.topics = topicMastery(exam, stats).map((t) => ({ name: t.name, count: t.count, seen: t.seen, right: t.right, wrong: t.wrong, mastery: Math.round(t.mastery * 1000) / 1000 }));
   }
   out.lastActive = Math.max(out.lastQuiz, out.lastAnswer, ...Object.values(out.asg).map((a) => a.updated));
+  out.days = activeDays(attempts, stats, asg);
   return out;
+}
+
+// The days (YYYY-MM-DD, last 60) this student studied, for the admin's activity chart. It rides
+// along with the summary, which is only sent when progress changed, so it costs no extra saves.
+// Days come from this device's study log plus the synced progress (so other devices count too).
+function activeDays(attempts, stats, asg) {
+  const day = (t) => (t ? new Date(t).toLocaleDateString('en-CA') : null);
+  const since = day(Date.now() - 60 * 86400000);
+  const set = new Set();
+  for (const [d, a] of Object.entries(store.getActivity())) if ((a.ms || 0) > 0 || (a.answered || 0) > 0) set.add(d);
+  for (const a of attempts) set.add(day(a.finishedAt || a.startedAt));
+  for (const x of Object.values(stats)) set.add(day(x.last));
+  for (const a of Object.values(asg)) set.add(day(a.updated));
+  return [...set].filter((d) => d && d >= since).sort();
 }
 
 // The student's classes that include this exam (instructors' own practice isn't reported)
@@ -701,6 +716,12 @@ export async function getRoster(classId) {
 }
 
 // ---------------------------------------------------------------- admin: classes and rosters
+// Everyone who has signed in at least once (admins only): one read per person
+export async function listUsers() {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'users'));
+  return snap.docs.map((d) => ({ uid: d.id, email: String(d.data().email || '').toLowerCase(), name: d.data().name || '', lastSeen: d.data().lastSeen || 0 }));
+}
 export async function listClasses() {
   await load();
   const snap = await fb.getDocs(fb.collection(fb.db, 'classes'));

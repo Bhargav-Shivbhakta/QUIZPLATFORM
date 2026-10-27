@@ -31,7 +31,7 @@ export async function render(main, params = {}, query = {}) {
           <h1>Classes and rosters</h1>
           <p class="muted">Only students on a class roster can use the site, and they see only their classes' exams.</p>
         </div>
-        <a class="btn primary" href="#/admin?edit=new">${icon('note')} New class</a>
+        <div class="row"><a class="btn" href="#/overview">${icon('chart')} Platform overview</a><a class="btn primary" href="#/admin?edit=new">${icon('note')} New class</a></div>
       </header>
       ${classes.length ? `<div class="class-admin-list">
         ${classes.map((c) => `
