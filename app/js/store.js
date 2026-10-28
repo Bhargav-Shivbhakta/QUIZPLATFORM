@@ -151,6 +151,54 @@ export function exportAll() {
   return { app: 'quiz-platform', version: 1, exportedAt: new Date().toISOString(), data };
 }
 
+// Data coming from outside this browser (an imported file, or the account) is checked before it's
+// kept: numbers must be numbers and IDs plain IDs, so a crafted file can't put HTML into a page.
+const ID_RE = /^[\w.:-]{1,80}$/;
+const okId = (x) => typeof x === 'string' && ID_RE.test(x);
+const numOr = (x, d = 0) => (typeof x === 'number' && isFinite(x) ? x : d);
+const MODE_IDS = new Set(['topic', 'bank', 'exam', 'mock', 'custom', 'smart', 'mistakes', 'saved', 'retry']);
+const plainText = (x, n = 200) => (typeof x === 'string' ? x.slice(0, n) : '');
+function cleanIncoming(key, v) {
+  const obj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+  if (key.startsWith('attempts:')) {
+    if (!Array.isArray(v)) return null;
+    return v.filter((a) => obj(a) && okId(a.id)).map((a) => {
+      const score = obj(a.score) ? Object.fromEntries(Object.entries(a.score).map(([k, x]) => [k, numOr(x)])) : { pct: 0, count: 0 };
+      return {
+        ...a,
+        mode: MODE_IDS.has(a.mode) ? a.mode : 'bank',
+        label: plainText(a.label, 120),
+        feedback: a.feedback === 'end' ? 'end' : 'instant',
+        startedAt: numOr(a.startedAt), finishedAt: numOr(a.finishedAt), timeLimitSec: a.timeLimitSec == null ? a.timeLimitSec : numOr(a.timeLimitSec),
+        score,
+        questionIds: Array.isArray(a.questionIds) ? a.questionIds.filter(okId) : [],
+        skippedIds: Array.isArray(a.skippedIds) ? a.skippedIds.filter(okId) : undefined,
+        answers: obj(a.answers) ? Object.fromEntries(Object.entries(a.answers).filter(([k]) => okId(k))) : undefined,
+        times: obj(a.times) ? Object.fromEntries(Object.entries(a.times).filter(([k]) => okId(k)).map(([k, x]) => [k, numOr(x)])) : undefined,
+        flags: obj(a.flags) ? Object.fromEntries(Object.entries(a.flags).filter(([k]) => okId(k))) : undefined,
+      };
+    });
+  }
+  if (key.startsWith('qstats:')) {
+    if (!obj(v)) return null;
+    return Object.fromEntries(Object.entries(v).filter(([k, x]) => okId(k) && obj(x)).map(([k, x]) => [k, Object.fromEntries(Object.entries(x).map(([f, y]) => [f, typeof y === 'boolean' ? y : numOr(y)]))]));
+  }
+  if (key.startsWith('saved:')) return Array.isArray(v) ? v.filter(okId) : null;
+  if (key.startsWith('notes:')) return obj(v) ? Object.fromEntries(Object.entries(v).filter(([k, x]) => okId(k) && typeof x === 'string').map(([k, x]) => [k, x.slice(0, 5000)])) : null;
+  if (key.startsWith('asg:')) {
+    if (!obj(v)) return null;
+    return Object.fromEntries(Object.entries(v).filter(([k, x]) => okId(k) && obj(x)).map(([k, x]) => [k, Object.fromEntries(Object.entries(x).map(([f, y]) => [f, typeof y === 'boolean' ? y : typeof y === 'number' ? numOr(y) : Array.isArray(y) ? y.filter(okId) : undefined]))]));
+  }
+  if (key === 'activity') return obj(v) ? Object.fromEntries(Object.entries(v).filter(([d, x]) => /^\d{4}-\d{2}-\d{2}$/.test(d) && obj(x)).map(([d, x]) => [d, { ms: numOr(x.ms), answered: numOr(x.answered) }])) : null;
+  if (key === 'settings') {
+    if (!obj(v)) return null;
+    const ok = { theme: ['system', 'light', 'dark'], textSize: ['s', 'm', 'l', 'xl'], editorFont: ['s', 'm', 'l', 'xl'], feedback: ['instant', 'end'], readFont: ['standard', 'easy'], contrast: ['normal', 'high'] };
+    const plain = (x) => typeof x === 'string' && x.length <= 80 && !/[<>"'`&]/.test(x);
+    return Object.fromEntries(Object.entries(v).filter(([k, x]) => (ok[k] ? ok[k].includes(x) : typeof x === 'boolean' || x === null || (Array.isArray(x) && x.every(plain)))));
+  }
+  return v;
+}
+
 export function importAll(payload) {
   if (!payload || payload.app !== 'quiz-platform' || typeof payload.data !== 'object') {
     throw new Error("This file isn't a progress file from this site.");
@@ -158,12 +206,14 @@ export function importAll(payload) {
   let merged = 0;
   for (const [key, raw] of Object.entries(payload.data)) {
     if (key === 'session') continue;
+    if (typeof raw !== 'string' || !/^[\w:.-]+$/.test(key)) continue;
     if (key.startsWith('code:')) {
       if (rawGet(key) == null) { rawSet(key, raw); merged++; }
       continue;
     }
     let incoming;
-    try { incoming = JSON.parse(raw); } catch { continue; }
+    try { incoming = cleanIncoming(key, JSON.parse(raw)); } catch { continue; }
+    if (incoming == null) continue;
     const current = get(key, undefined);
     let next = incoming;
     if (current !== undefined) {

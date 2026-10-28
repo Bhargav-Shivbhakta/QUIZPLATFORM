@@ -2052,3 +2052,12 @@ a.more-item:hover .more-name { color: var(--accent); }
   .ov-classes .inst-table td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: .85rem; text-align: left; }
   .ov-classes { overflow: visible; }
 }
+
+/* ---- drag-and-drop upload boxes ---- */
+.dropzone { border: 2px dashed var(--line-strong); border-radius: var(--radius); background: var(--paper); padding: 1.1rem 1rem .8rem; text-align: center; margin: .6rem 0; transition: border-color .15s, background .15s; }
+.dropzone .drop-hint { margin: 0 0 .6rem; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; justify-content: center; }
+.dropzone .drop-hint .icon { width: 18px; height: 18px; color: var(--accent); }
+.dropzone .row.center { justify-content: center; flex-wrap: wrap; gap: .5rem; }
+.dropzone .drop-name { margin: .5rem 0 0; min-height: 1.2em; word-break: break-all; }
+.dropzone.over { border-color: var(--accent); background: var(--accent-soft); }
+@media (hover: none) { .dropzone .drop-hint strong { font-weight: 600; } }

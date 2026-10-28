@@ -4,6 +4,7 @@ import { esc, toast, closeModal, icon } from './ui.js';
 import { closeCalculator } from './calculator.js';
 import * as cloud from './cloud.js';
 import { applyClassColor } from './colors.js';
+import { getExam } from './data.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
@@ -105,6 +106,13 @@ async function route() {
   } catch (e) {
     console.error(e);
     if (token !== renderToken) return;
+    const offline = !navigator.onLine || /dynamically imported module|Importing a module script failed|Failed to fetch|NetworkError|Load failed/i.test(String(e?.message || e));
+    if (offline) {
+      main.innerHTML = `<section class="page narrow empty-state"><h1>This page couldn't load</h1>
+        <p>You may be offline, or the site was just updated. Check your internet connection, then reload. Your progress is safe on this device.</p>
+        <div class="row center"><button class="btn primary" onclick="location.reload()">Reload</button><a class="btn" href="#/">Go to my classes</a></div></section>`;
+      return;
+    }
     main.innerHTML = `<section class="page narrow empty-state"><h1>Something went wrong</h1>
       <p>${esc(e.message || String(e))}</p>
       <p class="muted">If this keeps happening, try reloading the page.</p>
@@ -167,7 +175,7 @@ function init() {
   window.addEventListener('qp:auth', () => {
     paintChrome();
     const uid = cloud.currentUser()?.uid || null;
-    if (uid !== lastUid) { lastUid = uid; route(); }
+    if (uid !== lastUid) { lastUid = uid; route(); warmUp(); }
   });
   cloud.init();
   applyTheme();
@@ -192,6 +200,21 @@ function init() {
     setTimeout(() => toast("This browser is blocking saving (private mode?). Progress won't be kept after you close the tab.", 'bad'), 600);
   }
   route();
+  warmUp();
+}
+
+// Once the site is open, quietly load every page and this student's exam questions in the
+// background (about 70 KB), so a dropped Wi-Fi connection doesn't stop them moving around.
+let warmed = '';
+function warmUp() {
+  const key = cloud.currentUser()?.uid || 'anon';
+  if (warmed === key) return;
+  warmed = key;
+  const go = () => {
+    for (const r of routes) r.view().catch(() => {});
+    if (cloud.enabled && cloud.currentUser()) for (const c of cloud.myClasses()) for (const id of c.exams || []) getExam(id).catch(() => {});
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 6000 }); else setTimeout(go, 3000);
 }
 
 init();

@@ -98,7 +98,11 @@ export async function render(main, { classId }) {
         <h2>${mode.move ? `Move ${esc(mode.title)} to this page` : target ? `Replace the questions of ${esc(target.title)}` : 'Add an exam'}</h2>
         ${mode.move ? '<p class="small">Choose the same questions.md that is in GitHub (or an updated one). After publishing, this page manages it and students keep their progress. Its programming assignments need to be added again here as a .zip. You can then delete the exam folder from GitHub.</p>' : ''}
         <p class="muted small">Choose the exam's question file (.md). It's checked here first; nothing is published until you click Publish.${target ? ' Students keep their progress on questions whose IDs (Q1, Q2…) stay the same.' : ''}</p>
-        <div class="row"><label class="btn">${icon('upload')} Choose .md file<input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" data-md-file hidden></label><span class="muted small">${esc(fileName)}</span></div>
+        <div class="dropzone" data-drop="md">
+          <p class="drop-hint">${icon('upload')} <strong>Drag the .md file here</strong> <span class="muted">or</span></p>
+          <div class="row center"><label class="btn">Choose .md file<input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" data-md-file hidden></label></div>
+          <p class="muted small drop-name" data-file-name>${esc(fileName)}</p>
+        </div>
         <details class="paste-box"><summary>…or paste the file's text</summary><textarea rows="8" data-md-paste spellcheck="false" placeholder="---&#10;title: Final Exam&#10;time_limit: 120&#10;---&#10;&#10;# Topic: Arrays&#10;..."></textarea></details>
         <div data-parse aria-live="polite"></div>
         <div class="row end upload-actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-publish-exam disabled>${icon('check')} Publish</button></div>
@@ -119,7 +123,7 @@ export async function render(main, { classId }) {
       <div class="parse-result ${ok ? 'pr-good' : 'pr-bad'}">
         <p><strong>${ok ? `${icon('check')} Looks good` : `${icon('x')} ${r.errors.length ? plural(r.errors.length, 'problem') + ' to fix' : 'No questions found'}`}</strong></p>
         <p>${plural(r.questions.length, 'question')} in ${plural(r.topics.length, 'topic')}${r.questions.some((q) => q.onExam) ? `, ${r.questions.filter((q) => q.onExam).length} in the timed practice test` : ''}${r.meta.timeLimit ? `, ${r.meta.timeLimit} minutes` : ''}.</p>
-        ${!replacing ? `<label class="field"><span>Exam name</span><input data-title value="${esc(r.meta.title || '')}" maxlength="80"></label>` : ''}
+        ${!replacing ? `<label class="field"><span>Exam name</span><input data-exam-title value="${esc(r.meta.title || '')}" maxlength="80"></label>` : ''}
         ${r.errors.length ? `<ul class="issue-list bad">${r.errors.slice(0, 30).map((e) => `<li><strong>Line ${e.line}:</strong> ${esc(e.message)}</li>`).join('')}${r.errors.length > 30 ? `<li>…and ${r.errors.length - 30} more</li>` : ''}</ul>` : ''}
         ${r.warnings.length ? `<details><summary>${plural(r.warnings.length, 'warning')} (you can still publish)</summary><ul class="issue-list">${r.warnings.slice(0, 30).map((w) => `<li><strong>Line ${w.line}:</strong> ${esc(w.message)}</li>`).join('')}</ul></details>` : ''}
         ${r.questions.some((q) => /!\[[^\]]*\]\((?!https?:)/.test(q.text)) ? '<p class="small bad">Some questions use pictures from files next to the .md. Uploaded exams can only show pictures from web links (https://…).</p>' : ''}
@@ -129,7 +133,7 @@ export async function render(main, { classId }) {
   async function publishExam() {
     const btn = main.querySelector('[data-publish-exam]');
     const all = (await getManifest()).exams;
-    const title = mode.examId ? all.find((e) => e.id === mode.examId)?.title : (main.querySelector('[data-title]')?.value.trim() || parsed.meta.title);
+    const title = mode.examId ? all.find((e) => e.id === mode.examId)?.title : (main.querySelector('input[data-exam-title]')?.value.trim() || parsed.meta.title);
     if (!title) { toast('Give the exam a name', 'bad'); return; }
     let examId = mode.examId;
     if (!examId) {
@@ -156,21 +160,41 @@ export async function render(main, { classId }) {
       <section class="upload-panel">
         <h2>Programming assignments for ${esc(e?.title || '')}</h2>
         <p class="muted small">Choose a .zip with one folder per assignment (assignment.md, the starter .java file, tests/*.in and *.out, optional checks.txt, and solution/ with your reference solution). Each solution is run against its tests here before anything is published. Solutions are never shown to students. ${e?.assignmentCount ? 'This replaces the current assignments; students keep the code they wrote.' : ''}</p>
-        <div class="row"><label class="btn">${icon('upload')} Choose .zip<input type="file" accept=".zip,application/zip" data-zip hidden></label><span class="muted small">${esc(fileName)}</span>${e?.assignmentCount ? `<button class="link-btn" data-dl-zip="${esc(e.id)}">Download the current ones as a starting point</button>` : ''}</div>
+        <div class="dropzone" data-drop="asg">
+          <p class="drop-hint">${icon('upload')} <strong>Drag the .zip or the assignments folder here</strong> <span class="muted">or</span></p>
+          <div class="row center"><label class="btn">Choose .zip<input type="file" accept=".zip,application/zip" data-zip hidden></label><label class="btn">Choose a folder<input type="file" webkitdirectory directory multiple data-asg-folder hidden></label></div>
+          <p class="muted small drop-name" data-file-name>${esc(fileName)}</p>
+        </div>
+        ${e?.assignmentCount ? `<p class="small"><button class="link-btn" data-dl-zip="${esc(e.id)}">Download the current ones as a starting point</button></p>` : ''}
         <div data-asg-result aria-live="polite"></div>
         <div class="row end upload-actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-publish-asg disabled>${icon('check')} Publish assignments</button></div>
       </section>`;
   }
+  const wanted = (path) => /\.(md|java|in|out|txt)$/i.test(path) && !/(^|\/)(__MACOSX|\.)/.test(path);
   async function onZip(file) {
-    fileName = file.name;
-    asgCheck = { running: true, problems: new Map(), done: 0 };
-    showAsg();
-    try {
+    return checkAssignments(file.name, async () => {
       const JSZip = await loadJSZip();
       const zip = await JSZip.loadAsync(file);
       const files = new Map();
-      const entries = Object.values(zip.files).filter((f) => !f.dir && /\.(md|java|in|out|txt)$/i.test(f.name) && !/(^|\/)(__MACOSX|\.)/.test(f.name));
-      for (const f of entries) files.set(f.name.replace(/\\/g, '/'), await f.async('string'));
+      for (const f of Object.values(zip.files).filter((f) => !f.dir && wanted(f.name))) files.set(f.name.replace(/\\/g, '/'), await f.async('string'));
+      return files;
+    });
+  }
+  // A folder (dragged in, or chosen with "Choose a folder"): [{ path, file }]
+  async function onFolder(name, list) {
+    return checkAssignments(name, async () => {
+      const files = new Map();
+      for (const { path, file } of list) if (wanted(path)) files.set(path.replace(/\\/g, '/'), await file.text());
+      if (!files.size) throw new Error("that folder has no assignment files in it (assignment.md, .java, tests/*.in and *.out)");
+      return files;
+    });
+  }
+  async function checkAssignments(name, read) {
+    fileName = name;
+    asgCheck = { running: true, problems: new Map(), done: 0 };
+    showAsg();
+    try {
+      const files = await read();
       const result = readAssignments(files);
       asgCheck = { result, files, problems: new Map(), done: 0, running: true };
       showAsg();
@@ -195,7 +219,7 @@ export async function render(main, { classId }) {
     if (!box) return;
     const c = asgCheck;
     if (!c) { box.innerHTML = ''; btn.disabled = true; return; }
-    if (c.error) { box.innerHTML = `<p class="bad">That file couldn't be read as a zip: ${esc(c.error)}</p>`; btn.disabled = true; return; }
+    if (c.error) { box.innerHTML = `<p class="bad">Couldn't read ${esc(fileName || 'that')}: ${esc(c.error)}</p>`; btn.disabled = true; return; }
     if (!c.result) { box.innerHTML = '<p class="muted">Reading the zip…</p>'; btn.disabled = true; return; }
     const r = c.result;
     const failing = [...c.problems.values()].some((p) => p.length);
@@ -262,10 +286,75 @@ export async function render(main, { classId }) {
     }
   });
   main.addEventListener('change', async (ev) => {
-    if (ev.target.matches('[data-md-file]') && ev.target.files[0]) { const f = ev.target.files[0]; onSource(await f.text(), f.name); main.querySelector('[data-md-file]').closest('.row').querySelector('.muted').textContent = f.name; }
-    if (ev.target.matches('[data-zip]') && ev.target.files[0]) { onZip(ev.target.files[0]); main.querySelector('[data-zip]').closest('.row').querySelector('.muted').textContent = ev.target.files[0].name; }
+    if (ev.target.matches('[data-md-file]') && ev.target.files[0]) useMdFile(ev.target.files[0]);
+    if (ev.target.matches('[data-zip]') && ev.target.files[0]) useZipFile(ev.target.files[0]);
+    if (ev.target.matches('[data-asg-folder]') && ev.target.files.length) {
+      const list = [...ev.target.files].map((file) => ({ path: file.webkitRelativePath || file.name, file }));
+      const top = (list[0]?.path || '').split('/')[0] || 'folder';
+      setName(`${top}/ (folder)`); onFolder(`${top}/ (folder)`, list);
+    }
+    if (ev.target.type === 'file') ev.target.value = ''; // choosing the same file again still works
   });
+
+  // ---------- drag and drop ----------
+  const setName = (name) => { const el = main.querySelector('[data-file-name]'); if (el) el.textContent = name; };
+  async function useMdFile(f) {
+    if (!/\.(md|markdown|txt)$/i.test(f.name)) { toast(`"${f.name}" isn't a .md file. Drop the exam's question file (questions.md).`, 'bad'); return; }
+    setName(f.name); onSource(await f.text(), f.name);
+  }
+  function useZipFile(f) {
+    if (!/\.zip$/i.test(f.name)) { toast(`"${f.name}" isn't a .zip. Drop a .zip, or the assignments folder itself.`, 'bad'); return; }
+    setName(f.name); onZip(f);
+  }
+  // read every file inside a dropped folder (browsers hand folders over as "entries")
+  async function readEntry(entry, prefix, out) {
+    if (entry.isFile) { out.push({ path: prefix + entry.name, file: await new Promise((res, rej) => entry.file(res, rej)) }); return; }
+    if (!entry.isDirectory || /^(__MACOSX|\.)/.test(entry.name)) return;
+    const reader = entry.createReader();
+    for (;;) {
+      const batch = await new Promise((res, rej) => reader.readEntries(res, rej)); // returns at most ~100 at a time
+      if (!batch.length) break;
+      for (const child of batch) await readEntry(child, prefix + entry.name + '/', out);
+    }
+  }
+  const zoneOf = (ev) => ev.target.closest?.('[data-drop]');
+  const hasFiles = (ev) => [...(ev.dataTransfer?.types || [])].includes('Files');
+  main.addEventListener('dragenter', (ev) => { const z = zoneOf(ev); if (z && hasFiles(ev)) { ev.preventDefault(); z.classList.add('over'); } });
+  main.addEventListener('dragover', (ev) => { const z = zoneOf(ev); if (z && hasFiles(ev)) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; z.classList.add('over'); } });
+  main.addEventListener('dragleave', (ev) => { const z = zoneOf(ev); if (z && !z.contains(ev.relatedTarget)) z.classList.remove('over'); });
+  main.addEventListener('drop', async (ev) => {
+    const z = zoneOf(ev);
+    if (!z) return;
+    ev.preventDefault();
+    z.classList.remove('over');
+    const items = [...(ev.dataTransfer.items || [])].filter((i) => i.kind === 'file');
+    const entries = items.map((i) => i.webkitGetAsEntry?.()).filter(Boolean);
+    const files = [...ev.dataTransfer.files];
+    try {
+      if (z.dataset.drop === 'md') {
+        if (entries[0]?.isDirectory) { toast('Drop the question file (.md) itself, not a folder.', 'bad'); return; }
+        if (files.length > 1) toast('Only the first file was used. Drop one .md file at a time.');
+        if (files[0]) await useMdFile(files[0]);
+        return;
+      }
+      // assignments: a .zip, or the folder itself (or several assignment folders at once)
+      if (entries.some((e) => e.isDirectory)) {
+        const list = [];
+        for (const e of entries) await readEntry(e, '', list);
+        const name = entries.length === 1 ? `${entries[0].name}/ (folder)` : `${entries.length} folders`;
+        setName(name); onFolder(name, list);
+      } else if (files[0]) useZipFile(files[0]);
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't read what was dropped: " + (e?.message || e) + '. Try the Choose button instead.', 'bad');
+    }
+  });
+  // a file dropped just outside the box must not make the browser leave the page
+  const stray = (ev) => { if (hasFiles(ev) && !zoneOf(ev)) ev.preventDefault(); };
+  window.addEventListener('dragover', stray);
+  window.addEventListener('drop', stray);
   let pt;
   main.addEventListener('input', (ev) => { if (ev.target.matches('[data-md-paste]')) { clearTimeout(pt); pt = setTimeout(() => onSource(ev.target.value, ''), 250); } });
   await draw();
+  return () => { window.removeEventListener('dragover', stray); window.removeEventListener('drop', stray); };
 }

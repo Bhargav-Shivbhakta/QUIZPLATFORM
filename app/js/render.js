@@ -36,11 +36,48 @@ function protectMath(src) {
   return { text: out, store };
 }
 
+// Exam files and assignments can be uploaded by instructors and TAs, so their HTML is never
+// trusted: only formatting tags and safe attributes survive, and links/images must be web,
+// mail or in-page addresses. Anything that could run code (scripts, event handlers,
+// javascript: links, iframes, forms, styles) is removed.
+const OK_TAGS = new Set(['p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ins', 'mark', 'small', 'sub', 'sup', 'kbd', 'code', 'pre', 'blockquote',
+  'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'a', 'img', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'details', 'summary', 'figure', 'figcaption', 'abbr']);
+const DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'object', 'embed', 'noscript', 'template', 'svg', 'math', 'form', 'textarea', 'select', 'button', 'input', 'link', 'meta', 'base', 'frame', 'frameset', 'audio', 'video', 'source', 'track', 'canvas', 'portal']);
+const OK_ATTRS = new Set(['href', 'src', 'alt', 'title', 'colspan', 'rowspan', 'align', 'start', 'type', 'width', 'height', 'lang', 'open', 'loading', 'class']);
+const safeUrl = (u, img) => {
+  const v = String(u).trim().replace(/[\u0000-\u0020]/g, '');
+  if (/^(https?:|mailto:)/i.test(v)) return true;
+  if (img && /^data:image\/(png|gif|jpe?g|webp);/i.test(v)) return true;
+  return !/^[a-z][a-z0-9+.-]*:/i.test(v); // relative links and #anchors, but no other schemes (javascript:, data:, vbscript:…)
+};
+export function sanitize(html) {
+  if (typeof document === 'undefined') return html;
+  const t = document.createElement('template');
+  t.innerHTML = html;
+  const walk = (node) => {
+    for (const el of [...node.children]) {
+      const tag = el.tagName.toLowerCase();
+      if (DROP_WITH_CONTENT.has(tag)) { el.remove(); continue; }
+      walk(el);
+      if (!OK_TAGS.has(tag)) { el.replaceWith(...el.childNodes); continue; }
+      for (const { name, value } of [...el.attributes]) {
+        const n = name.toLowerCase();
+        if (!OK_ATTRS.has(n) || ((n === 'href' || n === 'src') && !safeUrl(value, n === 'src'))
+          || (n === 'class' && !/^language-[\w+#-]+$/.test(value))) el.removeAttribute(name); // only code-highlighting classes
+      }
+      if (tag === 'a' && el.hasAttribute('href') && /^https?:/i.test(el.getAttribute('href'))) { el.setAttribute('rel', 'noopener noreferrer'); el.setAttribute('target', '_blank'); }
+    }
+  };
+  walk(t.content);
+  return t.innerHTML;
+}
+
 export function md(src, { inline = false } = {}) {
   const key = (inline ? 'i:' : 'b:') + src;
   if (cache.has(key)) return cache.get(key);
   const { text, store } = protectMath(String(src ?? ''));
-  let html = inline ? marked.parseInline(text) : marked.parse(text);
+  let html = sanitize(inline ? marked.parseInline(text) : marked.parse(text));
+  // maths is added after cleaning: it's produced by KaTeX (which doesn't allow links or scripts)
   html = html.replace(/@@MATH(\d+)@@/g, (_, i) => store[Number(i)]);
   html = html.replace(/<img /g, '<img loading="lazy" ');
   // code blocks can scroll sideways, so make them reachable with the keyboard

@@ -146,7 +146,7 @@ What is the base case in a recursive factorial?
 | `## Q1 · …` | Starts a question. `Q1` is its ID: any letters/numbers, unique within the file. **Keep IDs stable** so students' progress carries over when you edit. |
 | `single` `multi` `truefalse` `numeric` `text` | Question type. Optional: if left out it's guessed from the answers. |
 | `easy` `medium` `hard` | Difficulty (default `medium`). |
-| `on-exam` | Part of the "Timed practice test", in file order. Random practice tests copy the topic mix of these questions. If no question has it, the real exam uses every question. |
+| `on-exam` | Part of the "Timed practice test", in file order. Random practice tests copy the topic mix of these questions. If no question has it, the timed practice test uses every question. |
 | `2pts` | Worth 2 points (default 1). |
 | `- [ ]` / `- [x]` | Answer choices. `[x]` marks the correct one(s). |
 | `= answer` | Answer for true/false, numeric and fill-in questions. |
@@ -313,7 +313,13 @@ With sign-in on, exams and programming assignments are uploaded on the site, so 
 3. **Add assignments:** choose a `.zip` with one folder per assignment (same layout as section 4b, including `solution/`). Every reference solution is run against its tests in the browser first; anything that fails is listed before you can publish. Solutions are stored for instructors only and are never sent to students.
 4. **Replace questions**, download the `.md` or the assignments `.zip` (to edit and upload again), or delete an exam at any time.
 
+You can drag the `.md` file, the `.zip`, or the assignments folder itself onto the page instead of choosing it.
+
 Uploaded exams are only readable by people on the class roster, unlike files in a public GitHub repo.
+
+**Safety:** questions, explanations and assignment instructions can use Markdown formatting (bold, code, tables, images and links to `https://` pages). Any HTML that could run code is removed before it's shown: scripts, `onerror=`-style attributes, `javascript:` links, iframes and forms. So an uploaded file can't do anything in students' browsers. Imported progress backups are checked the same way.
+
+**Flaky internet:** once the site has loaded, every page and the class's questions are kept in the browser, so students can keep practising if the connection drops. Their progress is saved to their account when they're back online.
 
 **Moving an exam from GitHub:** exams still in the `exams/` folder show on that page with **Move here**. Upload the same file there; it keeps the same exam, so students keep their progress. Then upload its assignments zip and delete the folder from GitHub. The site works with an empty `exams/` folder.
 
