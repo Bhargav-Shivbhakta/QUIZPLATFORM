@@ -2195,3 +2195,51 @@ a.more-item:hover .more-name { color: var(--accent); }
   .stu-exams .stu-ex-bar { grid-column: 1 / -1; grid-row: 2; }
   .stu-missed li { grid-template-columns: auto 1fr; } .stu-missed li > :last-child { grid-column: 2; }
 }
+
+/* ---------- class dashboard: simple tabs (big, plain labels) ---------- */
+.dash { font-size: 1.02rem; }
+.dash-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem 2rem; margin-bottom: 1.2rem; }
+.dash-head h1 { margin: .1rem 0 0; }
+.dash-pickers { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end; }
+.dash-pickers .field { display: grid; gap: .25rem; min-width: 200px; }
+.dash-pickers .field > span { font-weight: 600; font-size: .9rem; color: var(--ink-2); }
+.dash-pickers select { min-height: 44px; }
+.dash-tabs { display: flex; flex-wrap: wrap; gap: .25rem; border-bottom: 2px solid var(--line); margin: 1rem 0 1.2rem; }
+.dash-tabs button { border: 0; background: transparent; padding: .8rem 1.1rem; font-size: 1.05rem; font-weight: 600; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; display: inline-flex; align-items: center; gap: .45rem; }
+.dash-tabs button:hover { background: var(--surface-2); color: var(--ink); }
+.dash-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.dash-badge { font-size: .78rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.dash-badge.bad { background: var(--bad); color: #fff; border-color: transparent; }
+.dash-intro { margin: 0 0 1rem; color: var(--ink-2); }
+.dash-hint { margin: -.2rem 0 .6rem; }
+.who-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; margin-bottom: 1rem; }
+.who-card { display: grid; gap: .1rem; text-align: left; padding: .85rem 1rem; border: 1px solid var(--line); border-left: 5px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); color: var(--ink); cursor: pointer; }
+.who-card strong { font-size: 1.6rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.who-card span { font-size: .95rem; color: var(--ink-2); }
+.who-card.good { border-left-color: var(--good); } .who-card.warn { border-left-color: var(--warn, #b7791f); } .who-card.bad { border-left-color: var(--bad); }
+.who-card:hover { background: var(--surface-2); }
+.who-card[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 1px; background: var(--accent-soft); }
+.inst-tools .tools-end { margin-left: auto; display: inline-flex; gap: .5rem; flex-wrap: wrap; }
+.st { font-weight: 600; }
+.st-never { color: var(--bad); } .st-wait { color: var(--ink-2); } .st-on { color: var(--ink); font-weight: 500; }
+.stu-name { font-size: 1.02rem; font-weight: 600; }
+.ex-mini { display: grid; gap: .1rem; font-size: .9rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dash .inst-table td, .dash .inst-table th { font-size: .98rem; }
+@media (max-width: 640px) {
+  .dash-pickers, .dash-pickers .field { width: 100%; }
+  .dash-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .dash-tabs button { white-space: nowrap; padding: .7rem .8rem; font-size: 1rem; }
+  .inst-tools .tools-end { margin-left: 0; }
+}
+.dash .inst-tools .sort-pick { display: none; }
+@media (max-width: 640px) { .dash .inst-tools .sort-pick { display: inline-flex; } }
+.stu-head [data-stu-edit] { margin-top: .4rem; }
+.stu-edit { display: grid; gap: .6rem; margin-top: .6rem; padding: .9rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface-2); }
+.stu-edit h3 { margin: 0; font-size: 1rem; }
+.stu-edit .field { display: grid; gap: .25rem; }
+.stu-edit .field > span { font-weight: 600; font-size: .9rem; }
+.stu-edit input { min-height: 42px; padding: .4rem .6rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; }
+.stu-edit p { margin: 0; }
+.stu-edit [data-stu-edit-err]:empty { display: none; }
+.inst-table tr.is-open .ex-mini .good, .inst-table tr.is-open .ex-mini .bad { color: var(--ink); }
+.stu-remove { display: grid; gap: .5rem; margin-top: .4rem; padding-top: .8rem; border-top: 1px solid var(--line); }

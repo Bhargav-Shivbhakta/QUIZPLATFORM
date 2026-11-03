@@ -33,25 +33,29 @@ function pearson(pairs) {
 const strength = (r) => (r == null ? '' : Math.abs(r) < 0.1 ? 'no real' : Math.abs(r) < 0.3 ? 'a weak' : Math.abs(r) < 0.5 ? 'a moderate' : 'a strong');
 const studied = (x) => (x.seen || 0) > 0 || (x.attempts || 0) > 0 || (x.asgDone || 0) > 0;
 
-export async function render(main, params = {}, query = {}) {
+// opts.embedded: shown as the "Exam scores" tab of the class dashboard, which owns the class and section choice
+export async function render(main, params = {}, query = {}, opts = {}) {
+  const embedded = !!opts.embedded;
+  if (!embedded) { location.replace(`#/instructor?${query.class ? `class=${encodeURIComponent(query.class)}&` : ''}tab=scores`); return; }
   if (!cloud.enabled) { main.innerHTML = '<section class="page narrow empty-state"><h1>Exam analytics</h1><p>Student sign-in is turned off, so there is no student data.</p></section>'; return; }
-  const classes = cloud.isAdmin() ? await cloud.listClasses().catch(() => []) : cloud.teachingClasses();
+  const classes = embedded ? opts.classes : cloud.isAdmin() ? await cloud.listClasses().catch(() => []) : cloud.teachingClasses();
   if (!classes.length) { main.innerHTML = '<section class="page narrow empty-state"><h1>Exam analytics</h1><p>You aren\'t listed as an instructor or TA for any class.</p></section>'; return; }
   const remembered = (k) => { try { return sessionStorage.getItem('qp1:analytics-' + k); } catch { return null; } };
   const remember = (k, v) => { try { sessionStorage.setItem('qp1:analytics-' + k, v); } catch {} };
-  let classId = [query.class, remembered('class')].find((x) => classes.some((c) => c.id === x)) || classes[0].id;
+  let classId = embedded ? opts.classId : [query.class, remembered('class')].find((x) => classes.some((c) => c.id === x)) || classes[0].id;
   const cls = () => classes.find((c) => c.id === classId);
   const myRole = () => cloud.myClasses().find((c) => c.id === classId);
   const mySections = () => { const c = myRole(); return !cloud.isAdmin() && c?.role === 'ta' && (c.sections || []).length ? c.sections : null; };
   const allExams = (await getManifest()).exams.filter((e) => !e.preview);
   const examsOf = () => (cls().exams || []).map((id) => allExams.find((e) => e.id === id)).filter(Boolean);
 
-  let roster = [], sums = [], grades = [], section = remembered('section') || '';
+  let roster = [], sums = [], grades = [], section = embedded ? opts.section || '' : remembered('section') || '';
   let pick = { exam: '', before: '', practice: '' };
   let upload = null; // { text, fileName, info, index, max, name, date, examId }
   let sortKey = 'after', sortDir = -1, xAxis = 'solved', focus = '';
 
-  main.innerHTML = `
+  if (embedded) main.innerHTML = '<section class="analytics an-embedded"><div data-body><p class="muted loading-line">Loading…</p></div></section>';
+  else main.innerHTML = `
     <section class="page instructor analytics">
       <header class="inst-head">
         <div>
@@ -71,7 +75,8 @@ export async function render(main, params = {}, query = {}) {
   async function load() {
     body.innerHTML = '<p class="muted loading-line">Loading…</p>';
     try {
-      [roster, sums, grades] = await Promise.all([cloud.getRoster(classId), cloud.classSummaries(classId), cloud.listGrades(classId)]);
+      [roster, sums, grades] = await Promise.all([opts.roster || cloud.getRoster(classId), opts.sums || cloud.classSummaries(classId), cloud.listGrades(classId)]);
+      opts.onGrades?.(grades);
     } catch (e) {
       body.innerHTML = `<div class="empty-state"><h2>${e?.code === 'permission-denied' ? "You're not on this class's teaching staff" : "Couldn't load the data"}</h2><p>${esc(e?.code === 'permission-denied' ? 'Ask the site admin to add you to the class, and make sure the latest firestore.rules are published.' : e?.message || e)}</p></div>`;
       return;
@@ -122,7 +127,7 @@ export async function render(main, params = {}, query = {}) {
     const secs = sectionList();
     if (section && !secs.includes(section)) section = '';
     const allowed = mySections();
-    const tabs = secs.length > 1 ? `<div class="sec-tabs" role="tablist" aria-label="Section">${[['', allowed ? 'All my sections' : 'All sections'], ...secs.map((s) => [s, s])].map(([v, l]) => `<button role="tab" data-section-tab="${esc(v)}" aria-selected="${v === section}">${esc(l)}</button>`).join('')}</div>` : '';
+    const tabs = !embedded && secs.length > 1 ? `<div class="sec-tabs" role="tablist" aria-label="Section">${[['', allowed ? 'All my sections' : 'All sections'], ...secs.map((s) => [s, s])].map(([v, l]) => `<button role="tab" data-section-tab="${esc(v)}" aria-selected="${v === section}">${esc(l)}</button>`).join('')}</div>` : '';
     body.innerHTML = tabs + scoresPanel() + (upload ? uploadPanel() : '') + (grades.length ? analysis() : `<div class="empty-state an-empty"><h2>No exam scores yet</h2><p>Upload the scores of an exam (for example Midterm 1, from before students had this site, and Midterm 2) to compare how students who practised here did.</p></div>`);
     bindChart();
   }
@@ -464,7 +469,7 @@ export async function render(main, params = {}, query = {}) {
   // ---------- events ----------
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.sectionTab != null) { section = b.dataset.sectionTab; remember('section', section); paint(); return; }
+    if (b.dataset.sectionTab != null) { if (embedded) return; section = b.dataset.sectionTab; remember('section', section); paint(); return; }
     if ('upload' in b.dataset) { upload = { name: '', examId: '' }; paint(); body.querySelector('.upload-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     if (b.dataset.replace) { const g = grades.find((x) => x.id === b.dataset.replace); upload = { replaceId: g.id, name: g.name, date: g.date, examId: g.examId }; paint(); body.querySelector('.upload-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     if ('upCancel' in b.dataset) { upload = null; paint(); return; }

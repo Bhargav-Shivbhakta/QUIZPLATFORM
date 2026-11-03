@@ -85,6 +85,18 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
 
+      // "This student has signed in": one small record per student per class, refreshed at most
+      // once a day, so the dashboard knows who signed in even before they practise an exam.
+      match /signins/{studentUid} {
+        allow read: if isAdmin() || teaches(classId);
+        allow create, update: if enrolledIn(classId) && studentUid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['uid', 'email', 'at'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.email == myEmail()
+          && request.resource.data.at is number;
+        allow write: if isAdmin();
+      }
+
       // Real exam scores uploaded for the Analytics page: the class's staff only, never students.
       match /grades/{gradeId} {
         allow read, write: if isAdmin() || teaches(classId);

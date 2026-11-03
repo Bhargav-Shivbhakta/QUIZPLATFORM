@@ -2,7 +2,7 @@
 // Only accounts listed in firestore.rules can read this data; everyone else gets "not allowed".
 import { getManifest, getAssignments, getExam } from '../data.js';
 import * as cloud from '../cloud.js';
-import { esc, icon, meter, toneFor, plural, modal, toast } from '../ui.js';
+import { esc, icon, meter, toneFor, plural, toast, confirmDialog } from '../ui.js';
 import { fmtDate } from '../engine.js';
 import { REASON_LABEL } from '../report.js';
 
@@ -15,16 +15,19 @@ const ago = (ts) => {
 };
 const median = (xs) => { const a = xs.filter((x) => x != null).sort((p, q) => p - q); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 
-const COLS = [
-  { key: 'name', label: 'Student', sort: (s) => (s.name || s.email || '').toLowerCase() },
-  { key: 'section', label: 'Section', sort: (s) => s.section || '' },
-  { key: 'lastActive', label: 'Last active', sort: (s) => s.lastActive || 0 },
-  { key: 'seen', label: 'Questions tried', sort: (s) => s.seen || 0 },
-  { key: 'accuracy', label: 'Accuracy', sort: (s) => s.accuracy ?? -1 },
-  { key: 'readiness', label: 'Quiz readiness', sort: (s) => s.readiness ?? -1 },
-  { key: 'realExamBest', label: 'Best timed test', sort: (s) => s.realExamBest ?? -1 },
-  { key: 'asgDone', label: 'Assignments', sort: (s) => s.asgDone || 0 },
-];
+// sort keys for the student list (the visible columns are chosen in table())
+const SORTS = {
+  name: (s) => (s.name || s.email || '').toLowerCase(),
+  section: (s) => s.section || '',
+  status: (s) => (s.never ? 0 : s.signedInOnly ? 1 : 2 + (s.lastActive || 0) / 1e13),
+  seen: (s) => s.seen || 0,
+  accuracy: (s) => s.accuracy ?? -1,
+  readiness: (s) => s.readiness ?? -1,
+  exam: (s) => s.examPct ?? -1,
+  asgDone: (s) => s.asgDone || 0,
+};
+const SORT_LABEL = { name: 'Name', section: 'Section', status: 'Status', seen: 'Questions tried', accuracy: 'Accuracy', readiness: 'Readiness', exam: 'Latest exam score', asgDone: 'Assignments' };
+const TABS = [['students', 'Students'], ['progress', 'Class progress'], ['questions', 'Topics & questions'], ['scores', 'Exam scores'], ['announce', 'Announcements']];
 
 export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled) {
@@ -54,6 +57,8 @@ export async function render(main, params = {}, query = {}) {
   let showResolved = false;
   let asgList = [];
   let sortKey = 'name', sortDir = 1, filter = '', only = 'all';
+  let tab = TABS.some(([k]) => k === query.tab) ? query.tab : remembered('tab') || 'students';
+  if (!TABS.some(([k]) => k === tab)) tab = 'students';
   section = remembered('section') || '';
   let grouped = remembered('grouped') !== 'no'; // students listed under a heading per section
   let allSums = [];          // this class's summaries for every exam (the drawer shows them all)
@@ -61,25 +66,19 @@ export async function render(main, params = {}, query = {}) {
   let open = '';             // email of the student shown in the side panel
 
   main.innerHTML = `
-    <section class="page instructor">
-      <header class="inst-head">
+    <section class="page instructor dash">
+      <header class="dash-head">
         <div>
-          <p class="eyebrow">Instructor</p>
-          <h1>Class dashboard</h1>
-          <p class="muted">Updates when students leave the site after studying, and after quizzes and assignment test runs (at most every 10 minutes). Only staff of this class can see it.</p>
+          <p class="eyebrow">Class dashboard</p>
+          <h1 data-class-name>${esc(cls().name)}</h1>
         </div>
-        <div class="row">
-          <label class="field inline"><span class="sr-only">Class</span>
-            <select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
-          </label>
-          <label class="field inline"><span class="sr-only">Exam</span><select data-exam></select></label>
-          <a class="btn" data-analytics-link href="#/analytics?class=${encodeURIComponent(classId)}">${icon('chart')} Exam analytics</a>
+        <div class="dash-pickers">
+          <label class="field"><span>Class</span><select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+          <label class="field"><span>Practice exam</span><select data-exam></select></label>
           <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('upload')} Exams & assignments</a>
-          <button class="btn" data-refresh>${icon('shuffle')} Refresh</button>
-          <button class="btn" data-csv>${icon('download')} CSV</button>
         </div>
       </header>
-      <div data-body><p class="muted">Loading student data…</p></div>
+      <div data-body><p class="muted loading-line">Loading student data…</p></div>
     </section>`;
   const body = main.querySelector('[data-body]');
   const fillExams = () => {
@@ -110,8 +109,11 @@ export async function render(main, params = {}, query = {}) {
     body.innerHTML = '<p class="muted loading-line">Loading student data…</p>';
     try {
       if (!examId) { body.innerHTML = '<div class="empty-state"><h2>This class has no exams yet</h2></div>'; return; }
-      let sums;
-      [sums, roster, asgList, reports] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), getAssignments(examId).catch(() => []), cloud.classReports(classId).catch(() => [])]);
+      let sums, marks;
+      [sums, roster, asgList, reports, marks] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), getAssignments(examId).catch(() => []), cloud.classReports(classId).catch(() => []), cloud.classSignIns(classId).catch(() => [])]);
+      // admins can also see every account that has ever signed in (covers sign-ins from before these records existed)
+      const users = cloud.isAdmin() ? await cloud.listUsersCached().catch(() => null) : null;
+      grades = null; await loadGrades();
       reports = reports.filter((x) => x.examId === examId).sort((a, b) => b.createdAt - a.createdAt);
       anns = await cloud.listAnnouncements(classId, { fresh: true }).catch(() => []);
       examData = await getExam(examId).catch(() => null);
@@ -123,7 +125,21 @@ export async function render(main, params = {}, query = {}) {
       const studied = (x) => (x.seen || 0) > 0 || (x.attempts || 0) > 0 || (x.asgDone || 0) > 0 || Object.values(x.asg || {}).some((a) => (a.attempts || 0) > 0 || (a.best || 0) > 0);
       rows = sums.map((x) => { const p = byEmail.get(x.email); return { ...x, name: p?.name || x.name, redId: p?.redId || '', section: p?.section || x.section || '', dropped: !p, signedInOnly: !studied(x) }; });
       const have = new Set(rows.map((r) => r.email));
-      for (const p of students) if (!have.has(p.email)) rows.push({ uid: null, email: p.email, name: p.name, redId: p.redId, section: p.section, never: true });
+      // signed in to this class at all? (a sign-in record, progress on any exam of the class, or, for admins, an account)
+      const seen = new Map();
+      const note = (email, uid, at) => { const k = String(email || '').toLowerCase(); const was = seen.get(k); if (!was || (at || 0) > was.at) seen.set(k, { uid: uid || was?.uid || null, at: at || was?.at || 0 }); };
+      for (const m of marks) note(m.email, m.uid, m.at);
+      for (const x of allSums) note(x.email, x.uid, x.updatedAt || x.lastActive || 0);
+      const fromUsers = [];
+      if (users) for (const u of users) if (byEmail.has(u.email) && !marks.some((m) => m.email === u.email)) { note(u.email, u.uid, u.lastSeen || 0); fromUsers.push({ uid: u.uid, email: u.email, at: u.lastSeen || 0 }); }
+      for (const p of students) {
+        if (have.has(p.email)) continue;
+        const ev = seen.get(String(p.email).toLowerCase());
+        rows.push(ev ? { uid: ev.uid, email: p.email, name: p.name, redId: p.redId, section: p.section, signedInOnly: true, updatedAt: ev.at > 1 ? ev.at : 0 } : { uid: null, email: p.email, name: p.name, redId: p.redId, section: p.section, never: true });
+      }
+      // admin: write the missing sign-in records so the class's instructors and TAs see the same thing
+      if (fromUsers.length) cloud.recordSignIns(classId, fromUsers).catch(() => {});
+      attachScores();
     } catch (e) {
       body.innerHTML = e?.code === 'permission-denied'
         ? `<div class="empty-state"><h2>You're not an instructor for this class</h2><p>Ask the site admin to add your email to this class on the Admin page.</p></div>`
@@ -192,14 +208,14 @@ export async function render(main, params = {}, query = {}) {
   }
 
   function annSection() {
-    return `<details class="ann-admin" ${anns.some((a) => !a.expired) ? '' : 'open'}>
-      <summary><strong>Announcements</strong> <span class="muted small">${anns.filter((a) => !a.expired).length} showing to students</span></summary>
+    return `<div class="ann-admin">
+      <p class="dash-intro">Messages shown at the top of every student's class page. <strong>${plural(anns.filter((a) => !a.expired).length, 'announcement')}</strong> showing now.</p>
       <form class="ann-form" data-ann-form>
         <label class="field"><span>New announcement for ${esc(cls().name)}</span><textarea name="text" rows="2" maxlength="500" placeholder="Exam room changed to GMCS 333" required></textarea></label>
         <div class="row"><label class="field inline"><span>Show until <span class="muted">(optional)</span></span><input type="date" name="until"></label><button class="btn primary" type="submit">${icon('megaphone')} Post</button></div>
       </form>
       ${anns.length ? `<ul class="ann-list">${anns.map((a) => `<li class="${a.expired ? 'expired' : ''}"><div><p>${esc(a.text)}</p><span class="muted small">${esc(a.author || '')} · ${esc(fmtDate(a.createdAt))}${a.until ? ` · until ${esc(a.until)}` : ''}${a.expired ? ' · expired' : ''}</span></div><button class="btn small danger-outline" data-del-ann="${esc(a.id)}">${icon('trash')}<span class="sr-only">Delete announcement</span></button></li>`).join('')}</ul>` : ''}
-    </details>`;
+    </div>`;
   }
 
   function missedSection() {
@@ -244,18 +260,25 @@ export async function render(main, params = {}, query = {}) {
         </li>`).join('')}</ul>` : '<p class="muted">No open reports. Nice.</p>'}`;
   }
 
+  const isStarted = (r) => !r.never && !r.signedInOnly;
+  const FILTERS = {
+    all: () => true,
+    started: isStarted,
+    waiting: (r) => !!r.signedInOnly,
+    never: (r) => !!r.never,
+    inactive: (r) => isStarted(r) && (!r.lastActive || Date.now() - r.lastActive >= 7 * DAY),
+    low: (r) => isStarted(r) && (r.readiness ?? 0) < 40,
+  };
   function visibleRows() {
     const q = filter.trim().toLowerCase();
     const now = Date.now();
-    let list = rows.filter((r) => inSection(r) && (!q || (r.name || '').toLowerCase().includes(q) || (r.email || '').includes(q) || (r.redId || '').includes(q)));
-    if (only === 'never') list = list.filter((r) => r.never || r.signedInOnly);
-    if (only === 'inactive') list = list.filter((r) => !r.never && !r.signedInOnly && (!r.lastActive || now - r.lastActive >= 7 * DAY));
-    if (only === 'low') list = list.filter((r) => !r.never && !r.signedInOnly && (r.readiness ?? 0) < 40);
-    const col = COLS.find((c) => c.key === sortKey);
+    let list = rows.filter((r) => !r.dropped && inSection(r) && (!q || (r.name || '').toLowerCase().includes(q) || (r.email || '').includes(q) || (r.redId || '').includes(q)));
+    list = list.filter(FILTERS[only] || (() => true));
+    const sorter = SORTS[sortKey] || SORTS.name;
     const byName = (a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || '');
     // ties (same section, same score…) fall back to the student's name, so the order never looks random
     const cmp = (x, y) => (typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' }) : x < y ? -1 : x > y ? 1 : 0); // "Section 5" before "Section 10"
-    return list.sort((a, b) => cmp(col.sort(a), col.sort(b)) * sortDir || byName(a, b));
+    return list.sort((a, b) => cmp(sorter(a), sorter(b)) * sortDir || byName(a, b));
   }
   const firstSection = (r) => (r.section || '').split(', ').filter(Boolean)[0] || '';
   const sectionList = () => { const allowed = mySections(); return [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); };
@@ -305,31 +328,56 @@ export async function render(main, params = {}, query = {}) {
 
   function table() {
     const list = visibleRows();
+    const base = rows.filter((r) => !r.dropped && inSection(r));
+    const n = (k) => base.filter(FILTERS[k]).length;
+    const cards = [
+      ['all', 'Everyone', n('all'), ''],
+      ['started', 'Practising', n('started'), 'good'],
+      ['waiting', 'Signed in, not started', n('waiting'), 'warn'],
+      ['never', 'Never signed in', n('never'), 'bad'],
+      ['inactive', 'Not active this week', n('inactive'), 'warn'],
+      ['low', 'Readiness under 40', n('low'), 'warn'],
+    ];
+    const hasExams = (grades?.list || []).length > 0;
+    const cols = ['name', ...(!section && sectionList().length > 1 && !grouped ? ['section'] : []), 'status', 'seen', 'accuracy', 'readiness', ...(hasExams ? ['exam'] : []), ...(asgList.length ? ['asgDone'] : [])];
+    const head = { name: 'Student', section: 'Section', status: 'Status', seen: 'Questions tried', accuracy: 'Accuracy', readiness: 'Readiness', exam: 'Exam scores', asgDone: 'Assignments' };
+    const r1 = (x) => (Math.round(x * 10) / 10).toString();
+    const examCell = (r) => {
+      const got = (r.exams || []).filter((x) => x.pct != null);
+      if (!got.length) return '<span class="muted">–</span>';
+      const last = got[got.length - 1], prev = got[got.length - 2];
+      return `<span class="ex-mini">${got.map((x) => `<span><span class="muted">${esc(x.name)}</span> ${Math.round(x.pct)}%</span>`).join('')}${prev ? `<span class="${last.pct >= prev.pct ? 'good' : 'bad'}">${last.pct >= prev.pct ? '▲' : '▼'} ${r1(Math.abs(last.pct - prev.pct))}</span>` : ''}</span>`;
+    };
+    const status = (r) => r.never ? '<span class="st st-never">Never signed in</span>'
+      : r.signedInOnly ? `<span class="st st-wait">Signed in, not started</span>${r.updatedAt ? `<span class="muted small block">${esc(ago(r.updatedAt))}</span>` : ''}`
+      : `<span class="st st-on">Active ${esc(ago(r.lastActive).replace(/^[A-Z]/, (c) => c.toLowerCase()))}</span>`;
+    const cell = {
+      name: (r) => `<td><button class="link-btn stu-name" data-student="${esc(r.email)}" aria-expanded="${open === r.email}">${esc(r.name || r.email)}</button><span class="muted small block">${esc(r.email)}${r.redId ? ' · ' + esc(r.redId) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</span></td>`,
+      section: (r) => `<td data-label="Section">${esc(r.section || '–')}</td>`,
+      status: (r) => `<td data-label="Status">${status(r)}</td>`,
+      seen: (r) => `<td data-label="Questions tried">${isStarted(r) ? `${r.seen || 0}${r.totalQuestions ? ` <span class="muted small">of ${r.totalQuestions}</span>` : ''}` : '<span class="muted">–</span>'}</td>`,
+      accuracy: (r) => `<td data-label="Accuracy">${r.accuracy != null ? `<span class="pill ${toneFor(r.accuracy)}">${pct(r.accuracy)}</span>` : '<span class="muted">–</span>'}</td>`,
+      readiness: (r) => `<td data-label="Readiness">${r.readiness ?? '<span class="muted">–</span>'}</td>`,
+      exam: (r) => `<td data-label="Exam scores">${examCell(r)}</td>`,
+      asgDone: (r) => `<td data-label="Assignments">${isStarted(r) ? `${r.asgDone || 0} <span class="muted small">of ${asgList.length}</span>` : '<span class="muted">–</span>'}</td>`,
+    };
     return `
-      <h2 class="section-title">Students</h2>
-      <div class="inst-tools">
-        <input type="search" placeholder="Search name, email or RedID" value="${esc(filter)}" data-filter aria-label="Search students">
-        <label class="field inline sort-pick"><span>Sort by</span><select data-sort-select>${COLS.map((c) => `<option value="${c.key}" ${c.key === sortKey ? 'selected' : ''}>${c.label}</option>`).join('')}</select></label>
-        <div class="seg" role="tablist" aria-label="Show">
-          ${[['all', 'Everyone'], ['never', 'Not started'], ['inactive', 'Inactive 7+ days'], ['low', 'Readiness under 40']].map(([k, l]) => `<button role="tab" data-only="${k}" aria-selected="${only === k}">${l}</button>`).join('')}
-        </div>
-        ${!section && sectionList().length > 1 ? `<label class="check group-toggle"><input type="checkbox" data-group ${grouped ? 'checked' : ''}><span>Group by section</span></label>` : ''}
+      <div class="who-cards" role="group" aria-label="Show students">
+        ${cards.map(([k, l, c, tone]) => `<button class="who-card ${tone}" data-only="${k}" aria-pressed="${only === k}"><strong>${c}</strong><span>${l}</span></button>`).join('')}
       </div>
+      <div class="inst-tools">
+        <input type="search" placeholder="Find a student by name, email or RedID" value="${esc(filter)}" data-filter aria-label="Find a student">
+        <label class="field inline sort-pick"><span>Sort by</span><select data-sort-select>${cols.map((k) => `<option value="${k}" ${k === sortKey ? 'selected' : ''}>${SORT_LABEL[k]}</option>`).join('')}</select></label>
+        ${!section && sectionList().length > 1 ? `<label class="check group-toggle"><input type="checkbox" data-group ${grouped ? 'checked' : ''}><span>Group by section</span></label>` : ''}
+        <span class="tools-end"><button class="btn" data-refresh>${icon('shuffle')} Refresh</button><button class="btn" data-csv>${icon('download')} Download list</button></span>
+      </div>
+      <p class="muted small dash-hint">${only !== 'all' ? `Showing <strong>${esc(cards.find((c) => c[0] === only)[1].toLowerCase())}</strong> (${list.length}). ` : ''}Click a student's name to see everything about them.${(() => { const d = rows.filter((r) => r.dropped && inSectionAll(r)).length; return d ? ` <span>${plural(d, 'student')} no longer on the roster ${d === 1 ? 'is' : 'are'} not listed.</span>` : ''; })()}</p>
       <div class="table-wrap inst-table-wrap">
         <table class="inst-table">
-          <thead><tr>${COLS.map((c) => `<th scope="col" aria-sort="${sortKey === c.key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr></thead>
+          <thead><tr>${cols.map((k) => `<th scope="col" aria-sort="${sortKey === k ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button data-sort="${k}">${head[k]}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr></thead>
           <tbody>
-            ${withHeadings(list).map((r) => r.heading ? `<tr class="sec-row"><th colspan="${COLS.length}" scope="colgroup">${esc(r.heading)} <span class="muted small">· ${plural(r.count, 'student')}</span></th></tr>` : `
-              <tr class="${open === r.email ? 'is-open' : ''}" data-row="${esc(r.email)}">
-                <td><button class="link-btn" data-student="${esc(r.email)}" aria-expanded="${open === r.email}">${esc(r.name || r.email)}</button><span class="muted small block">${esc(r.email)}${r.redId ? ' · ' + esc(r.redId) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</span></td>
-                <td data-label="Section">${esc(r.section || '–')}</td>
-                <td data-label="Last active">${r.never ? '<span class="muted">Not signed in yet</span>' : r.signedInOnly ? `<span class="muted">Signed in${r.updatedAt ? ' ' + esc(ago(r.updatedAt).replace(/^[A-Z]/, (c) => c.toLowerCase())) : ''} · not started</span>` : ago(r.lastActive)}</td>
-                <td data-label="Tried">${r.seen || 0}${r.totalQuestions ? ` <span class="muted small">/ ${r.totalQuestions}</span>` : ''}</td>
-                <td data-label="Accuracy"><span class="pill ${toneFor(r.accuracy)}">${pct(r.accuracy)}</span></td>
-                <td data-label="Readiness">${r.readiness ?? '–'}</td>
-                <td data-label="Best timed test">${r.realExamBest != null ? r.realExamBest + '%' : '–'}</td>
-                <td data-label="Assignments">${r.asgDone || 0}${asgList.length ? ` <span class="muted small">/ ${asgList.length}</span>` : ''}</td>
-              </tr>`).join('') || `<tr><td colspan="${COLS.length}" class="muted">No students match.</td></tr>`}
+            ${withHeadings(list).map((r) => r.heading ? `<tr class="sec-row"><th colspan="${cols.length}" scope="colgroup">${esc(r.heading)} <span class="muted small">· ${plural(r.count, 'student')}</span></th></tr>` : `
+              <tr class="${open === r.email ? 'is-open' : ''}" data-row="${esc(r.email)}">${cols.map((k) => cell[k](r)).join('')}</tr>`).join('') || `<tr><td colspan="${cols.length}" class="muted">No students match.</td></tr>`}
           </tbody>
         </table>
       </div>`;
@@ -337,27 +385,54 @@ export async function render(main, params = {}, query = {}) {
 
   function paint() {
     const allowed = mySections();
-    const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort();
+    const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     const taNote = allowed ? `<p class="ta-note">${icon('note')}<span>You're a TA for ${allowed.length > 1 ? 'sections' : 'section'} <strong>${allowed.map(esc).join(', ')}</strong>, so you see those students only.</span></p>` : '';
     if (section && !sections.includes(section)) section = '';
     const count = (sec) => rows.filter((r) => !r.dropped && (!sec ? inSectionAll(r) : (r.section || '').split(', ').includes(sec))).length;
     const sectionPicker = taNote + (sections.length > 1 ? `<div class="sec-tabs" role="tablist" aria-label="Section">
         ${[['', allowed ? 'All my sections' : 'All sections'], ...sections.map((x) => [x, x])].map(([v, l]) => `<button role="tab" data-section-tab="${esc(v)}" aria-selected="${v === section}">${esc(l)} <span class="sec-count">${count(v)}</span></button>`).join('')}
       </div>` : '');
-    const csvBtn = main.querySelector('[data-csv]');
-    if (csvBtn) csvBtn.innerHTML = `${icon('download')} CSV${section ? ' · ' + esc(section) : ''}`;
-    if (!rows.length) {
-      body.innerHTML = `<div data-anns>${annSection()}</div><div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`;
-      return;
-    }
     if (open && !rows.some((r) => r.email === open)) closeDrawer();
-    body.innerHTML = sectionPicker + `<div data-anns>${annSection()}</div>` + overview() + sectionCompare() + `<div data-reports>${reportsSection()}</div>` + (started().length ? topics() + missedSection() + assignments() : '<p class="muted">Nobody has started this exam yet. Topic and assignment results show up once students begin.</p>') + `<div data-table>${table()}</div>`;
+    const openReports = reports.filter((x) => x.status !== 'resolved' && (!allowed || allowed.includes(x.section)) && (!section || x.section === section)).length;
+    const showing = anns.filter((a) => !a.expired).length;
+    const badge = { students: enrolled().length, questions: openReports ? `${openReports} new` : '', scores: (grades?.list || []).length || '', announce: showing || '' };
+    const tabs = `<div class="dash-tabs" role="tablist" aria-label="Dashboard">${TABS.map(([k, l]) => `<button role="tab" id="dash-tab-${k}" aria-controls="dash-panel" data-dash-tab="${k}" aria-selected="${tab === k}" tabindex="${tab === k ? 0 : -1}">${l}${badge[k] !== '' && badge[k] != null ? ` <span class="dash-badge ${k === 'questions' && openReports ? 'bad' : ''}">${badge[k]}</span>` : ''}</button>`).join('')}</div>`;
+    body.innerHTML = sectionPicker + tabs + `<div class="dash-panel" id="dash-panel" role="tabpanel" aria-labelledby="dash-tab-${tab}">${rows.length ? panel() : `<div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`}</div>`;
+    if (tab === 'scores' && rows.length) mountScores();
+  }
+  function panel() {
+    const none = '<p class="muted dash-empty">Nobody has started this exam yet. This fills in once students begin practising.</p>';
+    if (tab === 'progress') return `<p class="dash-intro">How far the class is with <strong>${esc(allExams.find((e) => e.id === examId)?.title || 'this exam')}</strong>${section ? ` in ${esc(section)}` : ''}.</p>` + overview() + sectionCompare() + (started().length ? assignments() : none);
+    if (tab === 'questions') return `<p class="dash-intro">What the class finds hard, and questions students reported as wrong or unclear.</p><div data-reports>${reportsSection()}</div>` + (started().length ? missedSection() + topics() : none);
+    if (tab === 'scores') return '<div data-scores><p class="muted loading-line">Loading…</p></div>';
+    if (tab === 'announce') return `<div data-anns>${annSection()}</div>`;
+    return `<div data-table>${table()}</div>`;
+  }
+  // the Exam scores tab is the analytics page, shown inside the dashboard
+  async function mountScores() {
+    const host = body.querySelector('[data-scores]');
+    if (!host) return;
+    const mod = await import('./analytics.js');
+    if (!body.contains(host)) return;
+    const box = document.createElement('div');
+    host.replaceChildren(box);
+    mod.render(box, {}, {}, { embedded: true, classId, classes, section, roster, sums: allSums,
+      onGrades: (list) => { grades = { list }; attachScores(); const b = body.querySelector('.dash-tabs [data-dash-tab="scores"]'); if (b) b.innerHTML = `Exam scores${list.length ? ` <span class="dash-badge">${list.length}</span>` : ''}`; } });
   }
   const repaintTable = () => { const t = body.querySelector('[data-table]'); if (t) { const had = document.activeElement?.matches('[data-filter]'); t.innerHTML = table(); if (had) { const f = t.querySelector('[data-filter]'); f.focus(); f.setSelectionRange(f.value.length, f.value.length); } } };
 
   // ---------- one student, in a panel on the right ----------
   const qText = (q) => { const t = Array.isArray(q?.body) ? q.body.join(' ') : String(q?.body || ''); return t.replace(/```[\s\S]*?```/g, ' [code] ').replace(/[`*_#>]/g, '').replace(/\s+/g, ' ').trim(); };
   const shortDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // each student's uploaded exam scores (as %), oldest exam first; examPct = the latest one
+  function attachScores() {
+    const sets = grades?.list || [];
+    for (const r of rows) {
+      r.exams = sets.map((g) => { const x = (g.scores || []).find((y) => String(y.email).toLowerCase() === String(r.email).toLowerCase()); return { name: g.name, pct: x ? (x.score / (g.maxPoints || 100)) * 100 : null }; });
+      const got = r.exams.filter((x) => x.pct != null);
+      r.examPct = got.length ? got[got.length - 1].pct : null;
+    }
+  }
   async function loadGrades() {
     if (grades) return grades;
     try { grades = { list: await cloud.listGrades(classId) }; }
@@ -419,6 +494,7 @@ export async function render(main, params = {}, query = {}) {
         <h2 id="stu-drawer-title">${esc(r.name || r.email)}</h2>
         <p class="muted small">${esc(r.email)}${r.redId ? ' · RedID ' + esc(r.redId) : ''}${r.section ? ' · ' + esc(r.section) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</p>
         <p class="small">${status}</p>
+        ${cloud.isAdmin() && !r.dropped ? `<button class="btn small" data-stu-edit>${icon('note')} Edit section or name</button>` : ''}
       </div>`;
   }
   function drawerBody(r, g) {
@@ -495,6 +571,60 @@ export async function render(main, params = {}, query = {}) {
     }
     return out.join('');
   }
+  // admin: change name, email, RedID or section (for example a student who moved to another section)
+  function editForm() {
+    const r = rows.find((x) => x.email === open);
+    const bodyEl = main.querySelector('[data-drawer] .stu-body');
+    if (!r || !bodyEl) return;
+    let box = bodyEl.querySelector('[data-stu-edit-box]');
+    if (!box) { box = document.createElement('div'); box.dataset.stuEditBox = ''; bodyEl.prepend(box); }
+    bodyEl.scrollTop = 0;
+    main.querySelector('[data-drawer] [data-stu-edit]')?.setAttribute('hidden', '');
+    const secs = sectionList();
+    box.innerHTML = `
+      <form class="stu-edit" data-stu-edit-form novalidate>
+        <h3>Edit section or name</h3>
+        <label class="field"><span>Name</span><input name="name" value="${esc(r.name || '')}" maxlength="120" autocomplete="off"></label>
+        <label class="field"><span>Section</span><input name="section" value="${esc(r.section || '')}" maxlength="60" list="stu-sec-list" autocomplete="off"><datalist id="stu-sec-list">${secs.map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
+        <p class="muted small">Email: ${esc(r.email)}${r.redId ? ` · RedID: ${esc(r.redId)}` : ''}<br>These come from the roster and can't be changed here.</p>
+        <p class="bad small" data-stu-edit-err role="alert"></p>
+        <div class="row"><button class="btn primary" type="submit">${icon('check')} Save</button><button class="btn" type="button" data-stu-edit-cancel>Cancel</button></div>
+        <div class="stu-remove">
+          <p class="small"><strong>Remove from this class</strong><br><span class="muted">They lose access to ${esc(cls().name)}. Their saved practice is kept, so adding them back later restores it.</span></p>
+          <button class="btn danger-outline" type="button" data-stu-remove>${icon('trash')} Remove ${esc(r.name || r.email)}</button>
+        </div>
+      </form>`;
+    box.querySelector('input[name=section]').focus();
+  }
+  async function saveEdit(form) {
+    const r = rows.find((x) => x.email === open);
+    if (!r) return;
+    const f = new FormData(form);
+    const btn = form.querySelector('[type=submit]'), err = form.querySelector('[data-stu-edit-err]');
+    const vals = { name: String(f.get('name') || '').trim(), section: String(f.get('section') || '').trim() };
+    if (!vals.name) { err.textContent = 'Enter the student\'s name.'; return; }
+    btn.disabled = true; err.textContent = '';
+    try {
+      const person = await cloud.updateStudent(classId, r.email, vals);
+      toast(`Saved ${person.name || person.email}`, 'good');
+      await load(); // reloads the class and reopens this student
+    } catch (e) {
+      err.textContent = e?.code === 'permission-denied' ? 'Only the site admin can change student details.' : e?.message || String(e);
+      btn.disabled = false;
+    }
+  }
+  async function removeFromClass() {
+    const r = rows.find((x) => x.email === open);
+    if (!r) return;
+    const ok = await confirmDialog({ title: `Remove ${r.name || r.email} from ${cls().name}?`, body: `<p>${esc(r.email)} will no longer be able to open this class on the site. Their saved practice is kept, so if you add them back (or upload a roster with them on it) it comes back.</p>`, confirm: 'Remove student', danger: true });
+    if (!ok) return;
+    try {
+      await cloud.removeStudent(classId, r.email);
+      toast(`${r.name || r.email} removed from ${cls().name}`, 'good');
+      closeDrawer();
+      await load();
+    } catch (e) { toast("Couldn't remove: " + (e?.code === 'permission-denied' ? 'only the site admin can remove students.' : e?.message || e), 'bad'); }
+  }
   async function showCode(b) {
     const r = rows.find((x) => x.email === open);
     const view = main.querySelector('[data-drawer] [data-code-view]');
@@ -539,10 +669,14 @@ export async function render(main, params = {}, query = {}) {
     if (!b) return;
     if (b.dataset.sectionTab != null) { section = b.dataset.sectionTab; remember('section', section); paint(); body.querySelector('.sec-tabs [aria-selected="true"]')?.focus(); return; }
     if (b.dataset.sort) { if (sortKey === b.dataset.sort) sortDir = -sortDir; else { sortKey = b.dataset.sort; sortDir = b.dataset.sort === 'name' || b.dataset.sort === 'section' ? 1 : -1; } repaintTable(); }
-    else if (b.dataset.only) { only = b.dataset.only; repaintTable(); }
+    else if (b.dataset.only) { only = only === b.dataset.only ? 'all' : b.dataset.only; repaintTable(); }
+    else if (b.dataset.dashTab) { tab = b.dataset.dashTab; remember('tab', tab); paint(); body.querySelector('.dash-tabs [aria-selected="true"]')?.focus(); }
     else if (b.dataset.student) { if (open === b.dataset.student && main.querySelector('[data-drawer]')) closeDrawer(); else detail(b.dataset.student); }
     else if (b.dataset.stuGo) detail(b.dataset.stuGo);
     else if ('stuClose' in b.dataset) closeDrawer();
+    else if ('stuEdit' in b.dataset) editForm();
+    else if ('stuRemove' in b.dataset) removeFromClass();
+    else if ('stuEditCancel' in b.dataset) { main.querySelector('[data-drawer] [data-stu-edit-box]')?.remove(); const e = main.querySelector('[data-drawer] [data-stu-edit]'); if (e) { e.hidden = false; e.focus(); } }
     else if (b.dataset.code) showCode(b);
     else if ('refresh' in b.dataset) { grades = null; load(); }
     else if (b.dataset.delAnn) {
@@ -566,8 +700,17 @@ export async function render(main, params = {}, query = {}) {
     const tr = ev.target.closest('tr[data-row]');
     if (tr && !ev.target.closest('button, a, input, select')) { window.getSelection?.()?.removeAllRanges(); detail(tr.dataset.row); }
   });
+  main.addEventListener('keydown', (ev) => {
+    const t = ev.target.closest?.('[data-dash-tab]');
+    if (!t || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(ev.key)) return;
+    ev.preventDefault();
+    const i = TABS.findIndex(([k]) => k === tab);
+    const j = ev.key === 'Home' ? 0 : ev.key === 'End' ? TABS.length - 1 : (i + (ev.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length;
+    tab = TABS[j][0]; remember('tab', tab); paint(); body.querySelector('.dash-tabs [aria-selected="true"]')?.focus();
+  });
   main.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && open && !document.querySelector('.modal-back')) { ev.preventDefault(); closeDrawer(); } });
   main.addEventListener('submit', async (ev) => {
+    if (ev.target.matches('[data-stu-edit-form]')) { ev.preventDefault(); saveEdit(ev.target); return; }
     if (!ev.target.matches('[data-ann-form]')) return;
     ev.preventDefault();
     const f = ev.target, text = f.text.value.trim();
@@ -577,7 +720,6 @@ export async function render(main, params = {}, query = {}) {
       await cloud.postAnnouncement(classId, { text, until: f.until.value });
       anns = await cloud.listAnnouncements(classId, { fresh: true });
       body.querySelector('[data-anns]').innerHTML = annSection();
-      body.querySelector('.ann-admin').open = true;
       toast('Announcement posted. Students see it on the class page.', 'good');
     } catch (e) { toast("Couldn't post: " + (e?.code === 'permission-denied' ? 'only this class\'s instructors can post.' : e?.message || e), 'bad'); btn.disabled = false; }
   });
@@ -592,7 +734,7 @@ export async function render(main, params = {}, query = {}) {
     remember('class', classId);
     grades = null; if (open) closeDrawer();
     main.querySelector('[data-content-link]').href = `#/content/${encodeURIComponent(classId)}`;
-    main.querySelector('[data-analytics-link]').href = `#/analytics?class=${encodeURIComponent(classId)}`;
+    main.querySelector('[data-class-name]').textContent = cls().name;
     section = '';
     pickExam(); fillExams();
     load();

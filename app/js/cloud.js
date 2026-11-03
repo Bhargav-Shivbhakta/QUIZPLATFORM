@@ -438,6 +438,41 @@ async function afterSignIn(u) {
   dirtyUser = true;
   schedule(SOON_MS);
   emitSync();
+  markClassSignIns(u);
+}
+
+// Tell each class's staff "this student has signed in" (one small record per class, at most once a day)
+const SIGNIN_EVERY_MS = 20 * 3600000;
+function markClassSignIns(u) {
+  for (const c of myClasses()) {
+    if (isStaffRole(c.role)) continue;
+    const k = 'signinMark:' + c.id;
+    if (Date.now() - (Number(store.getRaw(k)) || 0) < SIGNIN_EVERY_MS) continue;
+    fb.setDoc(fb.doc(fb.db, 'classes', c.id, 'signins', u.uid), { uid: u.uid, email: String(u.email || '').toLowerCase(), at: Date.now() })
+      .then(() => store.quietly(() => store.setRaw(k, String(Date.now()))))
+      .catch(() => {}); // older rules: the dashboard falls back to saved progress
+  }
+}
+// Staff: who in this class has signed in, and when (last)
+export async function classSignIns(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'signins'));
+  return snap.docs.map((d) => ({ uid: d.id, email: String(d.data().email || '').toLowerCase(), at: d.data().at || 0 }));
+}
+// Admin: record sign-ins the class doesn't know about yet (students who signed in before these records existed)
+export async function recordSignIns(classId, people) {
+  for (let i = 0; i < people.length; i += 400) {
+    const b = fb.writeBatch(fb.db);
+    for (const p of people.slice(i, i + 400)) b.set(fb.doc(fb.db, 'classes', classId, 'signins', p.uid), { uid: p.uid, email: p.email, at: p.at || 1 });
+    await b.commit();
+  }
+}
+let usersCache = null;
+export async function listUsersCached() {
+  if (usersCache && Date.now() - usersCache.at < 10 * 60000) return usersCache.list;
+  const list = await listUsers();
+  usersCache = { list, at: Date.now() };
+  return list;
 }
 
 function clearLocalExam(examId) {
@@ -833,6 +868,39 @@ export async function addStudentToClass(classId, { email, name = '', section = '
   b.delete(fb.doc(fb.db, 'signins', email));
   await b.commit();
   return { added: true };
+}
+
+// Admin: change a student's name or section on one class's roster. Email and RedID come from the
+// roster upload and aren't changed here.
+export async function updateStudent(classId, email, { name, section }) {
+  await load();
+  email = String(email || '').trim().toLowerCase();
+  const cls = await getClass(classId);
+  if (!cls) throw new Error('That class no longer exists');
+  const people = await getRoster(classId);
+  const i = people.findIndex((p) => p.email === email);
+  if (i < 0) throw new Error('This student is no longer on the roster. Refresh the page.');
+  const person = { ...people[i], name: String(name ?? people[i].name ?? '').trim().slice(0, 120), section: String(section ?? people[i].section ?? '').trim().slice(0, 60) };
+  const info = { name: cls.name, course: cls.course || '', term: cls.term || '', exams: cls.exams || [], color: cls.color || 'blue', examDates: cls.examDates || {} };
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: people.map((p, j) => (j === i ? person : p)), updatedAt: Date.now() });
+  b.set(fb.doc(fb.db, 'enrollments', email), { email, classes: { [classId]: { ...info, role: 'student', section: person.section } } }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
+  await b.commit();
+  return person;
+}
+// Admin: take a student off one class (they lose access to it; their saved practice is kept)
+export async function removeStudent(classId, email) {
+  await load();
+  email = String(email || '').trim().toLowerCase();
+  const people = await getRoster(classId);
+  if (!people.some((p) => p.email === email)) throw new Error('This student is no longer on the roster. Refresh the page.');
+  const next = people.filter((p) => p.email !== email);
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: next, updatedAt: Date.now() });
+  b.set(fb.doc(fb.db, 'enrollments', email), { classes: { [classId]: fb.deleteField() } }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { studentCount: next.filter((p) => !p.role || p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
+  await b.commit();
 }
 
 export async function deleteClass(id) {
