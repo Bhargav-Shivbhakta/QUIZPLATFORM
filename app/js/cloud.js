@@ -118,6 +118,8 @@ export async function init() {
       await loadAccess();
       if (isEnrolled()) {
         try { await afterSignIn(user); } catch (e) { console.error(e); syncError = 'Your saved progress could not be loaded. It will retry automatically.'; }
+      } else if (!admin) {
+        noteUnrosteredSignIn(); // so the admin can spot roster/email mismatches
       }
     } else if (prev) {
       wipeLocal();
@@ -418,6 +420,15 @@ async function afterSignIn(u) {
   store.quietly(() => store.set('pushed', pushed));
   lastSynced = Date.now();
   syncError = '';
+  // A student who has never saved anything for an exam of their class still shows up on the
+  // dashboard as "signed in, not started" (one small save per exam, once).
+  const inAccount = new Set(examSnaps.docs.map((x) => x.id));
+  for (const c of myClasses()) {
+    if (isStaffRole(c.role)) continue;
+    for (const examId of c.exams || []) {
+      if (!inAccount.has(examId) && !localExam.has(examId) && !getSyncMeta(examId).sumAt) dirtyExams.add(examId);
+    }
+  }
   // upload anything this device had that the account didn't (and refresh the summaries)
   for (const k of store.allKeys()) {
     let m;
@@ -550,7 +561,9 @@ export function flush() {
         const keys = examPayload(examId);
         const codesNow = codesFor(examId);
         const progressChanged = changed('exam:' + examId, [keys, codesNow, meta.resetAt || 0]);
-        if (progressChanged) {
+        // nothing studied yet: no progress record, only the "signed in" summary below
+        const empty = !Object.keys(keys).length && !Object.keys(codesNow).length && !meta.resetAt;
+        if (progressChanged && !empty) {
           writes.push([fb.doc(base, 'exams', examId), { ...me, examId, keys, codes: codesNow, codeAt: meta.codeAt || {}, resetAt: meta.resetAt || 0, updatedAt: Date.now() }]);
         }
         const classes = classesWithExam(examId);
@@ -693,6 +706,31 @@ export async function setReportStatus(classId, id, status) {
   await fb.setDoc(fb.doc(fb.db, 'classes', classId, 'reports', id), { status, resolvedBy: user.email.toLowerCase(), resolvedAt: Date.now() }, { merge: true });
 }
 
+// ---------------------------------------------------------------- real exam scores (staff only)
+// classes/{classId}/grades/{gradeId}: { name, maxPoints, date, examId, scores: [{ email, score }], … }
+// Uploaded by the class's instructors/TAs for the Analytics page. Students can never read them.
+export async function listGrades(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'grades'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || (a.uploadedAt || 0) - (b.uploadedAt || 0));
+}
+export async function saveGrades(classId, { id, name, maxPoints, date = '', examId = '', scores, source = '' }) {
+  await load();
+  const gid = id || (String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'exam') + '-' + Date.now().toString(36);
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId, 'grades', gid), {
+    name: String(name).slice(0, 80), maxPoints: Number(maxPoints) || 100, date, examId, source: String(source).slice(0, 120),
+    scores: scores.map((x) => ({ email: x.email, score: Number(x.score) })), count: scores.length,
+    uploadedAt: Date.now(), uploadedBy: user.email.toLowerCase(),
+  });
+  return gid;
+}
+export async function deleteGrades(classId, gid) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.delete(fb.doc(fb.db, 'classes', classId, 'grades', gid));
+  await b.commit();
+}
+
 // ---------------------------------------------------------------- instructor reads
 export async function classSummaries(classId) {
   await load();
@@ -713,6 +751,23 @@ export async function getRoster(classId) {
   await load();
   const snap = await fb.getDoc(fb.doc(fb.db, 'rosters', classId));
   return snap.exists() ? snap.data().people || [] : [];
+}
+
+// Someone signed in with a school account that isn't on any roster: record it once per device
+// (email, name, time) so the admin can see who is locked out, e.g. an email alias on the roster.
+async function noteUnrosteredSignIn() {
+  try {
+    const key = 'unrostered:' + user.uid;
+    if (store.get(key, 0) > Date.now() - 6 * 3600 * 1000) return; // at most every 6 hours per device
+    await fb.setDoc(fb.doc(fb.db, 'signins', user.email.toLowerCase()), { email: user.email.toLowerCase(), name: user.displayName || '', at: Date.now() });
+    store.quietly(() => store.set(key, Date.now()));
+  } catch (e) { console.warn('Could not record the sign-in', e?.code || e); }
+}
+// Admin: school accounts that signed in but aren't on any roster
+export async function listUnrostered() {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'signins'));
+  return snap.docs.map((d) => d.data());
 }
 
 // ---------------------------------------------------------------- admin: classes and rosters
@@ -757,6 +812,27 @@ export async function saveClass({ id, name, course, term, exams, staff, students
   for (const p of removed) ops.push((b) => b.set(fb.doc(fb.db, 'enrollments', p.email), { classes: { [id]: fb.deleteField() } }, { merge: true }));
   await runOps(ops);
   return { added: [...everyone.keys()].filter((e) => !prevPeople.some((p) => p.email === e)).length, removed: removed.length, total: everyone.size };
+}
+
+// Admin: put one person on a class roster as a student (e.g. someone who signed in with an
+// email the roster didn't have). Same records as saving the class, for just this person.
+export async function addStudentToClass(classId, { email, name = '', section = '' }) {
+  await load();
+  email = String(email || '').trim().toLowerCase();
+  if (!email) throw new Error('No email');
+  const cls = await getClass(classId);
+  if (!cls) throw new Error('That class no longer exists');
+  const people = await getRoster(classId).catch(() => []);
+  if (people.some((p) => p.email === email)) return { already: true };
+  const person = { email, name: String(name || '').slice(0, 120), redId: '', section, role: 'student' };
+  const info = { name: cls.name, course: cls.course || '', term: cls.term || '', exams: cls.exams || [], color: cls.color || 'blue', examDates: cls.examDates || {} };
+  const b = fb.writeBatch(fb.db);
+  b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: [...people, person], updatedAt: Date.now() });
+  b.set(fb.doc(fb.db, 'enrollments', email), { email, classes: { [classId]: { ...info, role: 'student', section } } }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { studentCount: people.filter((p) => p.role === 'student').length + 1, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
+  b.delete(fb.doc(fb.db, 'signins', email));
+  await b.commit();
+  return { added: true };
 }
 
 export async function deleteClass(id) {

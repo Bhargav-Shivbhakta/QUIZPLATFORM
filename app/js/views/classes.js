@@ -73,7 +73,7 @@ async function classPage(main, cls, byId, several) {
           <h1>${esc(cls.name)}</h1>
           <p class="tagline">${teacher ? (cls.role === 'ta' ? `You are a TA for this class${cls.sections?.length ? ` (${cls.sections.length > 1 ? 'sections' : 'section'} ${esc(cls.sections.join(', '))})` : ''}.` : 'You are an instructor for this class.') : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
         </div>
-        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
+        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn" href="#/analytics?class=${encodeURIComponent(cls.id)}">${icon('chart')} Exam analytics</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
       </header>
       ${ann}
       ${panel && store.getSession()?.examId === featured?.id ? '' : resumeBanner()}

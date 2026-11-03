@@ -54,6 +54,11 @@ export async function render(main, params = {}, query = {}) {
   let showResolved = false;
   let asgList = [];
   let sortKey = 'name', sortDir = 1, filter = '', only = 'all';
+  section = remembered('section') || '';
+  let grouped = remembered('grouped') !== 'no'; // students listed under a heading per section
+  let allSums = [];          // this class's summaries for every exam (the drawer shows them all)
+  let grades = null;         // uploaded real exam scores, read the first time a student panel opens
+  let open = '';             // email of the student shown in the side panel
 
   main.innerHTML = `
     <section class="page instructor">
@@ -68,6 +73,7 @@ export async function render(main, params = {}, query = {}) {
             <select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
           </label>
           <label class="field inline"><span class="sr-only">Exam</span><select data-exam></select></label>
+          <a class="btn" data-analytics-link href="#/analytics?class=${encodeURIComponent(classId)}">${icon('chart')} Exam analytics</a>
           <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('upload')} Exams & assignments</a>
           <button class="btn" data-refresh>${icon('shuffle')} Refresh</button>
           <button class="btn" data-csv>${icon('download')} CSV</button>
@@ -88,7 +94,16 @@ export async function render(main, params = {}, query = {}) {
     if (allowed && !secs.some((x) => allowed.includes(x))) return false;
     return !section || secs.includes(section);
   };
-  const started = () => rows.filter((r) => !r.never && inSection(r));
+  // in any section this person may see (ignores the chosen tab)
+  const inSectionAll = (r) => { const allowed = mySections(); const secs = (r.section || '').split(', ').filter(Boolean); return !allowed || secs.some((x) => allowed.includes(x)); };
+  // the student list with a heading before each section (when grouping), keeping the chosen sort inside each section
+  const withHeadings = (list) => {
+    if (!grouped || section || sectionList().length < 2) return list;
+    const groups = new Map();
+    for (const r of list) { const k = firstSection(r) || 'No section'; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+    return [...groups.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).flatMap((k) => [{ heading: k, count: groups.get(k).length }, ...groups.get(k)]);
+  };
+  const started = () => rows.filter((r) => !r.never && !r.signedInOnly && inSection(r));
   const enrolled = () => rows.filter((r) => !r.dropped && inSection(r));
 
   async function load() {
@@ -100,10 +115,13 @@ export async function render(main, params = {}, query = {}) {
       reports = reports.filter((x) => x.examId === examId).sort((a, b) => b.createdAt - a.createdAt);
       anns = await cloud.listAnnouncements(classId, { fresh: true }).catch(() => []);
       examData = await getExam(examId).catch(() => null);
+      allSums = sums;
       sums = sums.filter((x) => x.examId === examId);
       const students = roster.filter((p) => !p.role || p.role === 'student');
       const byEmail = new Map(students.map((p) => [p.email, p]));
-      rows = sums.map((x) => { const p = byEmail.get(x.email); return { ...x, name: p?.name || x.name, redId: p?.redId || '', section: p?.section || x.section || '', dropped: !p }; });
+      // a summary with no practice in it means "signed in, not started yet"
+      const studied = (x) => (x.seen || 0) > 0 || (x.attempts || 0) > 0 || (x.asgDone || 0) > 0 || Object.values(x.asg || {}).some((a) => (a.attempts || 0) > 0 || (a.best || 0) > 0);
+      rows = sums.map((x) => { const p = byEmail.get(x.email); return { ...x, name: p?.name || x.name, redId: p?.redId || '', section: p?.section || x.section || '', dropped: !p, signedInOnly: !studied(x) }; });
       const have = new Set(rows.map((r) => r.email));
       for (const p of students) if (!have.has(p.email)) rows.push({ uid: null, email: p.email, name: p.name, redId: p.redId, section: p.section, never: true });
     } catch (e) {
@@ -113,6 +131,7 @@ export async function render(main, params = {}, query = {}) {
       return;
     }
     paint();
+    if (open) detail(open);
   }
 
   function overview() {
@@ -123,7 +142,7 @@ export async function render(main, params = {}, query = {}) {
     const asgTotal = asgList.length;
     const tile = (big, label, sub = '') => `<div class="stat-tile"><strong>${big}</strong><span>${label}</span>${sub ? `<span class="muted small">${sub}</span>` : ''}</div>`;
     return `<div class="stat-tiles">
-      ${tile(`${rows.length}<span class="of"> / ${enrolled().length}</span>`, 'students have started', `${Math.max(0, enrolled().length - rows.filter((r) => !r.dropped).length)} haven't signed in yet`)}
+      ${(() => { const notIn = enrolled().filter((r) => r.never).length, waiting = enrolled().filter((r) => r.signedInOnly).length; return tile(`${rows.filter((r) => !r.dropped).length}<span class="of"> / ${enrolled().length}</span>`, 'students have started', `${notIn} not signed in yet${waiting ? ` · ${waiting} signed in, not started` : ''}`); })()}
       ${tile(active7, 'active in the last 7 days', enrolled().length ? pct(active7 / enrolled().length) + ' of the class' : '')}
       ${tile(median(rows.map((r) => r.readiness)) ?? '–', 'median quiz readiness', 'out of 100')}
       ${tile(Math.round(median(rows.map((r) => r.seen)) ?? 0), 'median questions tried', total ? `of ${total}` : '')}
@@ -206,7 +225,7 @@ export async function render(main, params = {}, query = {}) {
   }
 
   function reportsSection() {
-    const mine = reports.filter((x) => { const allowed = mySections(); return !allowed || allowed.includes(x.section); });
+    const mine = reports.filter((x) => { const allowed = mySections(); return (!allowed || allowed.includes(x.section)) && (!section || x.section === section); });
     if (!mine.length) return '';
     const open = mine.filter((x) => x.status !== 'resolved');
     const list = showResolved ? mine : open;
@@ -229,11 +248,59 @@ export async function render(main, params = {}, query = {}) {
     const q = filter.trim().toLowerCase();
     const now = Date.now();
     let list = rows.filter((r) => inSection(r) && (!q || (r.name || '').toLowerCase().includes(q) || (r.email || '').includes(q) || (r.redId || '').includes(q)));
-    if (only === 'never') list = list.filter((r) => r.never);
-    if (only === 'inactive') list = list.filter((r) => !r.never && (!r.lastActive || now - r.lastActive >= 7 * DAY));
-    if (only === 'low') list = list.filter((r) => !r.never && (r.readiness ?? 0) < 40);
+    if (only === 'never') list = list.filter((r) => r.never || r.signedInOnly);
+    if (only === 'inactive') list = list.filter((r) => !r.never && !r.signedInOnly && (!r.lastActive || now - r.lastActive >= 7 * DAY));
+    if (only === 'low') list = list.filter((r) => !r.never && !r.signedInOnly && (r.readiness ?? 0) < 40);
     const col = COLS.find((c) => c.key === sortKey);
-    return list.sort((a, b) => { const x = col.sort(a), y = col.sort(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
+    const byName = (a, b) => (a.name || a.email || '').localeCompare(b.name || b.email || '');
+    // ties (same section, same score…) fall back to the student's name, so the order never looks random
+    const cmp = (x, y) => (typeof x === 'string' && typeof y === 'string' ? x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' }) : x < y ? -1 : x > y ? 1 : 0); // "Section 5" before "Section 10"
+    return list.sort((a, b) => cmp(col.sort(a), col.sort(b)) * sortDir || byName(a, b));
+  }
+  const firstSection = (r) => (r.section || '').split(', ').filter(Boolean)[0] || '';
+  const sectionList = () => { const allowed = mySections(); return [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); };
+
+  // One line per section: how far along each section is (only sections this person may see)
+  function sectionStats() {
+    const now = Date.now();
+    return sectionList().map((sec) => {
+      const inSec = rows.filter((r) => !r.dropped && (r.section || '').split(', ').includes(sec));
+      const st = inSec.filter((r) => !r.never && !r.signedInOnly);
+      const right = st.reduce((n, r) => n + (r.right || 0), 0), wrong = st.reduce((n, r) => n + (r.wrong || 0), 0);
+      return {
+        sec, total: inSec.length,
+        notIn: inSec.filter((r) => r.never).length,
+        started: st.length,
+        active: st.filter((r) => r.lastActive && now - r.lastActive < 7 * DAY).length,
+        readiness: median(st.map((r) => r.readiness)),
+        accuracy: right + wrong ? right / (right + wrong) : null,
+        asg: asgList.length && st.length ? st.reduce((n, r) => n + (r.asgDone || 0), 0) / (st.length * asgList.length) : null,
+      };
+    });
+  }
+  function sectionCompare() {
+    const stats = sectionStats();
+    if (section || stats.length < 2) return '';
+    const best = (key) => Math.max(...stats.map((x) => x[key] ?? -1));
+    const mark = (x, key, txt) => (stats.length > 2 && x[key] != null && x[key] === best(key) ? `<strong>${txt}</strong>` : txt);
+    return `
+      <h2 class="section-title">Sections</h2>
+      <div class="table-wrap inst-table-wrap sec-compare-wrap" tabindex="0" role="region" aria-label="Sections compared">
+        <table class="inst-table sec-compare">
+          <thead><tr><th scope="col">Section</th><th scope="col">Students</th><th scope="col">Not signed in</th><th scope="col">Started</th><th scope="col">Active (7 days)</th><th scope="col">Median readiness</th><th scope="col">Accuracy</th>${asgList.length ? '<th scope="col">Assignments done</th>' : ''}</tr></thead>
+          <tbody>${stats.map((x) => `<tr>
+            <td><button class="link-btn" data-section-tab="${esc(x.sec)}">${esc(x.sec)}</button></td>
+            <td data-label="Students">${x.total}</td>
+            <td data-label="Not signed in">${x.notIn ? `<span class="pill bad">${x.notIn}</span>` : '0'}</td>
+            <td data-label="Started"><span>${x.started} <span class="muted small">(${pct(x.total ? x.started / x.total : null)})</span></span></td>
+            <td data-label="Active (7 days)"><span>${mark(x, 'active', String(x.active))} <span class="muted small">(${pct(x.total ? x.active / x.total : null)})</span></span></td>
+            <td data-label="Median readiness">${x.readiness == null ? '–' : mark(x, 'readiness', String(Math.round(x.readiness)))}</td>
+            <td data-label="Accuracy"><span class="pill ${toneFor(x.accuracy)}">${pct(x.accuracy)}</span></td>
+            ${asgList.length ? `<td data-label="Assignments done">${pct(x.asg)}</td>` : ''}
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <p class="muted small sec-compare-note">Click a section to see only its students. Readiness and accuracy count students who have started.</p>`;
   }
 
   function table() {
@@ -246,16 +313,17 @@ export async function render(main, params = {}, query = {}) {
         <div class="seg" role="tablist" aria-label="Show">
           ${[['all', 'Everyone'], ['never', 'Not started'], ['inactive', 'Inactive 7+ days'], ['low', 'Readiness under 40']].map(([k, l]) => `<button role="tab" data-only="${k}" aria-selected="${only === k}">${l}</button>`).join('')}
         </div>
+        ${!section && sectionList().length > 1 ? `<label class="check group-toggle"><input type="checkbox" data-group ${grouped ? 'checked' : ''}><span>Group by section</span></label>` : ''}
       </div>
       <div class="table-wrap inst-table-wrap">
         <table class="inst-table">
           <thead><tr>${COLS.map((c) => `<th scope="col" aria-sort="${sortKey === c.key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button data-sort="${c.key}">${c.label}${sortKey === c.key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr></thead>
           <tbody>
-            ${list.map((r) => `
-              <tr>
-                <td>${r.never ? `<strong>${esc(r.name || r.email)}</strong>` : `<button class="link-btn" data-student="${esc(r.uid)}">${esc(r.name || r.email)}</button>`}<span class="muted small block">${esc(r.email)}${r.redId ? ' · ' + esc(r.redId) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</span></td>
+            ${withHeadings(list).map((r) => r.heading ? `<tr class="sec-row"><th colspan="${COLS.length}" scope="colgroup">${esc(r.heading)} <span class="muted small">· ${plural(r.count, 'student')}</span></th></tr>` : `
+              <tr class="${open === r.email ? 'is-open' : ''}" data-row="${esc(r.email)}">
+                <td><button class="link-btn" data-student="${esc(r.email)}" aria-expanded="${open === r.email}">${esc(r.name || r.email)}</button><span class="muted small block">${esc(r.email)}${r.redId ? ' · ' + esc(r.redId) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</span></td>
                 <td data-label="Section">${esc(r.section || '–')}</td>
-                <td data-label="Last active">${r.never ? '<span class="muted">Never signed in</span>' : ago(r.lastActive)}</td>
+                <td data-label="Last active">${r.never ? '<span class="muted">Not signed in yet</span>' : r.signedInOnly ? `<span class="muted">Signed in${r.updatedAt ? ' ' + esc(ago(r.updatedAt).replace(/^[A-Z]/, (c) => c.toLowerCase())) : ''} · not started</span>` : ago(r.lastActive)}</td>
                 <td data-label="Tried">${r.seen || 0}${r.totalQuestions ? ` <span class="muted small">/ ${r.totalQuestions}</span>` : ''}</td>
                 <td data-label="Accuracy"><span class="pill ${toneFor(r.accuracy)}">${pct(r.accuracy)}</span></td>
                 <td data-label="Readiness">${r.readiness ?? '–'}</td>
@@ -271,57 +339,180 @@ export async function render(main, params = {}, query = {}) {
     const allowed = mySections();
     const sections = [...new Set(rows.flatMap((r) => (r.section || '').split(', ').filter(Boolean)))].filter((x) => !allowed || allowed.includes(x)).sort();
     const taNote = allowed ? `<p class="ta-note">${icon('note')}<span>You're a TA for ${allowed.length > 1 ? 'sections' : 'section'} <strong>${allowed.map(esc).join(', ')}</strong>, so you see those students only.</span></p>` : '';
-    const sectionPicker = taNote + (sections.length > 1 ? `<label class="field inline section-pick"><span>Section</span><select data-section><option value="">${allowed ? 'All my sections' : 'All sections'}</option>${sections.map((x) => `<option ${x === section ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select></label>` : '');
+    if (section && !sections.includes(section)) section = '';
+    const count = (sec) => rows.filter((r) => !r.dropped && (!sec ? inSectionAll(r) : (r.section || '').split(', ').includes(sec))).length;
+    const sectionPicker = taNote + (sections.length > 1 ? `<div class="sec-tabs" role="tablist" aria-label="Section">
+        ${[['', allowed ? 'All my sections' : 'All sections'], ...sections.map((x) => [x, x])].map(([v, l]) => `<button role="tab" data-section-tab="${esc(v)}" aria-selected="${v === section}">${esc(l)} <span class="sec-count">${count(v)}</span></button>`).join('')}
+      </div>` : '');
+    const csvBtn = main.querySelector('[data-csv]');
+    if (csvBtn) csvBtn.innerHTML = `${icon('download')} CSV${section ? ' · ' + esc(section) : ''}`;
     if (!rows.length) {
       body.innerHTML = `<div data-anns>${annSection()}</div><div class="empty-state"><h2>No students yet</h2><p>Upload this class's roster on the Admin page. Students appear here once they're on the roster.</p></div>`;
       return;
     }
-    body.innerHTML = `<div data-anns>${annSection()}</div>` + sectionPicker + overview() + `<div data-reports>${reportsSection()}</div>` + (started().length ? topics() + missedSection() + assignments() : '<p class="muted">Nobody has started this exam yet. Topic and assignment results show up once students begin.</p>') + `<div data-table>${table()}</div>`;
+    if (open && !rows.some((r) => r.email === open)) closeDrawer();
+    body.innerHTML = sectionPicker + `<div data-anns>${annSection()}</div>` + overview() + sectionCompare() + `<div data-reports>${reportsSection()}</div>` + (started().length ? topics() + missedSection() + assignments() : '<p class="muted">Nobody has started this exam yet. Topic and assignment results show up once students begin.</p>') + `<div data-table>${table()}</div>`;
   }
   const repaintTable = () => { const t = body.querySelector('[data-table]'); if (t) { const had = document.activeElement?.matches('[data-filter]'); t.innerHTML = table(); if (had) { const f = t.querySelector('[data-filter]'); f.focus(); f.setSelectionRange(f.value.length, f.value.length); } } };
 
-  function detail(uid) {
-    const r = rows.find((x) => x.uid === uid);
+  // ---------- one student, in a panel on the right ----------
+  const qText = (q) => { const t = Array.isArray(q?.body) ? q.body.join(' ') : String(q?.body || ''); return t.replace(/```[\s\S]*?```/g, ' [code] ').replace(/[`*_#>]/g, '').replace(/\s+/g, ' ').trim(); };
+  const shortDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  async function loadGrades() {
+    if (grades) return grades;
+    try { grades = { list: await cloud.listGrades(classId) }; }
+    catch (e) { grades = { list: [], error: e?.code === 'permission-denied' ? 'Publish the latest firestore.rules to see exam scores here.' : "Couldn't load exam scores." }; }
+    return grades;
+  }
+  function drawerEl() {
+    let d = main.querySelector('[data-drawer]');
+    if (!d) {
+      d = document.createElement('aside');
+      d.className = 'stu-drawer'; d.dataset.drawer = ''; d.setAttribute('aria-labelledby', 'stu-drawer-title'); d.tabIndex = -1;
+      main.querySelector('.page.instructor').appendChild(d);
+    }
+    // sit below the site's top bar so the menu stays usable
+    const bar = document.querySelector('.topbar');
+    d.style.top = (bar && getComputedStyle(bar).display !== 'none' ? Math.max(0, bar.getBoundingClientRect().height) : 0) + 'px';
+    const tabs = document.querySelector('.tabbar');
+    d.style.bottom = (tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().height : 0) + 'px';
+    return d;
+  }
+  function closeDrawer() {
+    const was = open; open = '';
+    main.querySelector('[data-drawer]')?.remove();
+    main.querySelector('.page.instructor')?.classList.remove('has-drawer');
+    body.querySelectorAll('tr.is-open').forEach((t) => t.classList.remove('is-open'));
+    body.querySelectorAll('[data-student][aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    body.querySelector(`[data-student="${CSS.escape(was)}"]`)?.focus();
+  }
+  async function detail(email) {
+    const r = rows.find((x) => x.email === email);
     if (!r) return;
-    const asgRows = asgList.map((a) => {
-      const s = r.asg?.[a.slug];
-      const total = a.tests.length + a.checks.length;
-      return `<tr><td>${esc(a.title)}</td><td>${!s ? '<span class="muted">Not started</span>' : s.done ? `<span class="pill good">Done</span>` : `${s.best}/${s.total || total}`}</td><td>${s ? s.attempts : 0}</td><td>${s ? s.hints : 0}</td><td>${s ? `<button class="link-btn" data-code="${esc(a.slug)}">View code</button>` : ''}</td></tr>`;
-    }).join('');
-    const m = modal({
-      title: r.name || r.email,
-      wide: true,
-      body: `
-        <p class="muted">${esc(r.email)} · last active ${esc(ago(r.lastActive))} · ${plural(r.attempts || 0, 'quiz', 'quizzes')} finished</p>
-        <div class="stat-tiles small">
-          <div class="stat-tile"><strong>${r.seen || 0}${r.totalQuestions ? `/${r.totalQuestions}` : ''}</strong><span>questions tried</span></div>
-          <div class="stat-tile"><strong>${pct(r.accuracy)}</strong><span>accuracy</span></div>
-          <div class="stat-tile"><strong>${r.readiness ?? '–'}</strong><span>quiz readiness</span></div>
-          <div class="stat-tile"><strong>${r.realExamBest != null ? r.realExamBest + '%' : '–'}</strong><span>best timed test${r.realExamLast != null ? ` (last ${r.realExamLast}%)` : ''}</span></div>
+    open = email;
+    body.querySelectorAll('tr.is-open').forEach((t) => t.classList.remove('is-open'));
+    body.querySelector(`tr[data-row="${CSS.escape(email)}"]`)?.classList.add('is-open');
+    body.querySelectorAll('[data-student]').forEach((b) => b.setAttribute('aria-expanded', String(b.dataset.student === email)));
+    main.querySelector('.page.instructor').classList.add('has-drawer');
+    const d = drawerEl();
+    d.innerHTML = drawerHead(r) + '<div class="stu-body"><p class="muted loading-line">Loading…</p></div>';
+    d.focus({ preventScroll: true });
+    const g = await loadGrades();
+    if (open !== email) return; // another student was opened meanwhile
+    d.querySelector('.stu-body').innerHTML = drawerBody(r, g);
+    const c = d.querySelector('.stu-body');
+    c.scrollTop = 0;
+  }
+  function drawerHead(r) {
+    const list = visibleRows();
+    const i = list.findIndex((x) => x.email === r.email);
+    const prev = i > 0 ? list[i - 1] : null, next = i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+    const status = r.never ? '<span class="pill">Never signed in</span>' : r.signedInOnly ? '<span class="pill">Signed in · not started</span>' : `<span class="muted">Last active ${esc(ago(r.lastActive).replace(/^[A-Z]/, (c) => c.toLowerCase()))}</span>`;
+    return `
+      <div class="stu-head">
+        <div class="stu-nav">
+          <button class="icon-btn" data-stu-go="${esc(prev?.email || '')}" ${prev ? '' : 'disabled'} aria-label="Previous student">${icon('left')}</button>
+          <span class="muted small">${i >= 0 ? `${i + 1} of ${list.length}` : ''}</span>
+          <button class="icon-btn" data-stu-go="${esc(next?.email || '')}" ${next ? '' : 'disabled'} aria-label="Next student">${icon('right')}</button>
+          <button class="icon-btn" data-stu-close aria-label="Close student details">${icon('x')}</button>
         </div>
-        ${(r.topics || []).length ? `<h3>Topics</h3><ul class="inst-topics">${r.topics.map((t) => { const acc = t.right + t.wrong ? t.right / (t.right + t.wrong) : null; return `<li><span class="t-name">${esc(t.name)}</span><span class="t-bar">${meter(acc ?? 0, { tone: acc == null ? 'muted' : toneFor(acc) })}</span><span class="t-num">${pct(acc)}</span><span class="muted small t-tried">${t.seen}/${t.count} tried</span></li>`; }).join('')}</ul>` : ''}
-        ${asgList.length ? `<h3>Assignments</h3><div class="table-wrap"><table class="inst-table compact"><thead><tr><th>Assignment</th><th>Best</th><th>Test runs</th><th>Hints</th><th></th></tr></thead><tbody>${asgRows}</tbody></table></div>
-        <div data-code-view></div>` : ''}`,
-    });
-    m.el.addEventListener('click', async (ev) => {
-      const b = ev.target.closest('[data-code]');
-      if (!b) return;
-      const view = m.el.querySelector('[data-code-view]');
-      view.innerHTML = '<p class="muted">Loading code…</p>';
-      try {
-        // the code comes with the student's summary (older summaries keep it in a separate record)
-        const d = r.codes ? r : await cloud.studentCode(classId, r.uid, examId);
-        const code = d?.codes?.[b.dataset.code];
-        const a = asgList.find((x) => x.slug === b.dataset.code);
-        view.innerHTML = code == null ? '<p class="muted">No saved code for this assignment.</p>'
-          : `<h3>${esc(a?.title || b.dataset.code)} <span class="muted small">${d.codeAt?.[b.dataset.code] ? 'saved ' + esc(fmtDate(d.codeAt[b.dataset.code])) : ''}</span></h3><pre class="code-view" tabindex="0"><code class="language-java">${esc(code)}</code></pre>`;
-        const c = view.querySelector('code');
-        if (c && window.hljs) window.hljs.highlightElement(c);
-        view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } catch (e) {
-        view.innerHTML = `<p class="bad">Couldn't load the code: ${esc(e?.message || e)}</p>`;
-      }
-    });
+        <h2 id="stu-drawer-title">${esc(r.name || r.email)}</h2>
+        <p class="muted small">${esc(r.email)}${r.redId ? ' · RedID ' + esc(r.redId) : ''}${r.section ? ' · ' + esc(r.section) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</p>
+        <p class="small">${status}</p>
+      </div>`;
+  }
+  function drawerBody(r, g) {
+    const out = [];
+    // 1. real exam scores, each exam against the one before it
+    const sets = g.list || [];
+    const mine = sets.map((set) => { const x = (set.scores || []).find((y) => String(y.email).toLowerCase() === r.email.toLowerCase()); return { set, score: x?.score ?? null, pct: x ? (x.score / (set.maxPoints || 100)) * 100 : null }; });
+    const r1 = (x) => (Math.round(x * 10) / 10).toString();
+    const sign = (x) => (x > 0 ? '+' : '') + r1(x);
+    let examHtml;
+    if (g.error) examHtml = `<p class="muted small">${esc(g.error)}</p>`;
+    else if (!sets.length) examHtml = `<p class="muted small">No exam scores uploaded yet. Upload them on <a href="#/analytics?class=${encodeURIComponent(classId)}">Exam analytics</a>.</p>`;
+    else {
+      const scored = mine.filter((m) => m.pct != null);
+      const steps = [];
+      for (let k = 1; k < scored.length; k++) steps.push({ from: scored[k - 1], to: scored[k], d: scored[k].pct - scored[k - 1].pct });
+      examHtml = `
+        <ul class="stu-exams">${mine.map((m) => `
+          <li><span class="stu-ex-name">${esc(m.set.name)}${m.set.date ? `<span class="muted small block">${esc(m.set.date)}</span>` : ''}</span>
+            <span class="stu-ex-bar">${m.pct == null ? '' : `<span style="width:${Math.max(0, Math.min(100, m.pct))}%"></span>`}</span>
+            <span class="stu-ex-num">${m.pct == null ? '<span class="muted">no score</span>' : `<strong>${r1(m.pct)}%</strong><span class="muted small block">${r1(m.score)} / ${r1(m.set.maxPoints)}</span>`}</span></li>`).join('')}</ul>
+        ${steps.map((st) => `<p class="stu-change ${st.d >= 0 ? 'good' : 'bad'}"><span class="stu-arrow" aria-hidden="true">${st.d >= 0 ? '▲' : '▼'}</span><span><strong>${esc(st.from.set.name)} → ${esc(st.to.set.name)}: ${sign(st.d)} points</strong> <span class="muted">(${r1(st.from.pct)}% → ${r1(st.to.pct)}%)</span></span></p>`).join('')}
+        ${scored.length < 2 && sets.length > 1 ? '<p class="muted small">This student needs a score on two exams to show a change.</p>' : ''}`;
+    }
+    out.push(`<section><h3>Exam scores</h3>${examHtml}</section>`);
+
+    // 2. practice on the exam chosen at the top of the dashboard
+    const ex = allExams.find((e) => e.id === examId);
+    const solved = Object.values(r.qs || {}).filter((q) => (q?.[0] || 0) > 0).length;
+    if (r.never) out.push(`<section><h3>Practice</h3><p class="muted">This student has never signed in, so there's no practice to show.</p></section>`);
+    else {
+      out.push(`<section><h3>Practice on ${esc(ex?.title || 'this exam')}</h3>
+        ${r.signedInOnly ? '<p class="muted small">Signed in but hasn\'t practised this exam yet.</p>' : ''}
+        <div class="stat-tiles small stu-tiles">
+          <div class="stat-tile"><strong>${r.seen || 0}${r.totalQuestions ? `<span class="of">/${r.totalQuestions}</span>` : ''}</strong><span>questions tried</span></div>
+          <div class="stat-tile"><strong>${solved}</strong><span>questions solved</span></div>
+          <div class="stat-tile"><strong>${pct(r.accuracy)}</strong><span>accuracy${r.right || r.wrong ? ` (${r.right || 0} right, ${r.wrong || 0} wrong)` : ''}</span></div>
+          <div class="stat-tile"><strong>${r.readiness ?? '–'}</strong><span>quiz readiness${r.readinessLabel ? ' · ' + esc(r.readinessLabel) : ''}</span></div>
+          <div class="stat-tile"><strong>${r.attempts || 0}</strong><span>quizzes finished</span></div>
+          <div class="stat-tile"><strong>${r.realExamBest != null ? r.realExamBest + '%' : '–'}</strong><span>best timed test${r.realExamLast != null ? ` (last ${r.realExamLast}%)` : ''}</span></div>
+        </div></section>`);
+      // activity
+      const days = (r.days || []).slice().sort();
+      const now = Date.now(), strip = [];
+      for (let k = 27; k >= 0; k--) strip.push(new Date(now - k * DAY).toLocaleDateString('en-CA'));
+      const on = new Set(days);
+      out.push(`<section><h3>Activity</h3>
+        <p class="small">${days.length ? `Studied on <strong>${plural(days.length, 'day')}</strong> in the last 60 days · last ${esc(shortDay(days[days.length - 1]))}${r.lastQuiz ? ` · last quiz ${esc(fmtDate(r.lastQuiz))}` : ''}` : '<span class="muted">No study days recorded yet.</span>'}</p>
+        <div class="stu-days" role="img" aria-label="Last 4 weeks: studied on ${strip.filter((x) => on.has(x)).length} of 28 days">${strip.map((x) => `<span class="${on.has(x) ? 'on' : ''}" title="${esc(shortDay(x))}${on.has(x) ? ' · studied' : ''}"></span>`).join('')}</div>
+        <p class="muted small stu-days-cap"><span>4 weeks ago</span><span>today</span></p></section>`);
+    }
+
+    // 3. every exam of the class
+    const per = examsOf().map((e) => ({ e, x: allSums.find((y) => y.examId === e.id && String(y.email).toLowerCase() === r.email.toLowerCase()) }));
+    if (per.length > 1) out.push(`<section><h3>All exams in this class</h3><div class="table-wrap" tabindex="0" role="region" aria-label="Practice on every exam"><table class="inst-table compact">
+      <thead><tr><th scope="col">Exam</th><th scope="col">Tried</th><th scope="col">Solved</th><th scope="col">Accuracy</th><th scope="col">Readiness</th><th scope="col">Timed test</th></tr></thead>
+      <tbody>${per.map(({ e, x }) => `<tr${e.id === examId ? ' class="is-open"' : ''}><th scope="row">${esc(e.title)}</th><td data-label="Tried">${x ? `${x.seen || 0}${x.totalQuestions ? `<span class="muted small">/${x.totalQuestions}</span>` : ''}` : '–'}</td><td data-label="Solved">${x ? Object.values(x.qs || {}).filter((q) => (q?.[0] || 0) > 0).length : '–'}</td><td data-label="Accuracy">${x ? pct(x.accuracy) : '–'}</td><td data-label="Readiness">${x?.readiness ?? '–'}</td><td data-label="Timed test">${x?.realExamBest != null ? x.realExamBest + '%' : '–'}</td></tr>`).join('')}</tbody></table></div></section>`);
+
+    if (r.never) return out.join('');
+    // 4. topics
+    if ((r.topics || []).length) out.push(`<section><h3>Topics</h3><ul class="inst-topics">${r.topics.map((t) => { const acc = t.right + t.wrong ? t.right / (t.right + t.wrong) : null; return `<li><span class="t-name">${esc(t.name)}</span><span class="t-bar">${meter(acc ?? 0, { tone: acc == null ? 'muted' : toneFor(acc) })}</span><span class="t-num">${pct(acc)}</span><span class="muted small t-tried">${t.seen}/${t.count} tried</span></li>`; }).join('')}</ul></section>`);
+    // 5. questions this student keeps getting wrong
+    const qs = Object.entries(r.qs || {}).map(([id, v]) => ({ id, right: v?.[0] || 0, wrong: v?.[1] || 0, lastRight: v?.[2] === 1 }));
+    const struggling = qs.filter((q) => !q.lastRight || q.wrong > q.right).sort((a, b) => (a.lastRight - b.lastRight) || (b.wrong - a.wrong)).slice(0, 8);
+    if (struggling.length) out.push(`<section><h3>Questions to go over with them</h3><p class="muted small">Answered wrong last time, or wrong more often than right.</p><ul class="stu-missed">${struggling.map((q) => { const Q = examData?.questions?.find((x) => x.id === q.id); return `<li><span class="stu-qid">${esc(q.id)}</span><span>${esc((qText(Q) || Q?.topic || '').slice(0, 110))}${qText(Q).length > 110 ? '…' : ''}${Q?.topic ? `<span class="muted small block">${esc(Q.topic)}</span>` : ''}</span><span class="small nowrap"><span class="bad">${q.wrong} wrong</span> · ${q.right} right</span></li>`; }).join('')}</ul></section>`);
+    // 6. assignments and code
+    if (asgList.length) {
+      const asgRows = asgList.map((a) => {
+        const st = r.asg?.[a.slug];
+        const total = a.tests.length + a.checks.length;
+        return `<tr><th scope="row">${esc(a.title)}</th><td data-label="Best">${!st ? '<span class="muted">Not started</span>' : st.done ? `<span class="pill good">Done</span>` : `${st.best}/${st.total || total}`}</td><td data-label="Test runs">${st ? st.attempts : 0}</td><td data-label="Hints">${st ? st.hints : 0}</td><td>${st ? `<button class="link-btn" data-code="${esc(a.slug)}">View code</button>` : ''}</td></tr>`;
+      }).join('');
+      out.push(`<section><h3>Assignments <span class="muted small">${r.asgDone || 0} of ${asgList.length} done</span></h3><div class="table-wrap" tabindex="0" role="region" aria-label="Assignments"><table class="inst-table compact"><thead><tr><th scope="col">Assignment</th><th scope="col">Best</th><th scope="col">Test runs</th><th scope="col">Hints</th><th scope="col"><span class="sr-only">Code</span></th></tr></thead><tbody>${asgRows}</tbody></table></div><div data-code-view></div></section>`);
+    }
+    return out.join('');
+  }
+  async function showCode(b) {
+    const r = rows.find((x) => x.email === open);
+    const view = main.querySelector('[data-drawer] [data-code-view]');
+    if (!r || !view) return;
+    view.innerHTML = '<p class="muted">Loading code…</p>';
+    try {
+      // the code comes with the student's summary (older summaries keep it in a separate record)
+      const d = r.codes ? r : await cloud.studentCode(classId, r.uid, examId);
+      const code = d?.codes?.[b.dataset.code];
+      const a = asgList.find((x) => x.slug === b.dataset.code);
+      view.innerHTML = code == null ? '<p class="muted">No saved code for this assignment.</p>'
+        : `<h4>${esc(a?.title || b.dataset.code)} <span class="muted small">${d.codeAt?.[b.dataset.code] ? 'saved ' + esc(fmtDate(d.codeAt[b.dataset.code])) : ''}</span></h4><pre class="code-view" tabindex="0"><code class="language-java">${esc(code)}</code></pre>`;
+      const c = view.querySelector('code');
+      if (c && window.hljs) window.hljs.highlightElement(c);
+      view.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (e) {
+      view.innerHTML = `<p class="bad">Couldn't load the code: ${esc(e?.message || e)}</p>`;
+    }
   }
 
   function csv() {
@@ -337,7 +528,7 @@ export async function render(main, params = {}, query = {}) {
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${classId}-${examId}-students-${new Date().toLocaleDateString('en-CA')}.csv`;
+    link.download = `${classId}-${examId}${section ? '-' + section.replace(/[^\w-]+/g, '_') : ''}-students-${new Date().toLocaleDateString('en-CA')}.csv`;
     document.body.appendChild(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     toast('CSV downloaded');
@@ -346,10 +537,14 @@ export async function render(main, params = {}, query = {}) {
   main.addEventListener('click', (ev) => {
     const b = ev.target.closest('button');
     if (!b) return;
-    if (b.dataset.sort) { if (sortKey === b.dataset.sort) sortDir = -sortDir; else { sortKey = b.dataset.sort; sortDir = b.dataset.sort === 'name' ? 1 : -1; } repaintTable(); }
+    if (b.dataset.sectionTab != null) { section = b.dataset.sectionTab; remember('section', section); paint(); body.querySelector('.sec-tabs [aria-selected="true"]')?.focus(); return; }
+    if (b.dataset.sort) { if (sortKey === b.dataset.sort) sortDir = -sortDir; else { sortKey = b.dataset.sort; sortDir = b.dataset.sort === 'name' || b.dataset.sort === 'section' ? 1 : -1; } repaintTable(); }
     else if (b.dataset.only) { only = b.dataset.only; repaintTable(); }
-    else if (b.dataset.student) detail(b.dataset.student);
-    else if ('refresh' in b.dataset) load();
+    else if (b.dataset.student) { if (open === b.dataset.student && main.querySelector('[data-drawer]')) closeDrawer(); else detail(b.dataset.student); }
+    else if (b.dataset.stuGo) detail(b.dataset.stuGo);
+    else if ('stuClose' in b.dataset) closeDrawer();
+    else if (b.dataset.code) showCode(b);
+    else if ('refresh' in b.dataset) { grades = null; load(); }
     else if (b.dataset.delAnn) {
       b.disabled = true;
       cloud.deleteAnnouncement(classId, b.dataset.delAnn).then(async () => { anns = await cloud.listAnnouncements(classId, { fresh: true }); body.querySelector('[data-anns]').innerHTML = annSection(); toast('Announcement deleted'); })
@@ -367,6 +562,11 @@ export async function render(main, params = {}, query = {}) {
     else if ('showAll' in b.dataset) { b.previousElementSibling.querySelectorAll('[data-extra]').forEach((li) => (li.hidden = false)); b.remove(); }
     else if ('csv' in b.dataset) { if (rows.length) csv(); else toast('No student data to download yet'); }
   });
+  main.addEventListener('dblclick', (ev) => {
+    const tr = ev.target.closest('tr[data-row]');
+    if (tr && !ev.target.closest('button, a, input, select')) { window.getSelection?.()?.removeAllRanges(); detail(tr.dataset.row); }
+  });
+  main.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && open && !document.querySelector('.modal-back')) { ev.preventDefault(); closeDrawer(); } });
   main.addEventListener('submit', async (ev) => {
     if (!ev.target.matches('[data-ann-form]')) return;
     ev.preventDefault();
@@ -390,13 +590,15 @@ export async function render(main, params = {}, query = {}) {
   main.querySelector('[data-class]').addEventListener('change', (ev) => {
     classId = ev.target.value;
     remember('class', classId);
+    grades = null; if (open) closeDrawer();
     main.querySelector('[data-content-link]').href = `#/content/${encodeURIComponent(classId)}`;
+    main.querySelector('[data-analytics-link]').href = `#/analytics?class=${encodeURIComponent(classId)}`;
     section = '';
     pickExam(); fillExams();
     load();
   });
   main.addEventListener('change', (ev) => {
-    if (ev.target.matches('[data-section]')) { section = ev.target.value; paint(); }
+    if (ev.target.matches('[data-group]')) { grouped = ev.target.checked; remember('grouped', grouped ? 'yes' : 'no'); repaintTable(); }
     if (ev.target.matches('[data-sort-select]')) { sortKey = ev.target.value; sortDir = sortKey === 'name' || sortKey === 'section' ? 1 : -1; repaintTable(); }
   });
   await load();

@@ -3,7 +3,7 @@
 // per person who has signed in. The result is kept for 10 minutes so moving around the site
 // doesn't read it all again; "Refresh" reads it fresh.
 import * as cloud from '../cloud.js';
-import { esc, icon, plural } from '../ui.js';
+import { esc, icon, plural, toast } from '../ui.js';
 import { CLASS_COLORS } from '../colors.js';
 
 const DAY = 86400000;
@@ -29,8 +29,11 @@ async function loadData() {
     })),
     cloud.listUsers().catch(() => null), // null: couldn't read (older rules); "signed in" falls back to "started"
   ]);
-  return { classes: perClass, users, at: Date.now() };
+  const unrostered = await cloud.listUnrostered().catch(() => null); // null until the latest rules are published
+  return { classes: perClass, users, unrostered, at: Date.now() };
 }
+
+const studied = (x) => (x.seen || 0) > 0 || (x.attempts || 0) > 0 || (x.asgDone || 0) > 0 || Object.values(x.asg || {}).some((a) => (a.attempts || 0) > 0 || (a.best || 0) > 0);
 
 // Turn raw class data into the numbers on the page
 function compute(data) {
@@ -49,6 +52,7 @@ function compute(data) {
     let right = 0, wrong = 0, cQuizzes = 0, cAsg = 0;
     const readiness = [];
     for (const s of mine) {
+      if (!studied(s)) continue; // signed in but hasn't practised yet
       const email = String(s.email).toLowerCase();
       const days = new Set(s.days || (s.lastActive ? [dayKey(s.lastActive)] : []));
       const p = per.get(email) || { days: new Set(), lastActive: 0 };
@@ -90,7 +94,10 @@ function compute(data) {
     const d = dayKey(Date.now() - i * DAY);
     series.push({ day: d, count: actives.filter((a) => a.days.has(d)).length });
   }
+  // accounts that signed in but aren't on any roster (newest first), minus anyone added since
+  const unrostered = (data.unrostered || []).filter((u) => !everyone.has(String(u.email || '').toLowerCase())).sort((a, b) => (b.at || 0) - (a.at || 0));
   return {
+    unrostered: data.unrostered ? unrostered : null,
     totals: {
       students: everyone.size,
       signedIn: signedIn ? [...everyone].filter((e) => signedIn.has(e)).length : null,
@@ -166,7 +173,7 @@ export async function render(main, params = {}, query = {}) {
       return;
     }
     if (!main.isConnected) return;
-    const { totals: t, series, rows } = compute(data);
+    const { totals: t, series, rows, unrostered } = compute(data);
     main.querySelector('[data-updated]').textContent = `Every class, all in one place. Numbers as of ${new Date(data.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}; they fill in as students finish studying.`;
     if (!rows.length) {
       body.innerHTML = `<div class="empty-state"><h2>No classes yet</h2><p>Create a class and upload its roster to start seeing numbers here.</p><a class="btn primary" href="#/admin?edit=new">New class</a></div>`;
@@ -194,6 +201,15 @@ export async function render(main, params = {}, query = {}) {
           <tbody>${[...series].reverse().map((s) => `<tr><td>${esc(new Date(s.day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }))}</td><td>${s.count}</td></tr>`).join('')}</tbody></table></div>
         </details>
       </section>
+
+      ${unrostered && unrostered.length ? `<section class="ov-panel ov-locked">
+        <h2>Signed in but not on any roster (${unrostered.length})</h2>
+        <p class="muted small">These SDSU accounts tried to sign in, but their email isn't on any class roster, so they can't use the site. Usually it's a student whose roster email is different (for example an alias). If you recognise them, choose their class and click <strong>Add</strong>: they can sign in straight away.</p>
+        <ul class="ov-locked-list">${unrostered.map((u) => `<li>
+          <span class="ov-who"><strong>${esc(u.name || 'Unknown name')}</strong><span class="muted small">${esc(u.email)}${u.at ? ' · tried ' + esc(new Date(u.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ''}</span></span>
+          <span class="ov-add"><label class="sr-only" for="add-${esc(u.email)}">Class for ${esc(u.email)}</label><select id="add-${esc(u.email)}" data-add-class>${rows.map((r) => `<option value="${esc(r.cls.id)}">${esc(r.cls.name)}</option>`).join('')}</select><button class="btn small" data-add-student="${esc(u.email)}" data-name="${esc(u.name || '')}">Add</button></span>
+        </li>`).join('')}</ul>
+      </section>` : ''}
 
       <section class="ov-panel">
         <h2>Classes</h2>
@@ -235,7 +251,22 @@ export async function render(main, params = {}, query = {}) {
     wrap.addEventListener('pointerleave', hide);
   }
 
-  main.addEventListener('click', (ev) => {
+  main.addEventListener('click', async (ev) => {
+    const add = ev.target.closest('[data-add-student]');
+    if (add) {
+      const classId = add.closest('li').querySelector('[data-add-class]').value;
+      add.disabled = true;
+      try {
+        const r = await cloud.addStudentToClass(classId, { email: add.dataset.addStudent, name: add.dataset.name });
+        toast(r.already ? 'Already on that roster.' : `${add.dataset.addStudent} added. They can sign in now.`, 'good');
+        body.innerHTML = '<p class="muted loading-line">Loading the numbers for every class…</p>';
+        show(true);
+      } catch (e) {
+        toast("Couldn't add: " + (e?.message || e), 'bad');
+        add.disabled = false;
+      }
+      return;
+    }
     if (ev.target.closest('[data-refresh]')) {
       body.innerHTML = '<p class="muted loading-line">Loading the numbers for every class…</p>';
       show(true);

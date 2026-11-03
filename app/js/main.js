@@ -24,6 +24,7 @@ const routes = [
   { re: /^\/code\/([^/]+)\/([^/]+)$/, keys: ['id', 'slug'], view: () => import('./views/code.js'), nav: 'home', focus: true },
   { re: /^\/subjects$/, view: () => import('./views/subjects.js'), nav: 'home' },
   { re: /^\/instructor$/, view: () => import('./views/instructor.js'), nav: 'instructor' },
+  { re: /^\/analytics$/, view: () => import('./views/analytics.js'), nav: 'instructor' },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
 ];
