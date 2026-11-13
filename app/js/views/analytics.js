@@ -4,7 +4,7 @@
 import { getManifest } from '../data.js';
 import * as cloud from '../cloud.js';
 import { esc, icon, plural, toast, confirmDialog, toneFor } from '../ui.js';
-import { inspectScores, matchScores, suggestMax } from '../grades.js';
+import { inspectScores, matchScores, suggestMax, commonName, combineSets, looksLikeParts } from '../grades.js';
 
 const DAY = 86400000;
 // Practice groups. Colours are the validated categorical slots 1–3 (see css: --grp-*)
@@ -51,7 +51,8 @@ export async function render(main, params = {}, query = {}, opts = {}) {
 
   let roster = [], sums = [], grades = [], section = embedded ? opts.section || '' : remembered('section') || '';
   let pick = { exam: '', before: '', practice: '' };
-  let upload = null; // { text, fileName, info, index, max, name, date, examId }
+  let upload = null; // { text, fileName, info, cols: [column indexes, added together], max, name, date, examId }
+  let combine = null; // { ids: [score set ids], name, examId, zero, removeParts }
   let sortKey = 'after', sortDir = -1, xAxis = 'solved', focus = '';
 
   if (embedded) main.innerHTML = '<section class="analytics an-embedded"><div data-body><p class="muted loading-line">Loading…</p></div></section>';
@@ -128,7 +129,7 @@ export async function render(main, params = {}, query = {}, opts = {}) {
     if (section && !secs.includes(section)) section = '';
     const allowed = mySections();
     const tabs = !embedded && secs.length > 1 ? `<div class="sec-tabs" role="tablist" aria-label="Section">${[['', allowed ? 'All my sections' : 'All sections'], ...secs.map((s) => [s, s])].map(([v, l]) => `<button role="tab" data-section-tab="${esc(v)}" aria-selected="${v === section}">${esc(l)}</button>`).join('')}</div>` : '';
-    body.innerHTML = tabs + scoresPanel() + (upload ? uploadPanel() : '') + (grades.length ? analysis() : `<div class="empty-state an-empty"><h2>No exam scores yet</h2><p>Upload the scores of an exam (for example Midterm 1, from before students had this site, and Midterm 2) to compare how students who practised here did.</p></div>`);
+    body.innerHTML = tabs + scoresPanel() + (upload ? uploadPanel() : '') + (combine ? combinePanel() : '') + (grades.length ? analysis() : `<div class="empty-state an-empty"><h2>No exam scores yet</h2><p>Upload the scores of an exam (for example Midterm 1, from before students had this site, and Midterm 2) to compare how students who practised here did.</p></div>`);
     bindChart();
   }
 
@@ -137,13 +138,81 @@ export async function render(main, params = {}, query = {}, opts = {}) {
     const pe = (id) => allExams.find((e) => e.id === id)?.title;
     return `
       <section class="an-panel">
-        <div class="an-panel-head"><h2>Exam scores</h2>${upload ? '' : `<button class="btn primary" data-upload>${icon('upload')} Upload scores</button>`}</div>
+        <div class="an-panel-head"><h2>Exam scores</h2>${upload || combine ? '' : `<span class="row">${grades.length > 1 ? `<button class="btn" data-combine>${icon('grid')} Combine parts</button>` : ''}<button class="btn primary" data-upload>${icon('upload')} Upload scores</button></span>`}</div>
         ${grades.length ? `<ul class="an-sets">${grades.map((g) => `
           <li>
             <span class="an-set-main"><strong>${esc(g.name)}</strong><span class="muted small">${plural(g.count || (g.scores || []).length, 'student')} · out of ${r1(g.maxPoints)} · average ${r1(avg(g))}%${g.date ? ' · ' + esc(g.date) : ''}${g.examId && pe(g.examId) ? ' · practice: ' + esc(pe(g.examId)) : ' · before the site / no practice exam'}</span></span>
             <span class="row"><button class="btn small" data-replace="${esc(g.id)}">Replace</button><button class="btn small danger-outline" data-del-grades="${esc(g.id)}" data-name="${esc(g.name)}">${icon('trash')}<span class="sr-only">Delete ${esc(g.name)}</span></button></span>
           </li>`).join('')}</ul>` : '<p class="muted small">Nothing uploaded yet. A Canvas gradebook export works as it is: Grades → Export → Export Entire Gradebook.</p>'}
+        ${grades.length > 1 && !combine ? '<p class="muted small">Exam in parts (for example <em>Midterm 1 MC</em> and <em>Midterm 1 FR</em>)? Use <strong>Combine parts</strong> to add them up into one exam.</p>' : ''}
       </section>`;
+  }
+
+  // ---------- combining uploaded parts of one exam into one ----------
+  function combinePanel() {
+    const c = combine;
+    const sets = grades.filter((g) => c.ids.includes(g.id));
+    const res = sets.length > 1 ? combineSets(sets, { missingAsZero: c.zero }) : null;
+    const nameOf = (e) => roster.find((p) => String(p.email).toLowerCase() === e)?.name || e;
+    const avg = res ? mean(res.scores.map((x) => (x.score / res.maxPoints) * 100)) : null;
+    return `
+      <section class="an-panel combine-panel" data-combine-panel>
+        <h2>Combine parts into one exam</h2>
+        <p class="muted small">Tick the parts of the same exam. Each student's points are added up, and so are the "out of" points.</p>
+        <fieldset class="an-picklist"><legend class="sr-only">Parts to combine</legend>
+          ${grades.map((g) => `<label class="check"><input type="checkbox" data-comb-id="${esc(g.id)}" ${c.ids.includes(g.id) ? 'checked' : ''}><span><strong>${esc(g.name)}</strong> <span class="muted small">out of ${r1(g.maxPoints)} · ${plural((g.scores || []).length, 'student')}</span></span></label>`).join('')}
+        </fieldset>
+        ${sets.length > 1 ? `
+          <div class="an-form">
+            <label class="field"><span>Name of the whole exam</span><input data-comb-name value="${esc(c.name)}" maxlength="80" placeholder="Midterm 1"></label>
+            <label class="field"><span>Practice on this site for it</span><select data-comb-exam><option value="">None (before the site)</option>${examsOf().map((e) => `<option value="${esc(e.id)}" ${e.id === c.examId ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}</select></label>
+          </div>
+          ${looksLikeParts(sets.map((g) => g.name)) ? '' : `<p class="bad small" role="note">${icon('x')} These names don't look like parts of one exam (for example "Midterm 1 MC" and "Midterm 1 FR"). Check the ticks before combining.</p>`}
+          <div class="an-check ${res.scores.length ? 'pr-good' : 'pr-bad'}">
+            <p><strong>${icon(res.scores.length ? 'check' : 'x')} ${plural(res.scores.length, 'student')}</strong> · out of ${r1(res.maxPoints)} (${sets.map((g) => r1(g.maxPoints)).join(' + ')})${avg != null ? ` · average ${r1(avg)}%` : ''}</p>
+            ${res.partial.length ? `<details><summary>${plural(res.partial.length, 'student')} ${res.partial.length === 1 ? 'has' : 'have'} a score for only some parts${c.zero ? ' (missing parts count as 0)' : ' (left out)'}</summary><ul class="small">${res.partial.map((x) => `<li>${esc(nameOf(x.email))}: ${x.parts.map((v, k) => `${esc(sets[k].name)} ${v == null ? '<span class="bad">missing</span>' : r1(v)}`).join(', ')}</li>`).join('')}</ul></details>
+              <label class="check"><input type="checkbox" data-comb-zero ${c.zero ? 'checked' : ''}><span>Count a missing part as 0</span></label>` : ''}
+          </div>
+          <label class="check"><input type="checkbox" data-comb-remove ${c.removeParts ? 'checked' : ''}><span>Remove the separate parts after combining (recommended, so they don't show twice)</span></label>` : '<p class="muted">Tick at least two parts.</p>'}
+        <div class="row end upload-actions"><button class="btn" data-comb-cancel>Cancel</button><button class="btn primary" data-comb-save ${res && res.scores.length ? '' : 'disabled'}>${icon('check')} Combine</button></div>
+      </section>`;
+  }
+  // likely parts of one exam: names that start the same, e.g. "Midterm 1 MC" / "Midterm 1 FR"
+  function guessParts() {
+    let best = [];
+    for (const g of grades) {
+      const same = grades.filter((x) => x.id !== g.id && looksLikeParts([g.name, x.name]));
+      const group = [g, ...same];
+      if (group.length > best.length && looksLikeParts(group.map((x) => x.name))) best = group;
+    }
+    return best.map((x) => x.id);
+  }
+  function startCombine() {
+    const ids = guessParts();
+    const sets = grades.filter((g) => ids.includes(g.id));
+    combine = { ids, name: commonName(sets.map((g) => g.name)), nameAuto: true, examId: sets.find((g) => g.examId)?.examId || '', zero: false, removeParts: true };
+    upload = null;
+    paint();
+    body.querySelector('[data-combine-panel]')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+  async function saveCombine() {
+    const c = combine;
+    const sets = grades.filter((g) => c.ids.includes(g.id));
+    const name = (body.querySelector('[data-comb-name]')?.value || '').trim();
+    if (!name) { toast('Give the exam a name, for example Midterm 1', 'bad'); body.querySelector('[data-comb-name]')?.focus(); return; }
+    const res = combineSets(sets, { missingAsZero: c.zero });
+    const btn = body.querySelector('[data-comb-save]'); btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const date = sets.map((g) => g.date).filter(Boolean).sort()[0] || '';
+      const id = await cloud.saveGrades(classId, { name, maxPoints: res.maxPoints, date, examId: c.examId || '', scores: res.scores, source: 'combined: ' + sets.map((g) => g.name).join(' + ') });
+      if (c.removeParts) for (const g of sets) await cloud.deleteGrades(classId, g.id).catch(() => toast(`Combined, but "${g.name}" couldn't be removed. Delete it from the list.`, 'bad'));
+      toast(`${name}: ${plural(res.scores.length, 'score')} saved`, 'good');
+      combine = null; pick.exam = id; pick.before = '';
+      await load();
+    } catch (e) {
+      toast("Couldn't save: " + (e?.code === 'permission-denied' ? "you're not on this class's teaching staff." : e?.message || e), 'bad');
+      btn.disabled = false; btn.innerHTML = `${icon('check')} Combine`;
+    }
   }
 
   function uploadPanel() {
@@ -151,20 +220,25 @@ export async function render(main, params = {}, query = {}, opts = {}) {
     let preview = '';
     if (u.error) preview = `<p class="bad">${esc(u.error)}</p>`;
     else if (u.info) {
-      const m = matchScores(u.info, u.index, roster, cloud.domain || 'sdsu.edu');
+      const m = matchScores(u.info, u.cols, roster, cloud.domain || 'sdsu.edu', { missingAsZero: u.zero });
       u.match = m;
       const avg = mean(m.matched.map((x) => (x.score / (u.max || 100)) * 100));
       const over = m.matched.filter((x) => x.score > u.max).length;
       preview = `
         <div class="an-form">
           <label class="field"><span>Exam name</span><input data-up-name value="${esc(u.name)}" maxlength="80" placeholder="Midterm 1"></label>
-          <label class="field"><span>Score column</span><select data-up-col>${u.info.scoreCols.map((c) => `<option value="${c.index}" ${c.index === u.index ? 'selected' : ''}>${esc(c.header)}${c.summary ? ' (course total)' : ''}</option>`).join('')}</select></label>
+          <fieldset class="field an-cols"><legend>Score column <span class="muted">(tick more than one to add parts together, e.g. MC + FR)</span></legend>
+            <div class="an-picklist">${u.info.scoreCols.map((c) => `<label class="check"><input type="checkbox" data-up-col="${c.index}" ${u.cols.includes(c.index) ? 'checked' : ''}><span>${esc(c.header)}${c.possible ? ` <span class="muted small">(${r1(c.possible)} pts)</span>` : ''}${c.summary ? ' <span class="muted small">(course total)</span>' : ''}</span></label>`).join('')}</div>
+            ${(() => { const sib = siblings(u); return sib.length ? `<p class="small an-sib">${icon('bulb')} This exam seems to have parts: ${sib.map((i) => `<strong>${esc(colName(u, i))}</strong>`).join(', ')}. <button class="link-btn" data-up-addparts>Add them together</button></p>` : ''; })()}
+          </fieldset>
           <label class="field"><span>Out of (points)</span><input type="number" min="1" step="any" data-up-max value="${esc(u.max)}"></label>
           <label class="field"><span>Exam date <span class="muted">(optional)</span></span><input type="date" data-up-date value="${esc(u.date || '')}"></label>
           <label class="field"><span>Practice on this site for it</span><select data-up-exam><option value="">None (before the site)</option>${examsOf().map((e) => `<option value="${esc(e.id)}" ${e.id === u.examId ? 'selected' : ''}>${esc(e.title)}</option>`).join('')}</select></label>
         </div>
         <div class="an-check ${m.matched.length ? 'pr-good' : 'pr-bad'}">
           <p><strong>${m.matched.length ? icon('check') : icon('x')} ${plural(m.matched.length, 'score')} matched to students on the roster</strong>${m.matched.length ? ` · average ${r1(avg)}%` : ''}</p>
+          ${m.partial.length ? `<details><summary>${plural(m.partial.length, 'student')} ${m.partial.length === 1 ? 'has' : 'have'} a score for only some parts${u.zero ? ' (missing parts count as 0)' : ' (left out)'}</summary><ul class="small">${m.partial.map((x) => `<li>${esc(x.name || x.email)}: ${x.parts.map((v, k) => `${esc(colName(u, u.cols[k]))} ${v == null ? '<span class="bad">missing</span>' : r1(v)}`).join(', ')}</li>`).join('')}</ul></details>
+            <label class="check"><input type="checkbox" data-up-zero ${u.zero ? 'checked' : ''}><span>Count a missing part as 0</span></label>` : ''}
           ${over ? `<p class="bad small">${plural(over, 'score')} ${over === 1 ? 'is' : 'are'} above ${r1(u.max)}. Check "Out of".</p>` : ''}
           ${m.unmatched.length ? `<details><summary>${plural(m.unmatched.length, 'row')} not matched to anyone on the roster (left out)</summary><ul class="small">${m.unmatched.slice(0, 50).map((x) => `<li>Line ${x.line}: ${esc(x.who)}${x.score != null ? ` (${r1(x.score)})` : ''}</li>`).join('')}</ul></details>` : ''}
           ${m.blank.length ? `<details><summary>${plural(m.blank.length, 'student')} with no score (blank or excused)</summary><ul class="small">${m.blank.map((x) => `<li>${esc(x.name)}</li>`).join('')}</ul></details>` : ''}
@@ -428,12 +502,25 @@ export async function render(main, params = {}, query = {}, opts = {}) {
   }
 
   // ---------- upload ----------
+  const colName = (u, i) => (u.info.scoreCols.find((c) => c.index === i)?.header || '').replace(/\s*%\s*$/, '').trim();
+  // other columns that look like parts of the same exam as the ticked one ("Midterm 1 MC" -> "Midterm 1 FR")
+  function siblings(u) {
+    if (u.cols.length !== 1) return [];
+    const me = colName(u, u.cols[0]);
+    return u.info.scoreCols.filter((c) => c.index !== u.cols[0] && !c.summary).map((c) => c.index)
+      .filter((i) => looksLikeParts([me, colName(u, i)]));
+  }
+  function setCols(cols) {
+    const u = upload;
+    u.cols = [...new Set(cols)].sort((a, b) => a - b);
+    u.max = u.cols.length ? suggestMax(u.info, u.cols) : 0;
+    if (u.nameAuto) u.name = (u.cols.length > 1 ? commonName(u.cols.map((i) => colName(u, i))) || colName(u, u.cols[0]) : colName(u, u.cols[0] ?? -1)).slice(0, 80);
+  }
   function useText(text, fileName, pasted) {
     const info = inspectScores(text);
     if (info.error) { upload = { ...upload, fileName, pasted, info: null, error: info.error }; return paint(); }
-    const index = info.guess;
-    const header = info.headers[index] || '';
-    upload = { ...upload, fileName, pasted, info, error: '', index, max: suggestMax(info, index), name: upload.name || header.replace(/\s*\(\d+\)\s*$/, '').replace(/\s*%\s*$/, '').trim().slice(0, 80) };
+    upload = { ...upload, fileName, pasted, info, error: '', zero: false, nameAuto: !upload.name };
+    setCols([info.guess]);
     paint();
   }
   const usePreviewFocus = () => body.querySelector('[data-up-name]')?.focus();
@@ -441,10 +528,11 @@ export async function render(main, params = {}, query = {}, opts = {}) {
     const u = upload;
     const name = (body.querySelector('[data-up-name]')?.value || '').trim();
     if (!name) { toast('Give the exam a name, for example Midterm 1', 'bad'); usePreviewFocus(); return; }
+    if (!u.cols.length) { toast('Tick at least one score column', 'bad'); return; }
     if (!(u.max > 0)) { toast('"Out of" must be more than 0', 'bad'); return; }
     const btn = body.querySelector('[data-up-save]'); btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const id = await cloud.saveGrades(classId, { name, maxPoints: u.max, date: u.date || '', examId: u.examId || '', scores: u.match.matched.map((x) => ({ email: x.email, score: x.score })), source: u.fileName || 'pasted' });
+      const id = await cloud.saveGrades(classId, { name, maxPoints: u.max, date: u.date || '', examId: u.examId || '', scores: u.match.matched.map((x) => ({ email: x.email, score: x.score })), source: (u.fileName || 'pasted') + (u.cols.length > 1 ? ': ' + u.cols.map((i) => colName(u, i)).join(' + ') : '') });
       if (u.replaceId) await cloud.deleteGrades(classId, u.replaceId).catch(() => toast('The new scores were saved, but the old copy could not be removed. Delete it from the list.', 'bad'));
       toast(`${name}: ${plural(u.match.matched.length, 'score')} saved`, 'good');
       upload = null; pick.exam = id;
@@ -470,9 +558,13 @@ export async function render(main, params = {}, query = {}, opts = {}) {
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.sectionTab != null) { if (embedded) return; section = b.dataset.sectionTab; remember('section', section); paint(); return; }
-    if ('upload' in b.dataset) { upload = { name: '', examId: '' }; paint(); body.querySelector('.upload-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+    if ('upload' in b.dataset) { combine = null; upload = { name: '', examId: '' }; paint(); body.querySelector('.upload-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     if (b.dataset.replace) { const g = grades.find((x) => x.id === b.dataset.replace); upload = { replaceId: g.id, name: g.name, date: g.date, examId: g.examId }; paint(); body.querySelector('.upload-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
     if ('upCancel' in b.dataset) { upload = null; paint(); return; }
+    if ('upAddparts' in b.dataset && upload) { setCols([...upload.cols, ...siblings(upload)]); paint(); return; }
+    if ('combine' in b.dataset) { startCombine(); return; }
+    if ('combCancel' in b.dataset) { combine = null; paint(); return; }
+    if ('combSave' in b.dataset) { saveCombine(); return; }
     if ('upSave' in b.dataset) { saveUpload(); return; }
     if (b.dataset.delGrades) {
       if (!(await confirmDialog({ title: `Delete the ${b.dataset.name} scores?`, body: '<p>The uploaded scores are removed from the site. Your own copy of the file is not affected.</p>', confirm: 'Delete', danger: true }))) return;
@@ -495,11 +587,22 @@ export async function render(main, params = {}, query = {}, opts = {}) {
       paint(); return;
     }
     if (t.matches('[data-scores-file]') && t.files[0]) { const f = t.files[0]; useText(await f.text(), f.name, ''); t.value = ''; return; }
-    if (upload && t.matches('[data-up-col]')) { upload.index = Number(t.value); upload.max = suggestMax(upload.info, upload.index); paint(); return; }
+    if (upload && t.matches('[data-up-col]')) { const i = Number(t.dataset.upCol); setCols(t.checked ? [...upload.cols, i] : upload.cols.filter((x) => x !== i)); paint(); body.querySelector(`[data-up-col="${i}"]`)?.focus(); return; }
+    if (upload && t.matches('[data-up-zero]')) { upload.zero = t.checked; paint(); body.querySelector('[data-up-zero]')?.focus(); return; }
+    if (combine && t.matches('[data-comb-id]')) {
+      const id = t.dataset.combId; combine.ids = t.checked ? [...combine.ids, id] : combine.ids.filter((x) => x !== id);
+      if (combine.nameAuto) combine.name = commonName(grades.filter((g) => combine.ids.includes(g.id)).map((g) => g.name));
+      if (!combine.examId) combine.examId = grades.find((g) => combine.ids.includes(g.id) && g.examId)?.examId || '';
+      paint(); body.querySelector(`[data-comb-id="${CSS.escape(id)}"]`)?.focus(); return;
+    }
+    if (combine && t.matches('[data-comb-zero]')) { combine.zero = t.checked; paint(); body.querySelector('[data-comb-zero]')?.focus(); return; }
+    if (combine && t.matches('[data-comb-remove]')) { combine.removeParts = t.checked; return; }
+    if (combine && t.matches('[data-comb-exam]')) { combine.examId = t.value; return; }
+    if (combine && t.matches('[data-comb-name]')) { combine.name = t.value; combine.nameAuto = false; return; }
     if (upload && t.matches('[data-up-max]')) { upload.max = Number(t.value); paint(); return; }
     if (upload && t.matches('[data-up-date]')) { upload.date = t.value; return; }
     if (upload && t.matches('[data-up-exam]')) { upload.examId = t.value; return; }
-    if (upload && t.matches('[data-up-name]')) { upload.name = t.value; return; }
+    if (upload && t.matches('[data-up-name]')) { upload.name = t.value; upload.nameAuto = false; return; }
   });
   let pt;
   main.addEventListener('input', (ev) => {

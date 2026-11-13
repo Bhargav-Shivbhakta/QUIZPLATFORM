@@ -81,16 +81,40 @@ export function inspectScores(text) {
   return { rows: body, headers, col, scoreCols, guess: guess.index, hasPointsRow: !!pointsRow };
 }
 
-// The "out of" for a column: Canvas's Points Possible, else 100 if every score fits, else the highest score
+// The "out of" for a column: Canvas's Points Possible, else 100 if every score fits, else the highest score.
+// Several columns (an exam in parts, e.g. MC + FR) add up.
 export function suggestMax(info, index) {
+  if (Array.isArray(index)) return index.length === 1 ? suggestMax(info, index[0]) : index.reduce((s, i) => s + suggestMax(info, i), 0);
   const c = info.scoreCols.find((x) => x.index === index);
   if (!c) return 100;
   if (c.possible) return c.possible;
   return c.max <= 100 ? 100 : Math.ceil(c.max);
 }
 
+// "Midterm 1 MC" + "Midterm 1 FR" -> "Midterm 1" (the words the names start with)
+export function commonName(names) {
+  const words = names.map((n) => String(n || '').trim().split(/\s+/));
+  if (!words.length) return '';
+  const out = [];
+  for (let i = 0; i < words[0].length; i++) { const w = words[0][i]; if (words.every((x) => (x[i] || '').toLowerCase() === w.toLowerCase())) out.push(w); else break; }
+  return out.join(' ').replace(/[\s:\-–(]+$/, '').trim();
+}
+
+// Are these names parts of one exam? They must share the start ("Midterm 1") and differ only by a short
+// part label ("MC", "FR", "Part A", "Written"), not by a number ("Quiz 1" / "Quiz 2" are different exams).
+export function looksLikeParts(names) {
+  if (names.length < 2) return false;
+  const base = commonName(names);
+  if (base.length < 3) return false;
+  const rest = names.map((n) => String(n).trim().slice(base.length).replace(/^[\s:\-–(]+|[)\s]+$/g, ''));
+  return rest.every((r) => r && r.split(/\s+/).length <= 3 && !/^\d/.test(r)) && new Set(rest.map((r) => r.toLowerCase())).size === rest.length;
+}
+
 // Match rows to the roster. roster: [{ email, name, redId }]; domain: e.g. "sdsu.edu"
-export function matchScores(info, index, roster, domain = 'sdsu.edu') {
+// index: one score column, or several to add together (an exam in parts). With several, a student
+// with only some parts is left out (listed in `partial`) unless missingAsZero.
+export function matchScores(info, index, roster, domain = 'sdsu.edu', { missingAsZero = false } = {}) {
+  const cols = Array.isArray(index) ? index : [index];
   const students = roster.filter((p) => !p.role || p.role === 'student');
   const byEmail = new Map(students.map((p) => [String(p.email).toLowerCase(), p]));
   const byRed = new Map(students.filter((p) => p.redId).map((p) => [String(p.redId).replace(/\D/g, ''), p]));
@@ -98,7 +122,7 @@ export function matchScores(info, index, roster, domain = 'sdsu.edu') {
   students.forEach((p) => { const k = nameKey(p.name); nameCount.set(k, (nameCount.get(k) || 0) + 1); });
   const byName = new Map(students.filter((p) => nameCount.get(nameKey(p.name)) === 1).map((p) => [nameKey(p.name), p]));
   const { col } = info;
-  const matched = new Map(), unmatched = [], blank = [], dupes = [];
+  const matched = new Map(), unmatched = [], blank = [], dupes = [], partial = [];
   info.rows.forEach((r, n) => {
     const who = col.name != null ? r[col.name] : [r[col.first], r[col.last]].filter(Boolean).join(' ');
     let p = null, how = '';
@@ -109,12 +133,33 @@ export function matchScores(info, index, roster, domain = 'sdsu.edu') {
     else if (login && byEmail.has(login.includes('@') ? login : `${login}@${domain}`)) { p = byEmail.get(login.includes('@') ? login : `${login}@${domain}`); how = 'login'; }
     else if (red && byRed.has(red)) { p = byRed.get(red); how = 'RedID'; }
     else if (who && byName.has(nameKey(who))) { p = byName.get(nameKey(who)); how = 'name'; }
-    const score = toNumber(r[index]);
+    const parts = cols.map((i) => toNumber(r[i]));
+    const have = parts.filter((x) => x != null);
+    let score = have.length ? have.reduce((a, b) => a + b, 0) : null;
     if (!p) { unmatched.push({ line: n + 2, who: who || email || login || red || '(no name)', score }); return; }
     if (score == null) { blank.push({ email: p.email, name: p.name }); return; }
+    if (have.length < parts.length) {
+      partial.push({ email: p.email, name: p.name, parts });
+      if (!missingAsZero) return;
+    }
     if (matched.has(p.email)) dupes.push({ name: p.name, line: n + 2, kept: score, was: matched.get(p.email).score });
     matched.set(p.email, { email: p.email, name: p.name, section: p.section || '', score, how }); // a later duplicate row wins
   });
-  const missing = students.filter((p) => !matched.has(String(p.email).toLowerCase()) && !blank.some((b) => b.email === p.email));
-  return { matched: [...matched.values()], unmatched, blank, missing, dupes };
+  const left = (p) => blank.some((b) => b.email === p.email) || (!missingAsZero && partial.some((b) => b.email === p.email));
+  const missing = students.filter((p) => !matched.has(String(p.email).toLowerCase()) && !left(p));
+  return { matched: [...matched.values()], unmatched, blank, missing, dupes, partial };
+}
+
+// Combine score sets that are parts of one exam (e.g. "Midterm 1 MC" and "Midterm 1 FR"):
+// each student's points are added up, and so are the "out of" points.
+export function combineSets(sets, { missingAsZero = false } = {}) {
+  const byEmail = new Map();
+  sets.forEach((g, k) => { for (const s of g.scores || []) { const e = String(s.email).toLowerCase(); if (!byEmail.has(e)) byEmail.set(e, Array(sets.length).fill(null)); byEmail.get(e)[k] = s.score; } });
+  const scores = [], partial = [];
+  for (const [email, parts] of byEmail) {
+    const have = parts.filter((x) => x != null);
+    if (have.length < parts.length) { partial.push({ email, parts }); if (!missingAsZero) continue; }
+    scores.push({ email, score: Math.round(have.reduce((a, b) => a + b, 0) * 1000) / 1000 });
+  }
+  return { scores, partial, maxPoints: sets.reduce((s, g) => s + (Number(g.maxPoints) || 0), 0) };
 }
