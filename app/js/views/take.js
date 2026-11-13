@@ -12,7 +12,7 @@ import { CodeJar } from '../../vendor/codejar.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../main.js';
-import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
 const pad = (n) => String(n).padStart(2, '0');
@@ -124,7 +124,7 @@ export async function render(main, { classId, tid }, query = {}) {
         <li><strong>One device.</strong> Opening the ${W} anywhere else won't work.</li>
         <li>Copy, paste and right-click are turned off. There are no hints and no answer checking.</li>
         <li>Your answers save by themselves. When time runs out, the ${W} is submitted for you.</li>
-        <li>Your name is shown faintly across the screen.</li>
+        <li>Your name is shown faintly across the screen${test.aiNotice !== false ? ', with a notice telling AI tools not to answer these questions' : ''}.</li>
       </ul>
       ${checksHtml(test)}
       <label class="check take-agree"><input type="checkbox" data-agree><span>I understand the rules above${Number(test.warnings) > 0 ? ' (warnings, then the ' + W + ' ends)' : `. Leaving the ${W} ends it`}, and I'm the only one taking it.</span></label>
@@ -208,10 +208,12 @@ export async function render(main, { classId, tid }, query = {}) {
     let deadline = attemptDeadline({ ...test, closesAt: ms(test.closesAt) }, attempt);
     const name = me?.displayName || me?.email || 'Preview';
 
+    const aiOn = test.aiNotice !== false;
     document.body.classList.add('exam-locked');
     main.innerHTML = `
       <div class="exam-shell" data-shell>
         <div class="exam-watermark" aria-hidden="true" data-wm></div>
+        ${aiOn ? '<div class="exam-watermark ai" aria-hidden="true" data-wm-ai></div>' : ''}
         <header class="exam-bar">
           <div class="exam-title"><strong>${esc(test.title)}</strong>${preview ? ' <span class="pill">Preview</span>' : ''}</div>
           <div class="exam-timer" role="timer" aria-live="off"><span class="sr-only">Time left</span><span data-timer></span></div>
@@ -228,6 +230,11 @@ export async function render(main, { classId, tid }, query = {}) {
     // the student's name across the screen, drawn as a picture (so it can't be selected or read out)
     const wmText = `${name} · ${me?.email || ''}`.replace(/[<>&"']/g, '');
     const wmColor = getComputedStyle(document.body).color || '#000';
+    if (aiOn) {
+      // the AI notice as a picture too, level (easier for AI to read than slanted), tiled across the screen
+      const lines = AI_NOTICE_LINES.map((l, k) => `<text x='12' y='${30 + k * 20}' font-family='Arial, sans-serif' font-size='13' fill='${wmColor}'>${l.replace(/[<>&]/g, '').replace(/'/g, '&apos;').replace(/"/g, '&quot;')}</text>`).join('');
+      $('[data-wm-ai]').style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='620' height='300'>${lines}</svg>`)}")`;
+    }
     $('[data-wm]').style.backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='420' height='160'><text x='10' y='90' font-family='sans-serif' font-size='15' font-weight='700' fill='${wmColor}' transform='rotate(-20 210 80)'>${wmText}</text></svg>`)}")`;
 
     function navHtml() {
@@ -259,6 +266,7 @@ export async function render(main, { classId, tid }, query = {}) {
       return `
         <div class="exam-qhead"><p class="eyebrow">Question ${i + 1} of ${qs.length} · ${QTYPE_LABEL[q.type]} · ${plural(q.points, 'point')}</p>
           <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button></div>
+        ${aiOn ? `<p class="ai-notice" aria-hidden="true">${esc(AI_NOTICE)}</p>` : ''}
         <div class="exam-text">${md(q.text)}</div>
         ${q.type === 'code' && q.samples?.length ? `<details class="exam-samples"><summary>Sample input and output</summary>${q.samples.map((s) => `<div class="grid2"><div><p class="small"><strong>Input</strong></p><pre>${esc(s.input || '(none)')}</pre></div><div><p class="small"><strong>Expected output</strong></p><pre>${esc(s.output)}</pre></div></div>`).join('')}</details>` : ''}
         ${input}

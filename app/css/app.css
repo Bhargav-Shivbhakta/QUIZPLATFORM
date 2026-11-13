@@ -2518,3 +2518,7 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
 .exam-warn-count { font-size: 1.05rem; }
 .exam-warn-count strong { font-size: 1.4rem; color: var(--bad); }
 .leave-rules { margin: .6rem 0 .2rem; }
+
+/* ---------- notice for AI tools on the exam screen ---------- */
+.exam-watermark.ai { opacity: .055; background-position: 8px 40px; }
+.ai-notice { margin: .2rem 0 .7rem; padding: .35rem .55rem; font-size: .74rem; line-height: 1.35; color: var(--muted); border-left: 3px solid var(--line-strong); background: var(--sunken); border-radius: 4px; user-select: none; }

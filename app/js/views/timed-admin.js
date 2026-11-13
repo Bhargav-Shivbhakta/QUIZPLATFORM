@@ -156,6 +156,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         <label class="check"><input type="checkbox" name="shuffleQ" ${t.shuffleQ ? 'checked' : ''}><span><strong>Shuffle the question order</strong> for each student (programming problems stay at the end)</span></label>
         <label class="check"><input type="checkbox" name="shuffleOpts" ${t.shuffleOpts ? 'checked' : ''}><span><strong>Shuffle the answer choices</strong> for each student</span></label>
         <label class="check"><input type="checkbox" name="requireSEB" ${t.requireSEB ? 'checked' : ''}><span><strong>Require Safe Exam Browser</strong> (free app for Windows, Mac and iPad that blocks screenshots, other apps and switching). Students without it can't start.</span></label>
+        <label class="check"><input type="checkbox" name="aiNotice" ${t.aiNotice !== false ? 'checked' : ''}><span><strong>Add a notice for AI tools</strong> (recommended): a small line above every question and a faint background tells any AI that sees a photo or screenshot of the screen not to answer. Students see it too.</span></label>
         <label class="check"><input type="checkbox" name="allowPhones" ${t.allowPhones ? 'checked' : ''}><span><strong>Allow phones</strong> (off: laptops and iPads only)</span></label>
         <label class="check"><input type="checkbox" name="releaseDetail" ${t.releaseDetail !== false ? 'checked' : ''}><span>When scores are released, also show students <strong>which questions they got right</strong> (the right answers are never shown)</span></label>
         <div class="grid2 leave-rules">
@@ -324,7 +325,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     const test = {
       title, kind: KINDS[f.get('kind')] ? f.get('kind') : 'exam', instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, windows, durationMin,
       shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on',
-      allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on',
+      allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on', aiNotice: f.get('aiNotice') === 'on',
       warnings: Math.max(0, Math.min(3, Number(f.get('warnings')) || 0)), awayMaxSec: [5, 10, 15, 30].includes(Number(f.get('awayMaxSec'))) ? Number(f.get('awayMaxSec')) : 15,
       questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
       status, released: !!t.released, createdAt: t.createdAt || null, createdBy: t.createdBy || null,
