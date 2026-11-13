@@ -70,7 +70,24 @@ export const teachingClasses = () => myClasses().filter((c) => isStaffRole(c.rol
 export const isInstructor = () => admin || teachingClasses().length > 0;
 export const isEnrolled = () => admin || myClasses().length > 0;
 // Exams this person may open: those of their classes (admins see everything)
-export const canSeeExam = (examId) => !enabled || admin || myClasses().some((c) => (c.exams || []).includes(examId));
+export const canSeeExam = (examId) => !enabled || admin || myClasses().some((c) => (c.exams || []).includes(examId) && (isStaffRole(c.role) || !practiceState(c, examId).closed));
+
+// Practice settings for one exam in one class (the instructor can turn practice off, set a due date,
+// and close it after the due date). { off, dueAt, closeAfterDue, pastDue, closed }
+export function practiceState(c, examId, now = Date.now()) {
+  const p = c?.practice?.[examId] || {};
+  const dueAt = Number(p.dueAt) || null;
+  const pastDue = !!dueAt && now > dueAt;
+  return { off: !!p.off, dueAt, closeAfterDue: !!p.closeAfterDue, pastDue, closed: !!p.off || (!!p.closeAfterDue && pastDue) };
+}
+// Instructors: change one exam's practice settings (merged into the class's settings)
+export async function setPractice(classId, examId, cfg) {
+  await load();
+  const clean = { off: !!cfg.off, dueAt: Number(cfg.dueAt) || null, closeAfterDue: !!cfg.closeAfterDue && !!Number(cfg.dueAt) };
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId), { practice: { [examId]: clean }, updatedAt: Date.now() }, { merge: true });
+  if (enrollment[classId]) enrollment[classId] = { ...enrollment[classId], practice: { ...(enrollment[classId].practice || {}), [examId]: clean } };
+  return clean;
+}
 export const lastError = () => authError;
 export const syncState = () => ({ lastSynced, pending: dirtyExams.size + dirtyCode.size + (dirtyUser ? 1 : 0), error: syncError });
 const emit = () => window.dispatchEvent(new CustomEvent('qp:auth'));
@@ -203,8 +220,8 @@ async function loadClassContent() {
   cloudExams = [];
   for (const r of results) {
     if (r.cls && enrollment[r.id]) {
-      const { name, course, term, exams, examDates, color } = r.cls;
-      enrollment[r.id] = { ...enrollment[r.id], name, course, term, exams: exams || [], examDates: examDates || {}, color };
+      const { name, course, term, exams, examDates, color, practice, timed } = r.cls;
+      enrollment[r.id] = { ...enrollment[r.id], name, course, term, exams: exams || [], examDates: examDates || {}, color, practice: practice || {}, timed: timed || {} };
     }
     for (const e of r.exams) cloudExams.push({ ...e, id: e.examId, cloud: true, classId: r.id, course: e.course || r.cls?.course || '' });
   }
@@ -249,6 +266,12 @@ export async function saveExam(classId, { examId, meta, source, counts }) {
   });
   await b.commit();
   await addExamToClass(classId, examId);
+  await loadClassContent();
+}
+// Instructors: change the name students see (e.g. "Midterm 2" -> "Midterm 2 Practice")
+export async function renameExam(classId, examId, title) {
+  await load();
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId, 'exams', examId), { title: String(title).trim().slice(0, 80), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
   await loadClassContent();
 }
 export async function deleteExam(classId, examId) {
@@ -822,7 +845,7 @@ export async function listClasses() {
 // students: [{ email, name, redId, section }]
 export async function saveClass({ id, name, course, term, exams, staff, students, color = 'blue', examDates = {} }) {
   await load();
-  const prevPeople = await getRoster(id).catch(() => []);
+  const [prevPeople, prevClass] = await Promise.all([getRoster(id).catch(() => []), getClass(id).catch(() => null)]);
   const staffList = [];
   for (const s of staff) {
     const email = s.email.trim().toLowerCase();
@@ -834,7 +857,11 @@ export async function saveClass({ id, name, course, term, exams, staff, students
   for (const s of staffList) everyone.set(s.email, { email: s.email, name: s.name, redId: '', section: s.sections.join(', '), sections: s.sections, role: s.role });
   const info = { name, course: course || '', term: term || '', exams, color, examDates };
   const ops = [];
-  ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, staff: staffList, instructors: staffList.map((x) => x.email), studentCount: [...everyone.values()].filter((p) => p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
+  // keep what instructors set on the class itself (timed exams, practice on/off and due dates)
+  const kept = {};
+  if (prevClass?.timed) kept.timed = prevClass.timed;
+  if (prevClass?.practice) kept.practice = prevClass.practice;
+  ops.push((b) => b.set(fb.doc(fb.db, 'classes', id), { ...info, ...kept, staff: staffList, instructors: staffList.map((x) => x.email), studentCount: [...everyone.values()].filter((p) => p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }));
   ops.push((b) => b.set(fb.doc(fb.db, 'rosters', id), { classId: id, people: [...everyone.values()], updatedAt: Date.now() }));
   for (const p of everyone.values()) {
     const entry = { ...info, role: p.role, section: p.section || '' };
@@ -927,7 +954,8 @@ async function runOps(ops) {
 const tdoc = (classId, kind, id) => fb.doc(fb.db, 'classes', classId, kind, id);
 const toTs = (v) => (v == null ? null : fb.Timestamp.fromMillis(typeof v === 'number' ? v : Date.parse(v)));
 const plainMs = (v) => (v == null ? null : typeof v === 'number' ? v : typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v));
-const timedSummary = (t) => ({ title: t.title, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
+const plainWindows = (w) => (w && Object.keys(w).length ? Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { opensAt: plainMs(v.opensAt), closesAt: plainMs(v.closesAt) }])) : null);
+const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
 
 export async function listTimed(classId) {
   await load();
@@ -954,12 +982,17 @@ export async function listTimedExtra(classId, tid) {
 export async function saveTimed(classId, tid, test, key, extra = null) {
   await load();
   tid = tid || 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-  const clean = JSON.parse(JSON.stringify({ ...test, opensAt: plainMs(test.opensAt), closesAt: plainMs(test.closesAt) })); // Firestore refuses undefined values
+  const clean = JSON.parse(JSON.stringify({ ...test, opensAt: plainMs(test.opensAt), closesAt: plainMs(test.closesAt), windows: plainWindows(test.windows) })); // Firestore refuses undefined values
   const data = { ...clean, opensAt: toTs(clean.opensAt), closesAt: toTs(clean.closesAt), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() };
+  // only some sections: each section's own times (the security rules check these)
+  if (clean.windows) data.windows = Object.fromEntries(Object.entries(clean.windows).map(([k, v]) => [k, { opensAt: toTs(v.opensAt), closesAt: toTs(v.closesAt) }]));
+  else delete data.windows;
   if (!data.createdAt) { data.createdAt = Date.now(); data.createdBy = user.email.toLowerCase(); }
   const b = fb.writeBatch(fb.db);
   b.set(tdoc(classId, 'tests', tid), data);
   if (key) b.set(tdoc(classId, 'testKeys', tid), JSON.parse(JSON.stringify({ tid, ...key })));
+  // replace (not merge) this exam's summary, so a section taken off the exam really disappears
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: fb.deleteField() } }, { merge: true });
   b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary(data) }, updatedAt: Date.now() }, { merge: true });
   if (extra) {
     const before = await listTimedExtra(classId, tid);

@@ -30,6 +30,7 @@ export async function render(main, { id }) {
       <header class="hub-head">
         <div>
           ${exam.course ? `<p class="course">${esc(exam.course)}</p>` : ''}
+          ${cloud.enabled ? '<span class="kind-badge kind-practice">Practice · not graded</span>' : ''}
           <h1>${esc(exam.title)}</h1>
           <p class="muted">${plural(exam.questions.length, 'question')} across ${plural(exam.topics.length, 'topic')}${exam.preview ? ' · Preview from your file' : ''}</p>
           ${(() => { const d = cloud.classForExam(exam.id)?.examDates?.[exam.id] || exam.examDate; if (!d) return ''; const n = Math.ceil((new Date(d + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000); return n >= 0 ? `<p class="countdown-chip">${icon('clock')} ${n === 0 ? 'Exam is today' : `Exam in ${plural(n, 'day')}`}</p>` : ''; })()}

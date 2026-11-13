@@ -9,7 +9,8 @@ import { parseExam } from '../parser.js';
 import { readAssignments, solutionProblems } from '../assignments-core.js';
 import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
-import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { readCanvasExport, matchCanvas, canvasCsv, rosterAsCanvas } from '../canvas.js';
+import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, KINDS, kindOf, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -20,17 +21,19 @@ const clock = (t) => (t ? new Date(t).toLocaleTimeString(undefined, { hour: 'num
 const mmss = (msLeft) => { if (msLeft <= 0) return '0:00'; const s = Math.round(msLeft / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const r1 = (x) => (x == null || isNaN(x) ? '–' : String(Math.round(x * 10) / 10));
 const LEAVES = ['tab-hidden', 'window-blur', 'fullscreen-exit', 'page-leave', 'print-screen', 'devtools-key', 'returned-after-leaving'];
+// "Sections 01, 03" or "" when everyone takes it
+const whoText = (t) => { const s = assignedSections(t); return s ? `${s.length === 1 ? 'Section' : 'Sections'} ${s.join(', ')}` : ''; };
 const PHASE_LABEL = { draft: 'Draft', upcoming: 'Scheduled', open: 'Open now', closed: 'Closed' };
 
 let jszip = null;
 const loadJSZip = () => (window.JSZip ? Promise.resolve(window.JSZip) : (jszip ||= new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/jszip.min.js'; s.onload = () => res(window.JSZip); s.onerror = () => rej(new Error("Couldn't load the zip reader.")); document.head.appendChild(s); })));
 
 export async function render(main, { classId, tid }, query = {}) {
-  if (!cloud.enabled || !cloud.currentUser()) { main.innerHTML = '<section class="page"><h1>Timed exams</h1><p>Sign in with your school account first.</p></section>'; return; }
+  if (!cloud.enabled || !cloud.currentUser()) { main.innerHTML = '<section class="page"><h1>Graded work</h1><p>Sign in with your school account first.</p></section>'; return; }
   const staffOf = cloud.myClasses().filter((c) => ['instructor', 'ta'].includes(c.role)).map((c) => c.id);
   const cls = await cloud.getClass(classId).catch(() => null);
   if (!cls || !(cloud.isAdmin() || staffOf.includes(classId))) {
-    main.innerHTML = `<section class="page"><h1>Timed exams</h1><p>Only this class's instructors and TAs can manage its timed exams.</p><p><a class="btn" href="#/">Home</a></p></section>`;
+    main.innerHTML = `<section class="page"><h1>Graded work</h1><p>Only this class's instructors and TAs can manage its exams, quizzes and assignments.</p><p><a class="btn" href="#/">Home</a></p></section>`;
     return;
   }
   if (!tid) return listPage(main, cls);
@@ -40,7 +43,7 @@ export async function render(main, { classId, tid }, query = {}) {
 
 // ---------------------------------------------------------------- list
 async function listPage(main, cls) {
-  main.innerHTML = `<section class="page timed-admin"><p class="eyebrow"><a href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=timed">${esc(cls.name)}</a></p><h1>Timed exams</h1><div data-list><p class="muted loading-line">Loading…</p></div></section>`;
+  main.innerHTML = `<section class="page timed-admin"><p class="eyebrow"><a href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=timed">${esc(cls.name)}</a></p><h1>Graded work</h1><div data-list><p class="muted loading-line">Loading…</p></div></section>`;
   const box = main.querySelector('[data-list]');
   try {
     const list = await cloud.listTimed(cls.id);
@@ -52,22 +55,24 @@ export function timedList(cls, list) {
   const now = Date.now();
   return `
     <div class="row between wrap timed-head">
-      <p class="dash-intro">Locked-down exams with a time limit: multiple choice, short and written answers, and Java programming. One attempt per student.</p>
-      <a class="btn primary" href="#/timed/${encodeURIComponent(cls.id)}/new">${icon('plus')} New timed exam</a>
+      <p class="dash-intro">Exams, quizzes and assignments that count: locked down, with a time limit and one attempt per student. Multiple choice, short and written answers, and Java programming. Students see each type in its own group, separate from practice.</p>
+      <a class="btn primary" href="#/timed/${encodeURIComponent(cls.id)}/new">${icon('plus')} New exam, quiz or assignment</a>
     </div>
     ${list.length ? `<ul class="timed-list">${list.map((t) => {
-      const ph = examPhase({ ...t, opensAt: ms(t.opensAt), closesAt: ms(t.closesAt) }, now);
+      const span = overallWindow(t);
+      const ph = examPhase({ ...t, ...span }, now);
       return `<li><a href="#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}">
-        <span class="timed-title"><strong>${esc(t.title || 'Untitled exam')}</strong>
-          <span class="muted small">${when(ms(t.opensAt))} → ${when(ms(t.closesAt))} · ${t.durationMin} min · ${plural((t.questions || []).length, 'question')} · ${r1(t.totalPoints)} points${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
+        <span class="timed-title"><strong><span class="kind-badge kind-${kindOf(t)}">${KINDS[kindOf(t)].label}</span> ${esc(t.title || 'Untitled')}</strong>
+          <span class="muted small">${whoText(t) ? `${esc(whoText(t))} · ` : ''}${when(span.opensAt)} → ${when(span.closesAt)} · ${t.durationMin} min · ${plural((t.questions || []).length, 'question')} · ${r1(t.totalPoints)} points${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
         <span class="phase phase-${ph}">${PHASE_LABEL[ph]}${t.released ? ' · scores released' : ''}</span></a></li>`;
-    }).join('')}</ul>` : '<div class="empty-state"><h2>No timed exams yet</h2><p>Create one from a question file (the same format as practice exams) and, if you like, Java programming problems.</p></div>'}`;
+    }).join('')}</ul>` : '<div class="empty-state"><h2>Nothing graded yet</h2><p>Create an exam, quiz or assignment from a question file (the same format as practice exams) and, if you like, Java programming problems.</p></div>'}`;
 }
 
 // ---------------------------------------------------------------- editor
 async function editorPage(main, cls, existing, host = null, onSaved = null) {
   const root = host || main;
   let key = null, extra = [], attemptsExist = false;
+  const roster = (await cloud.getRoster(cls.id).catch(() => [])).filter((p) => !p.role || p.role === 'student');
   if (existing) {
     [key, extra] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => [])]);
     attemptsExist = (await cloud.listAttempts(cls.id, existing.id).catch(() => [])).length > 0;
@@ -79,11 +84,53 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     questions: (t.questions || []).map((q) => ({ ...q })), key: key?.questions || null,
     parsed: null, mdName: '', asg: null, asgName: '', asgProblems: new Map(), asgRunning: false, filesChanged: false,
   };
+  // ---- 3. Who takes it: everyone, or only some sections (each with its own times if needed)
+  function whoFieldset() {
+    const count = new Map();
+    for (const p of roster) { const k = String(p.section || ''); count.set(k, (count.get(k) || 0) + 1); }
+    const noSection = count.get('') || 0;
+    const wins = t.windows && Object.keys(t.windows).length ? t.windows : null;
+    const secs = [...new Set([...count.keys(), ...Object.keys(wins || {})].filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const own = (s, k) => { const v = ms(wins?.[s]?.[k]); return v && v !== ms(t[k]) ? toLocalInput(v) : ''; };
+    return `
+      <fieldset class="who-fs"><legend>3. Who takes it</legend>
+        <label class="check"><input type="radio" name="who" value="all" ${wins ? '' : 'checked'}><span><strong>Everyone in the class</strong> (${plural(roster.length, 'student')}), at the times above</span></label>
+        <label class="check"><input type="radio" name="who" value="sections" ${wins ? 'checked' : ''} ${secs.length ? '' : 'disabled'}><span><strong>Only the sections I choose</strong>, each at its own time if you like${secs.length ? '' : ' <span class="muted">(the roster has no sections)</span>'}</span></label>
+        <div class="sec-pick" data-secs ${wins ? '' : 'hidden'}>
+          <div class="table-wrap"><table class="sec-table">
+            <thead><tr><th scope="col">Section</th><th scope="col">Students</th><th scope="col">Opens <span class="muted small">(empty: as above)</span></th><th scope="col">Closes <span class="muted small">(empty: as above)</span></th></tr></thead>
+            <tbody>${secs.map((sec) => `<tr data-sec-row="${esc(sec)}">
+              <td><label class="check"><input type="checkbox" data-sec-on ${wins?.[sec] ? 'checked' : ''}><span>Section ${esc(sec)}</span></label></td>
+              <td>${count.get(sec) || 0}</td>
+              <td><input type="datetime-local" data-sec-open value="${own(sec, 'opensAt')}" aria-label="Section ${esc(sec)} opens"></td>
+              <td><input type="datetime-local" data-sec-close value="${own(sec, 'closesAt')}" aria-label="Section ${esc(sec)} closes"></td></tr>`).join('')}</tbody>
+          </table></div>
+          <p class="muted small">Students in other sections don't see this exam and can't open it. The time limit and extra time are the same for every section.</p>
+          ${noSection ? `<p class="ok small">${icon('note')} ${plural(noSection, 'student')} on the roster ${noSection === 1 ? 'has' : 'have'} no section, so ${noSection === 1 ? 'that student' : 'they'} won't get this exam. Set their section on the Class dashboard first.</p>` : ''}
+        </div>
+      </fieldset>`;
+  }
+  function readWho(opensAt, closesAt, problems) {
+    if (form.querySelector('input[name=who]:checked')?.value !== 'sections') return null;
+    const windows = {};
+    for (const row of form.querySelectorAll('[data-sec-row]')) {
+      if (!row.querySelector('[data-sec-on]').checked) continue;
+      const sec = row.dataset.secRow;
+      const o = fromLocalInput(row.querySelector('[data-sec-open]').value) || opensAt, c = fromLocalInput(row.querySelector('[data-sec-close]').value) || closesAt;
+      if (o && c && c <= o) problems.push(`Section ${sec}: Closes must be after Opens.`);
+      windows[sec] = { opensAt: o, closesAt: c };
+    }
+    if (!Object.keys(windows).length) problems.push('Tick at least one section (or choose Everyone in the class).');
+    return windows;
+  }
+
   root.innerHTML = `
-    ${host ? '' : `<section class="page timed-admin"><p class="eyebrow"><a href="#/timed/${encodeURIComponent(cls.id)}">Timed exams · ${esc(cls.name)}</a></p><h1>New timed exam</h1>`}
+    ${host ? '' : `<section class="page timed-admin"><p class="eyebrow"><a href="#/timed/${encodeURIComponent(cls.id)}">Graded work · ${esc(cls.name)}</a></p><h1>New exam, quiz or assignment</h1>`}
     <form class="timed-form" data-editor novalidate>
       ${attemptsExist ? `<p class="note">${icon('note')} Students have already started this exam, so its questions can't be changed. You can still change the times, rules and extra time.</p>` : ''}
-      <fieldset><legend>1. The exam</legend>
+      <fieldset><legend>1. What it is</legend>
+        <div class="kind-pick" role="radiogroup" aria-label="Type">${Object.entries(KINDS).map(([k, v]) => `<label class="kind-opt"><input type="radio" name="kind" value="${k}" ${kindOf(t) === k ? 'checked' : ''}><span class="kind-badge kind-${k}">${v.label}</span></label>`).join('')}</div>
+        <p class="muted small">Students see exams, quizzes and assignments in separate groups on their class page, apart from practice.</p>
         <label class="field"><span>Title</span><input name="title" required maxlength="100" value="${esc(t.title)}" placeholder="Midterm 2"></label>
         <label class="field"><span>Instructions shown before students start</span><textarea name="instructions" rows="4" maxlength="3000">${esc(t.instructions || '')}</textarea></label>
       </fieldset>
@@ -95,7 +142,8 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         </div>
         <p class="muted small">Students can start any time between Opens and Closes. Each student's clock starts when they press Start and never runs past Closes. Times use Firebase's clock, not the student's computer.</p>
       </fieldset>
-      <fieldset ${attemptsExist ? 'disabled' : ''}><legend>3. Questions</legend>
+      ${whoFieldset()}
+      <fieldset ${attemptsExist ? 'disabled' : ''}><legend>4. Questions</legend>
         <p class="muted small">Use the same files as practice exams. Mark points in a question's heading (<code>## Q3 · 2pts</code>). Written answers graded by hand: <code>## Q9 · written · 5pts</code>. Programming problems use the assignments format (one folder per problem with assignment.md, the starter .java, tests/ and solution/); add <code>points: 10</code> to assignment.md. Tests listed in <code>sample_tests</code> are shown to students; the rest stay hidden for grading.</p>
         <div class="grid2">
           <div class="dropzone" data-drop="md"><p class="drop-hint">${icon('upload')} <strong>Question file (.md)</strong></p><div class="row center"><label class="btn">Choose .md<input type="file" accept=".md,.markdown,.txt" data-md hidden></label></div><p class="muted small drop-name" data-md-name></p></div>
@@ -104,7 +152,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         <div data-qcheck aria-live="polite"></div>
         <div data-qlist></div>
       </fieldset>
-      <fieldset><legend>4. Rules</legend>
+      <fieldset><legend>5. Rules</legend>
         <label class="check"><input type="checkbox" name="shuffleQ" ${t.shuffleQ ? 'checked' : ''}><span><strong>Shuffle the question order</strong> for each student (programming problems stay at the end)</span></label>
         <label class="check"><input type="checkbox" name="shuffleOpts" ${t.shuffleOpts ? 'checked' : ''}><span><strong>Shuffle the answer choices</strong> for each student</span></label>
         <label class="check"><input type="checkbox" name="requireSEB" ${t.requireSEB ? 'checked' : ''}><span><strong>Require Safe Exam Browser</strong> (free app for Windows, Mac and iPad that blocks screenshots, other apps and switching). Students without it can't start.</span></label>
@@ -112,7 +160,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         <label class="check"><input type="checkbox" name="releaseDetail" ${t.releaseDetail !== false ? 'checked' : ''}><span>When scores are released, also show students <strong>which questions they got right</strong> (the right answers are never shown)</span></label>
         <p class="muted small">Always on: one attempt, full screen, no copy/paste or right-click, no hints or answer checking, and leaving the exam (switching tab, app or desktop, leaving full screen, closing or reloading) ends it immediately. Only you can let a student back in.</p>
       </fieldset>
-      <fieldset><legend>5. Extra time (accommodations)</legend>
+      <fieldset><legend>6. Extra time (accommodations)</legend>
         <label class="field"><span>One student per line: email (or username) and extra minutes</span><textarea name="extra" rows="3" placeholder="jdoe@sdsu.edu 30&#10;asmith 45">${esc(extra.map((x) => `${x.email} ${x.minutes}`).join('\n'))}</textarea></label>
         <p class="muted small">Their time limit, and the closing time for them, are extended by those minutes.</p>
       </fieldset>
@@ -125,6 +173,11 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     </form>
     ${host ? '' : '</section>'}`;
   const form = root.querySelector('[data-editor]');
+  form.addEventListener('change', (ev) => {
+    if (ev.target.name === 'who') form.querySelector('[data-secs]').hidden = ev.target.value !== 'sections';
+    // typing a section's own time ticks that section
+    if (ev.target.matches('[data-sec-open],[data-sec-close]') && ev.target.value) ev.target.closest('tr').querySelector('[data-sec-on]').checked = true;
+  });
 
   function drawQuestions() {
     const qc = root.querySelector('[data-qcheck]'), ql = root.querySelector('[data-qlist]');
@@ -254,6 +307,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     if (status === 'published' && !state.questions.length) problems.push('Add questions before publishing (or save as a draft).');
     if (state.parsed?.errors.length || state.asg?.errors.length || [...state.asgProblems.values()].some((x) => x.length)) problems.push('Fix the problems in the question files first.');
     if (state.asgRunning) problems.push('Wait until the programming problems have been checked.');
+    const windows = readWho(opensAt, closesAt, problems);
     const ex = parseExtraTime(f.get('extra'), cloud.domain || 'sdsu.edu');
     if (ex.bad.length) problems.push(`Extra time: couldn't read "${ex.bad[0]}". Write an email and a number of minutes, like  jdoe@sdsu.edu 30`);
     if (problems.length) { err.textContent = problems.join(' '); err.scrollIntoView({ block: 'nearest' }); return; }
@@ -262,7 +316,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     }
     err.textContent = '';
     const test = {
-      title, instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, durationMin,
+      title, kind: KINDS[f.get('kind')] ? f.get('kind') : 'exam', instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, windows, durationMin,
       shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on',
       allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on',
       questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
@@ -272,7 +326,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     const btns = form.querySelectorAll('button[type=submit]'); btns.forEach((b) => (b.disabled = true));
     try {
       const id = await cloud.saveTimed(cls.id, existing?.id || null, test, state.filesChanged || !existing ? { questions: state.key || {} } : null, ex.list);
-      toast(status === 'published' ? `${title} is published. Students can start at ${when(opensAt)}.` : `${title} saved as a draft`, 'good');
+      toast(status === 'published' ? (windows ? `${title} is published for ${plural(Object.keys(windows).length, 'section')}.` : `${title} is published. Students can start at ${when(opensAt)}.`) : `${title} saved as a draft`, 'good');
       window.removeEventListener('dragover', stray); window.removeEventListener('drop', stray);
       if (onSaved) onSaved(); else location.hash = `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(id)}`;
     } catch (e) {
@@ -286,15 +340,15 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
 // ---------------------------------------------------------------- one exam
 async function examPage(main, cls, tid, query) {
   let test = await cloud.getTimed(cls.id, tid).catch(() => null);
-  if (!test) { main.innerHTML = `<section class="page"><h1>Exam not found</h1><p><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">Back to timed exams</a></p></section>`; return; }
-  const phaseNow = () => examPhase({ ...test, opensAt: ms(test.opensAt), closesAt: ms(test.closesAt) });
+  if (!test) { main.innerHTML = `<section class="page"><h1>Exam not found</h1><p><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">Back to graded work</a></p></section>`; return; }
+  const phaseNow = () => examPhase({ ...test, ...overallWindow(test) });
   let tab = ['live', 'results', 'settings'].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' ? 'settings' : 'live';
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
   const mySecs = (() => { const c = cloud.myClasses().find((x) => x.id === cls.id); return c?.role === 'ta' && !cloud.isAdmin() ? (c.sections?.length ? c.sections : String(c.section || '').split(',').map((s) => s.trim()).filter(Boolean)) : null; })();
 
   main.innerHTML = `
     <section class="page timed-admin timed-exam">
-      <p class="eyebrow"><a href="#/timed/${encodeURIComponent(cls.id)}">Timed exams · ${esc(cls.name)}</a></p>
+      <p class="eyebrow"><a href="#/timed/${encodeURIComponent(cls.id)}">Graded work · ${esc(cls.name)}</a></p>
       <div class="row between wrap"><h1 data-title>${esc(test.title)}</h1><span data-phase></span></div>
       <p class="muted" data-sub></p>
       <div class="row wrap timed-links">
@@ -308,12 +362,13 @@ async function examPage(main, cls, tid, query) {
   const head = () => {
     const ph = phaseNow();
     main.querySelector('[data-title]').textContent = test.title;
-    main.querySelector('[data-phase]').innerHTML = `<span class="phase phase-${ph}">${PHASE_LABEL[ph]}${test.released ? ' · scores released' : ''}</span>`;
-    main.querySelector('[data-sub]').textContent = `${when(ms(test.opensAt))} → ${when(ms(test.closesAt))} · ${test.durationMin} minutes · ${plural((test.questions || []).length, 'question')} · ${r1(test.totalPoints)} points${test.requireSEB ? ' · Safe Exam Browser required' : ''}`;
+    main.querySelector('[data-phase]').innerHTML = `<span class="kind-badge kind-${kindOf(test)}">${KINDS[kindOf(test)].label}</span> <span class="phase phase-${ph}">${PHASE_LABEL[ph]}${test.released ? ' · scores released' : ''}</span>`;
+    const span = overallWindow(test);
+    main.querySelector('[data-sub]').textContent = `${whoText(test) ? whoText(test) + ' · ' : ''}${when(span.opensAt)} → ${when(span.closesAt)} · ${test.durationMin} minutes · ${plural((test.questions || []).length, 'question')} · ${r1(test.totalPoints)} points${test.requireSEB ? ' · Safe Exam Browser required' : ''}`;
   };
   head();
 
-  const students = () => roster.filter((p) => (!p.role || p.role === 'student') && (!mySecs || mySecs.some((s) => String(p.section || '').split(',').map((x) => x.trim()).includes(s))));
+  const students = () => roster.filter((p) => (!p.role || p.role === 'student') && windowFor(test, p.section) && (!mySecs || mySecs.some((s) => String(p.section || '').split(',').map((x) => x.trim()).includes(s))));
   async function loadData(withGrades = false) {
     [roster, attempts] = await Promise.all([roster.length ? roster : cloud.getRoster(cls.id), cloud.listAttempts(cls.id, tid)]);
     if (withGrades) grades = await cloud.listTestGrades(cls.id, tid).catch(() => []);
@@ -325,11 +380,12 @@ async function examPage(main, cls, tid, query) {
     const byEmail = new Map(attempts.map((a) => [String(a.email).toLowerCase(), a]));
     const list = students().map((p) => ({ p, a: byEmail.get(String(p.email).toLowerCase()) || null }));
     for (const a of attempts) if (!list.some((r) => r.a === a) && !mySecs) list.push({ p: { email: a.email, name: a.name || a.email, section: '' }, a, offRoster: true });
-    return list.map((r) => ({ ...r, ...attemptState(r.a, now) }));
+    return list.map((r) => ({ ...r, ...attemptState(r.a, now, r.p) }));
   }
-  function attemptState(a, now) {
-    if (!a) return { st: 'none', label: 'Not started' };
-    const dl = attemptDeadline({ ...test, closesAt: ms(test.closesAt) }, a);
+  function attemptState(a, now, p = {}) {
+    const win = windowFor(test, p.section) || overallWindow(test);
+    if (!a) return { st: 'none', label: now < win.opensAt ? `Opens ${when(win.opensAt)}` : now >= win.closesAt ? "Didn't take it" : 'Not started', win };
+    const dl = attemptDeadline({ ...test, closesAt: win.closesAt }, a);
     const exits = (a.events || []).filter((e) => LEAVES.includes(e.type));
     const answeredN = (test.questions || []).filter((q) => answered(q, a.answers?.[q.id])).length;
     const base = { deadline: dl, exits, answeredN, beat: ms(a.beatAt) };
@@ -406,6 +462,7 @@ async function examPage(main, cls, tid, query) {
         <div class="row wrap">
           <button class="btn primary" data-grade ${grading ? 'disabled' : ''}>${icon('check')} ${grades.length ? 'Grade again' : 'Grade all attempts'}</button>
           ${grades.length ? `<button class="btn ${test.released ? '' : 'primary'}" data-release="${test.released ? 'hide' : 'show'}">${test.released ? 'Hide scores from students' : 'Release scores to students'}</button>
+          <button class="btn" data-canvas>${icon('upload')} Send to Canvas</button>
           <button class="btn" data-rcsv>${icon('download')} Download CSV</button>
           <button class="btn" data-toscores>${icon('chart')} Add to Exam scores</button>` : ''}
         </div>
@@ -488,6 +545,91 @@ async function examPage(main, cls, tid, query) {
       } }],
     });
   }
+  // ------------------------------------------------ Canvas: a file for Grades → Import
+  function sendToCanvas() {
+    const g = new Map(grades.map((x) => [x.uid, x]));
+    // everyone this was for (their section), with a score if graded
+    const people = rowsNow().filter((r) => !r.offRoster).map((r) => ({ ...r.p, score: r.a && g.get(r.a.uid) ? g.get(r.a.uid).total : null, took: !!r.a }));
+    const st = { ex: null, fileName: '', fromRoster: false, column: '', zeros: false, err: '' };
+    const label = `${test.title}`;
+    const m = modal({ title: 'Send scores to Canvas', wide: true, body: '<div data-cv></div>' });
+    const box = m.el.querySelector('[data-cv]');
+    const canvasStudents = () => (st.fromRoster ? rosterAsCanvas(people) : st.ex?.students || []);
+    function draw() {
+      const ready = st.ex || st.fromRoster;
+      const existing = st.ex?.assignments || [];
+      const sameName = existing.find((a) => a.base.trim().toLowerCase() === label.trim().toLowerCase());
+      if (ready && !st.column) st.column = sameName ? sameName.name : label;
+      let summary = '', target = null, points = test.totalPoints, factor = 1, match = null;
+      if (ready) {
+        match = matchCanvas(canvasStudents(), people);
+        target = st.ex?.assignments.find((a) => a.name === st.column) || null;
+        if (target && target.points > 0 && test.totalPoints > 0 && Math.abs(target.points - test.totalPoints) > 1e-9) { points = target.points; factor = target.points / test.totalPoints; }
+        else if (target) points = target.points;
+        const withScore = match.pairs.filter((x) => x.p.score != null).length;
+        const missing = match.pairs.filter((x) => x.p.score == null).length;
+        const hows = ['RedID', 'email', 'name'].map((h) => [h, match.pairs.filter((x) => x.how === h).length]).filter(([, n]) => n).map(([h, n]) => `${n} by ${h}`).join(', ');
+        summary = `
+          <div class="cv-summary">
+            <p><strong>${match.pairs.length}</strong> Canvas student${match.pairs.length === 1 ? '' : 's'} matched${hows ? ` (${hows})` : ''}: <strong>${withScore}</strong> with a score${missing ? `, ${missing} without (${st.zeros ? 'they get 0' : 'left out, so Canvas keeps what they have'})` : ''}.</p>
+            ${factor !== 1 ? `<p class="ok">${icon('note')} This is out of ${r1(test.totalPoints)} here and ${r1(target.points)} in Canvas, so scores are scaled to ${r1(target.points)} (for example ${r1(test.totalPoints)} → ${r1(target.points)}).</p>` : ''}
+            ${match.notInCanvas.length ? `<details><summary><strong>${icon('note')} ${plural(match.notInCanvas.length, 'student')} here ${match.notInCanvas.length === 1 ? "isn't" : "aren't"} in the Canvas file</strong></summary><ul class="small">${match.notInCanvas.map((p) => `<li>${esc(p.name || p.email)} · ${esc(p.email || '')}${p.score != null ? ` · score ${r1(p.score)}` : ''}</li>`).join('')}</ul><p class="muted small">Enter these by hand in Canvas, or check their RedID on the roster.</p></details>` : ''}
+            ${match.noMatch.length ? `<details><summary>${plural(match.noMatch.length, 'Canvas student')} not in this ${KINDS[kindOf(test)].label.toLowerCase()}</summary><ul class="small">${match.noMatch.map((c) => `<li>${esc(c.name)}${c.section ? ' · ' + esc(c.section) : ''}</li>`).join('')}</ul><p class="muted small">Their cell is left out, so Canvas keeps whatever they have now${assignedSections(test) ? ' (other sections, for example)' : ''}.</p></details>` : ''}
+          </div>`;
+      }
+      box.innerHTML = `
+        <ol class="cv-steps">
+          <li><h3>Your Canvas gradebook</h3>
+            <p class="muted small">In Canvas open <strong>Grades → Export → Export Entire Gradebook</strong> and drop that .csv here. It's read on this computer only; nothing is uploaded.</p>
+            <div class="dropzone small-drop" data-cv-drop><p class="drop-hint">${icon('upload')} ${st.fileName ? `<strong>${esc(st.fileName)}</strong>: ${plural(st.ex.students.filter((x) => !x.testStudent).length, 'student')}, ${plural(st.ex.assignments.length, 'assignment')}` : '<strong>Drag the Canvas .csv here</strong>'}</p>
+              <label class="btn small">Choose file<input type="file" accept=".csv,text/csv" data-cv-file hidden></label></div>
+            ${st.err ? `<p class="bad" role="alert">${esc(st.err)}</p>` : ''}
+            ${st.ex ? '' : `<p class="small">No export? <button class="link-btn" data-cv-roster>${st.fromRoster ? 'Using the roster (RedID as SIS User ID)' : 'Make the file from the roster instead'}</button></p>`}
+          </li>
+          ${ready ? `<li><h3>Which Canvas column</h3>
+            <label class="field"><span>Put the scores in</span><select data-cv-col>
+              <option value="${esc(label)}" ${st.column === label ? 'selected' : ''}>A new assignment: “${esc(label)}” (${r1(test.totalPoints)} points)</option>
+              ${existing.map((a) => `<option value="${esc(a.name)}" ${st.column === a.name ? 'selected' : ''}>${esc(a.base)} · ${a.points != null && !isNaN(a.points) ? r1(a.points) + ' points' : ''}</option>`).join('')}
+            </select></label>
+            <p class="muted small">Picking an existing assignment updates it. A new one is created and <strong>published</strong> by Canvas when you import. If your course uses grading periods, create the assignment in Canvas first, export again, and pick it here.</p></li>
+          <li><h3>Students with no score</h3>
+            <label class="check"><input type="radio" name="cv-zero" value="blank" ${st.zeros ? '' : 'checked'}><span>Leave blank (you decide later)</span></label>
+            <label class="check"><input type="radio" name="cv-zero" value="zero" ${st.zeros ? 'checked' : ''}><span>Give 0 (didn't take it)</span></label></li>
+          <li><h3>Check and download</h3>${summary}
+            <div class="row"><button class="btn primary" data-cv-dl ${match?.pairs.length ? '' : 'disabled'}>${icon('download')} Download the file for Canvas</button></div>
+            <p class="muted small">Then in Canvas: <strong>Grades → Import</strong>, choose this file, check the preview (lower grades show in red) and click <strong>Upload</strong>.${test.released ? '' : ' Scores aren\'t released to students here yet; Canvas shows them to students according to your course\'s posting policy.'}</p></li>` : ''}
+        </ol>`;
+      box._data = { match, points, factor };
+    }
+    async function useFile(f) {
+      if (!f) return;
+      try { st.ex = readCanvasExport(await f.text()); st.fileName = f.name; st.fromRoster = false; st.err = ''; st.column = ''; }
+      catch (e) { st.err = e.message || String(e); st.ex = null; st.fileName = ''; }
+      draw();
+    }
+    box.addEventListener('change', (e) => {
+      if (e.target.matches('[data-cv-file]')) useFile(e.target.files[0]);
+      if (e.target.matches('[data-cv-col]')) { st.column = e.target.value; draw(); box.querySelector('[data-cv-col]')?.focus(); }
+      if (e.target.name === 'cv-zero') { st.zeros = e.target.value === 'zero'; draw(); box.querySelector(`input[name=cv-zero][value=${st.zeros ? 'zero' : 'blank'}]`)?.focus(); }
+    });
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('[data-cv-roster]')) { st.fromRoster = !st.fromRoster; st.column = ''; draw(); }
+      if (e.target.closest('[data-cv-dl]')) {
+        const { match, points, factor } = box._data;
+        // no score and "leave blank": leave the student out, so Canvas doesn't touch their cell
+        const rows = match.pairs.filter(({ p }) => p.score != null || st.zeros).map(({ c, p }) => ({ c, score: p.score != null ? p.score * factor : 0 }));
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([canvasCsv({ column: st.column, points, rows })], { type: 'text/csv;charset=utf-8' }));
+        a.download = `Grades-${test.title.replace(/[^\w-]+/g, '_')}-for-Canvas.csv`;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        toast('Downloaded. Now import it in Canvas: Grades → Import.', 'good');
+      }
+    });
+    box.addEventListener('dragover', (e) => { if (e.target.closest('[data-cv-drop]')) { e.preventDefault(); e.target.closest('[data-cv-drop]').classList.add('over'); } });
+    box.addEventListener('dragleave', (e) => e.target.closest?.('[data-cv-drop]')?.classList.remove('over'));
+    box.addEventListener('drop', (e) => { if (e.target.closest('[data-cv-drop]')) { e.preventDefault(); useFile(e.dataTransfer.files[0]); } });
+    draw();
+  }
   function csvDownload() {
     const qs = test.questions || [];
     const g = new Map(grades.map((x) => [x.uid, x]));
@@ -523,10 +665,12 @@ async function examPage(main, cls, tid, query) {
   async function reopen(aid) {
     const a = attempts.find((x) => x.id === aid);
     if (!a) return;
+    const sec = roster.find((p) => String(p.email).toLowerCase() === String(a.email).toLowerCase())?.section;
+    const win = windowFor(test, sec) || overallWindow(test);
     const m = modal({
       title: `Let ${a.name || a.email} back in?`,
       body: `<p>They can continue their same attempt with the answers they saved. Their clock doesn't stop: it still counts from when they started, so add minutes if they lost time.</p>
-        <label class="field inline"><span>Extra minutes</span><input type="number" min="0" max="300" value="${Math.max(0, Math.ceil((Date.now() - attemptDeadline({ ...test, closesAt: ms(test.closesAt) }, a)) / 60000) + 5) || 0}" data-add></label>`,
+        <label class="field inline"><span>Extra minutes</span><input type="number" min="0" max="300" value="${Math.max(0, Math.ceil((Date.now() - attemptDeadline({ ...test, closesAt: win.closesAt }, a)) / 60000) + 5) || 0}" data-add></label>`,
       actions: [{ label: 'Cancel' }, { label: 'Let back in', kind: 'primary', onClick: (close) => {
         const add = Math.max(0, Math.round(Number(m.el.querySelector('[data-add]').value) || 0));
         cloud.staffAttempt(cls.id, aid, { status: 'open', session: '', endedReason: '', submittedAt: null, extraMin: (Number(a.extraMin) || 0) + add, reopened: (a.reopened || 0) + 1, events: [...(a.events || []), { t: Date.now(), type: 'reopened', by: cloud.currentUser()?.email || '', add }] }, { now: true })
@@ -613,6 +757,7 @@ async function examPage(main, cls, tid, query) {
       try { await cloud.setTimedReleased(cls.id, tid, show); test = { ...test, released: show }; toast(show ? 'Scores released' : 'Scores hidden from students', 'good'); paint(); } catch (e) { toast("Couldn't: " + (e?.message || e), 'bad'); }
       return;
     }
+    if ('canvas' in b.dataset) { sendToCanvas(); return; }
     if ('toscores' in b.dataset) {
       const scores = grades.map((x) => ({ email: x.email, score: x.total }));
       try { await cloud.saveGrades(cls.id, { name: test.title, maxPoints: test.totalPoints, date: new Date(ms(test.opensAt)).toISOString().slice(0, 10), examId: '', scores, source: 'timed exam' }); toast(`Added to Exam scores as "${test.title}"`, 'good'); }

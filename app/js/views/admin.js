@@ -44,7 +44,7 @@ export async function render(main, params = {}, query = {}) {
             </div>
             <div class="row">
               <a class="btn" href="#/instructor?class=${encodeURIComponent(c.id)}">${icon('grid')} Dashboard</a>
-              <a class="btn" href="#/content/${encodeURIComponent(c.id)}">${icon('note')} Exams & assignments</a>
+              <a class="btn" href="#/content/${encodeURIComponent(c.id)}">${icon('book')} Practice</a>
               <a class="btn" href="#/admin?edit=${encodeURIComponent(c.id)}">Edit / new roster</a>
               <button class="btn danger-outline" data-delete="${esc(c.id)}" data-name="${esc(c.name)}">${icon('trash')}<span class="sr-only">Delete ${esc(c.name)}</span></button>
             </div>
@@ -85,7 +85,7 @@ async function editor(main, cls, exams, classes) {
           <label class="field"><span>Term <span class="muted">(optional)</span></span><input name="term" maxlength="40" placeholder="Fall 2026" value="${esc(cls?.term || '')}"></label>
         </fieldset>
         <fieldset><legend>Exams in this class</legend>
-          <p class="muted small fieldset-help">Optional now: after saving, you or the class's instructors upload exams on the class's <strong>Exams and assignments</strong> page.</p>
+          <p class="muted small fieldset-help">Optional now: after saving, you or the class's instructors upload exams on the class's <strong>Practice</strong> page (practice sets) and <strong>Graded work</strong> page (exams, quizzes, assignments).</p>
           ${uploadedHere.length ? `<p class="small"><strong>Uploaded:</strong> ${uploadedHere.map((e) => esc(e.title)).join(', ')} · <a href="#/content/${encodeURIComponent(cls.id)}">Manage</a></p>` : ''}
           ${builtIn.length ? '<p class="muted small exam-group">From the website files (GitHub)</p>' : ''}
           ${courses.map((c) => `<p class="muted small exam-group">${esc(c || 'Other exams')}</p><div class="chip-row">${builtIn.filter((e) => (e.course || '') === c).map((e) => `

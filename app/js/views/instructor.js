@@ -27,7 +27,7 @@ const SORTS = {
   asgDone: (s) => s.asgDone || 0,
 };
 const SORT_LABEL = { name: 'Name', section: 'Section', status: 'Status', seen: 'Questions tried', accuracy: 'Accuracy', readiness: 'Readiness', exam: 'Latest exam score', asgDone: 'Assignments' };
-const TABS = [['students', 'Students'], ['progress', 'Class progress'], ['questions', 'Topics & questions'], ['scores', 'Exam scores'], ['timed', 'Timed exams'], ['announce', 'Announcements']];
+const TABS = [['students', 'Students'], ['progress', 'Class progress'], ['questions', 'Topics & questions'], ['scores', 'Exam scores'], ['timed', 'Graded work'], ['announce', 'Announcements']];
 
 export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled) {
@@ -75,7 +75,7 @@ export async function render(main, params = {}, query = {}) {
         <div class="dash-pickers">
           <label class="field"><span>Class</span><select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           <label class="field"><span>Practice exam</span><select data-exam></select></label>
-          <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('upload')} Exams & assignments</a>
+          <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('book')} Practice</a>
         </div>
       </header>
       <div data-body><p class="muted loading-line">Loading student data…</p></div>
@@ -417,7 +417,7 @@ export async function render(main, params = {}, query = {}) {
     try {
       const [mod, list] = await Promise.all([import('./timed-admin.js'), cloud.listTimed(classId)]);
       if (body.contains(host)) host.innerHTML = mod.timedList(cls(), list);
-    } catch (e) { host.innerHTML = `<p class="bad">Couldn't load the timed exams: ${esc(e?.message || e)}</p>`; }
+    } catch (e) { host.innerHTML = `<p class="bad">Couldn't load the exams, quizzes and assignments: ${esc(e?.message || e)}</p>`; }
   }
   // the Exam scores tab is the analytics page, shown inside the dashboard
   async function mountScores() {

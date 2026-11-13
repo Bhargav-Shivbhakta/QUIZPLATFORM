@@ -1,4 +1,4 @@
-# Exam Practice
+# Cramming
 
 A free practice-exam website for your students. No logins, no database, no server.
 
@@ -256,15 +256,18 @@ Write a program that prices one movie ticket. ...
 
 ---
 
-## 4c. Timed exams (locked down, one attempt)
+## 4c. Graded work: exams, quizzes and assignments (locked down, one attempt)
 
-For real tests taken on the site. Needs student sign-in (section 7). On the class dashboard open the **Timed exams** tab (or **Timed exams** on the class page) and click **New timed exam**.
+For work that counts, taken on the site. Needs student sign-in (section 7). On the class dashboard open the **Graded work** tab (or **Graded work** on the class page) and click **New exam, quiz or assignment**.
 
-1. **The exam:** title and the instructions students read before starting.
+**What students see:** their class page has two clearly separate parts. **Graded work** lists exams, quizzes and assignments, each type in its own group with a coloured label (red Exam, blue Quiz, green Assignment). **Practice** (labelled *Not graded*) lists the practice sets from section 3, which they can repeat as often as they like. The bell in the top bar shows what's new: graded work coming up in the next week or open now, released scores, practice due in the next 3 days, new practice sets and announcements. The red number is how many they haven't seen yet on that device.
+
+1. **What it is:** Exam, Quiz or Assignment; the title; and the instructions students read before starting.
 2. **When:** opens, closes and the time limit. Students start any time in the window; each student's clock starts when they press Start and never runs past the closing time. Times use Firebase's clock, not the student's computer.
-3. **Questions:** drop a question file (same format as practice exams) and/or a programming-problems zip or folder (same format as assignments). Points: `## Q3 · 2pts` in a question heading, `points: 15` in assignment.md (default 10). Written answers graded by hand: `## Q9 · written · 5pts`, with an optional `= model answer` line for the grader. In programming problems, the tests in `sample_tests` are shown to students; the others stay hidden and are used for grading. Reference solutions are run against the tests before publishing and are never uploaded.
-4. **Rules:** shuffle questions and choices per student; require Safe Exam Browser; allow phones (off by default); show which questions were right when scores are released.
-5. **Extra time:** one student per line, `jdoe@sdsu.edu 30`.
+3. **Who takes it:** everyone in the class, or **only the sections you choose**, each section with its own opening and closing times if you like (leave a section's times empty to use the times in step 2). Students in other sections don't see the exam, and Firebase refuses to show them the questions or let them start. Students with no section on the roster can't take a section-only exam, so set their section on the Class dashboard first.
+4. **Questions:** drop a question file (same format as practice exams) and/or a programming-problems zip or folder (same format as assignments). Points: `## Q3 · 2pts` in a question heading, `points: 15` in assignment.md (default 10). Written answers graded by hand: `## Q9 · written · 5pts`, with an optional `= model answer` line for the grader. In programming problems, the tests in `sample_tests` are shown to students; the others stay hidden and are used for grading. Reference solutions are run against the tests before publishing and are never uploaded.
+5. **Rules:** shuffle questions and choices per student; require Safe Exam Browser; allow phones (off by default); show which questions were right when scores are released.
+6. **Extra time:** one student per line, `jdoe@sdsu.edu 30`.
 
 **What the site enforces:** one attempt (the database refuses a second); start, saves and submission checked against Firebase's clock (no saving after the time limit); one device (another device can't open or save the attempt); answers save every 2 minutes and on submit; the exam is submitted automatically when time runs out. Answer keys, hidden tests and solutions are stored where only staff can read them; students' computers never receive them.
 
@@ -274,7 +277,9 @@ For real tests taken on the site. Needs student sign-in (section 7). On the clas
 
 **During the exam (Live tab):** counts of not started, working, submitted, ended by leaving and no contact; each student's status, start time, time left, last save, answered count, exits and device. **Let back in** (with extra minutes, the answers they saved are kept), **+ Time**, **End**, and a timeline of everything that happened for each student. Refreshes every minute.
 
-**Afterwards (Results tab):** **Grade all attempts** marks choice, number and short answers against the key and runs every programming answer against all tests, hidden ones included (points in proportion to tests passed). Click a cell to see the answer and set points (needed for written answers; your points are kept if you grade again). **Release scores to students** shows each student their own score on their class page. **Download CSV** (for Canvas) and **Add to Exam scores** (for the analysis).
+**Afterwards (Results tab):** **Grade all attempts** marks choice, number and short answers against the key and runs every programming answer against all tests, hidden ones included (points in proportion to tests passed). Click a cell to see the answer and set points (needed for written answers; your points are kept if you grade again). **Release scores to students** shows each student their own score on their class page. **Add to Exam scores** (for the analysis) and **Download CSV** (every answer, for your records).
+
+**Getting the scores into Canvas (Send to Canvas):** in Canvas open **Grades → Export → Export Entire Gradebook**, then on the Results tab click **Send to Canvas** and drop that file in (it's read on your computer only, never uploaded). Choose the Canvas column: an existing assignment (scores are scaled if its points differ, e.g. 36 here → 50 in Canvas) or a new one. Students are matched by RedID (Canvas's *SIS User ID*), then email, then name; anyone who couldn't be matched is listed. Choose whether students with no score are left out (Canvas keeps what they have) or get 0, download the file, and in Canvas use **Grades → Import**, check the preview and click **Upload**. Notes: Canvas publishes a new assignment as soon as it's imported; if your course uses grading periods, create the assignment in Canvas first, export again and pick it. No export at hand? **Make the file from the roster instead** uses each student's RedID as the SIS User ID.
 
 **Free-plan cost:** about one write every 2 minutes per student (a 90-minute exam for 200 students is about 9,500 writes and 20,000 reads, plus 200 reads a minute while the Live tab is open). Turn off Auto-refresh if several staff watch at once.
 
@@ -326,16 +331,23 @@ It runs on Google Firebase's free plan, which needs no credit card. The free pla
 
 The `apiKey` in `config.js` is meant to be public; it only identifies your Firebase project. The rules from step 5 are what protect the data.
 
-### Exams and assignments on the site (no GitHub needed)
+### Practice sets on the site (no GitHub needed)
 
 With sign-in on, exams and programming assignments are uploaded on the site, so instructors never need GitHub:
 
 1. Open the class (or **Admin → Exams & assignments**, or the button on the class page or dashboard). Admins and the class's instructors and TAs can use it.
 2. **Add an exam:** choose the exam's question file (`.md`, same format as section 4) or paste its text. It's checked right there, with line numbers for any problems; **Publish** is only possible once it's correct. Students in the class see it immediately.
 3. **Add assignments:** choose a `.zip` with one folder per assignment (same layout as section 4b, including `solution/`). Every reference solution is run against its tests in the browser first; anything that fails is listed before you can publish. Solutions are stored for instructors only and are never sent to students.
-4. **Replace questions**, download the `.md` or the assignments `.zip` (to edit and upload again), or delete an exam at any time.
+4. **Rename** (for example "Midterm 2" to "Midterm 2 Practice", so nobody mixes it up with the real exam), **Replace questions**, download the `.md` or the assignments `.zip` (to edit and upload again), or delete an exam at any time.
 
 You can drag the `.md` file, the `.zip`, or the assignments folder itself onto the page instead of choosing it.
+
+**Turning practice on and off, and due dates:** each exam on that page has its own settings box.
+- **Students can practise:** untick it to hide that practice (for example Midterm 2 practice once Midterm 2 is over). Students no longer see it or can open it; their progress is kept and you can turn it back on at any time.
+- **Due:** pick a date and time and click **Save due date**. Students see "Due …" on the exam card (in red once it's past).
+- **Close it after the due date:** with this ticked, the practice closes for students automatically when the due date passes. Without it, it stays open and shows as past due.
+
+Instructors and TAs always see every exam on the class page, marked "Off for students" or "Closed for students" where that applies.
 
 Uploaded exams are only readable by people on the class roster, unlike files in a public GitHub repo.
 

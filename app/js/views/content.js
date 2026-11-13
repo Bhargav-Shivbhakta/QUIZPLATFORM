@@ -1,4 +1,4 @@
-// Exams & assignments for one class: instructors and admins upload question files (.md)
+// Practice for one class (question sets and coding practice, not graded): instructors and admins upload question files (.md)
 // and assignment zips here instead of using GitHub. Everything is checked in the browser first.
 import { getManifest } from '../data.js';
 import * as cloud from '../cloud.js';
@@ -6,9 +6,13 @@ import { parseExam } from '../parser.js';
 import { readAssignments, solutionProblems, publicAssignments } from '../assignments-core.js';
 import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
-import { esc, icon, plural, toast, confirmDialog } from '../ui.js';
+import { esc, icon, plural, toast, confirmDialog, modal } from '../ui.js';
 import { fmtDate } from '../engine.js';
 
+const pad = (n) => String(n).padStart(2, '0');
+const toLocalInput = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const fromLocalInput = (v) => { const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? null : t; };
+const when = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const slug = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'exam';
 
 let jszip = null;
@@ -38,6 +42,7 @@ export async function render(main, { classId }) {
   const cls = staffClass || (await cloud.getClass(classId));
   if (!cls) { main.innerHTML = `<section class="page narrow empty-state"><h1>Class not found</h1><a class="btn primary" href="#/">Go home</a></section>`; return; }
 
+  let practice = { ...(cls.practice || {}) }; // examId -> { off, dueAt, closeAfterDue }
   let mode = null; // null | { kind: 'exam', examId? } | { kind: 'asg', examId }
   let parsed = null, sourceText = '', fileName = '';
   let asgCheck = null; // { result, files, problems: Map, running, done }
@@ -50,9 +55,9 @@ export async function render(main, { classId }) {
       <section class="page narrow content-page">
         <nav class="crumbs"><a href="#/">My classes</a><a href="#/class/${encodeURIComponent(classId)}">${esc(cls.name)}</a></nav>
         <header class="inst-head">
-          <div><p class="eyebrow">Instructor</p><h1>Exams and assignments</h1>
-          <p class="muted">For <strong>${esc(cls.name)}</strong>. Upload a question file (.md) for each exam, and optionally a .zip of programming assignments. Students in this class see changes right away.</p></div>
-          ${mode ? '' : `<button class="btn primary" data-new-exam>${icon('upload')} Add an exam</button>`}
+          <div><p class="eyebrow">Instructor · ${esc(cls.name)}</p><h1>Practice</h1>
+          <p class="muted">Practice sets are <strong>not graded</strong>: students can try them as often as they like. Upload a question file (.md) for each set, and optionally a .zip of coding practice. Students see changes right away. For exams, quizzes and assignments that count, use <a href="#/timed/${encodeURIComponent(classId)}">Graded work</a>.</p></div>
+          ${mode ? '' : `<button class="btn primary" data-new-exam>${icon('upload')} Add a practice set</button>`}
         </header>
         ${mode ? '' : listHtml(uploaded, builtIn)}
         <div data-panel>${mode?.kind === 'exam' ? examPanel(uploaded) : mode?.kind === 'asg' ? asgPanel(uploaded) : ''}</div>
@@ -63,7 +68,7 @@ export async function render(main, { classId }) {
 
   function listHtml(uploaded, builtIn) {
     if (!uploaded.length && !builtIn.length) {
-      return `<div class="empty-state"><h2>No exams yet</h2><p>Click <strong>Add an exam</strong> and choose the exam's question file (.md). Need the format? Open <a href="#/author">Check a question file</a> for an example and a checker.</p></div>`;
+      return `<div class="empty-state"><h2>No practice sets yet</h2><p>Click <strong>Add a practice set</strong> and choose its question file (.md). Need the format? Open <a href="#/author">Check a question file</a> for an example and a checker.</p></div>`;
     }
     return `<ul class="content-list">
       ${uploaded.map((e) => `
@@ -72,9 +77,11 @@ export async function render(main, { classId }) {
             <h2>${esc(e.title)} ${e.active ? '<span class="tag">Current</span>' : ''}${e.archived ? '<span class="tag">Past</span>' : ''}</h2>
             <p class="muted small">${plural(e.questionCount, 'question')} · ${plural((e.topics || []).length, 'topic')} · timed test of ${e.onExamCount || Math.min(50, e.questionCount)}${e.timeLimit ? ` in ${e.timeLimit} min` : ''} · updated ${esc(fmtDate(e.updatedAt))}${e.updatedBy ? ` by ${esc(e.updatedBy)}` : ''}</p>
             <p class="small">${icon('code')} ${e.assignmentCount ? plural(e.assignmentCount, 'programming assignment') : '<span class="muted">No programming assignments</span>'}</p>
+            ${practiceCtl(e)}
           </div>
           <div class="content-actions">
             <a class="btn small" href="#/exam/${encodeURIComponent(e.id)}">Preview</a>
+            <button class="btn small" data-rename="${esc(e.id)}" data-title="${esc(e.title)}">${icon('edit')} Rename</button>
             <button class="btn small" data-replace="${esc(e.id)}">${icon('upload')} Replace questions</button>
             <button class="btn small" data-dl-md="${esc(e.id)}">${icon('download')} .md</button>
             <button class="btn small" data-asg="${esc(e.id)}">${icon('code')} ${e.assignmentCount ? 'Replace assignments' : 'Add assignments'}</button>
@@ -84,10 +91,50 @@ export async function render(main, { classId }) {
         </li>`).join('')}
       ${builtIn.map((e) => `
         <li class="content-item builtin">
-          <div class="content-main"><h2>${esc(e.title)}</h2><p class="muted small">${plural(e.questionCount, 'question')} · from the website files (GitHub). Use <strong>Move here</strong> to upload it on this page instead; students keep their progress.</p></div>
+          <div class="content-main"><h2>${esc(e.title)}</h2><p class="muted small">${plural(e.questionCount, 'question')} · from the website files (GitHub). Use <strong>Move here</strong> to upload it on this page instead; students keep their progress.</p>${practiceCtl(e)}</div>
           <div class="content-actions"><a class="btn small" href="#/exam/${encodeURIComponent(e.id)}">Preview</a><button class="btn small primary" data-move="${esc(e.id)}" data-title="${esc(e.title)}">${icon('upload')} Move here</button></div>
         </li>`).join('')}
     </ul>`;
+  }
+
+  // ---------- practice on/off and due date ----------
+  function practiceStatus(id) {
+    const p = cloud.practiceState({ practice }, id);
+    if (p.off) return { tone: 'bad', text: 'Off: students can’t see or open it' };
+    if (p.closed) return { tone: 'bad', text: `Closed: the due date (${when(p.dueAt)}) has passed` };
+    if (p.dueAt) return { tone: p.pastDue ? 'ok' : 'good', text: p.pastDue ? `Past due (${when(p.dueAt)}), still open` : `Open · due ${when(p.dueAt)}` };
+    return { tone: 'good', text: 'Open · no due date' };
+  }
+  function practiceCtl(e) {
+    const p = cloud.practiceState({ practice }, e.id), st = practiceStatus(e.id);
+    const t = esc(e.title);
+    return `
+      <div class="practice-ctl" data-pr="${esc(e.id)}" role="group" aria-label="Practice settings for ${t}">
+        <label class="check"><input type="checkbox" data-pr-on ${p.off ? '' : 'checked'}><span><strong>Students can practise</strong></span></label>
+        <span class="pr-due"><label class="field inline"><span>Due</span><input type="datetime-local" data-pr-due value="${toLocalInput(p.dueAt)}" aria-label="Due date for ${t}"></label>
+        <button type="button" class="btn small" data-pr-setdue disabled>Save due date</button>
+        ${p.dueAt ? `<button type="button" class="link-btn small" data-pr-nodue>Remove due date</button>` : ''}</span>
+        <label class="check"><input type="checkbox" data-pr-close ${p.closeAfterDue ? 'checked' : ''} ${p.dueAt ? '' : 'disabled'}><span>Close it after the due date</span></label>
+        <p class="pr-status small ${st.tone}" data-pr-status aria-live="polite">${esc(st.text)}</p>
+      </div>`;
+  }
+  async function savePractice(box, patch = {}, focus = '[data-pr-on]') {
+    const id = box.dataset.pr, title = box.getAttribute('aria-label').replace(/^Practice settings for /, '');
+    const cfg = {
+      off: !box.querySelector('[data-pr-on]').checked,
+      dueAt: practice[id]?.dueAt || null,
+      closeAfterDue: box.querySelector('[data-pr-close]').checked,
+      ...patch,
+    };
+    box.querySelectorAll('input,button').forEach((x) => (x.disabled = true));
+    try {
+      practice[id] = await cloud.setPractice(classId, id, cfg);
+      toast(practice[id].off ? `${title} is off for students` : `${title} saved`, 'good');
+    } catch (e) {
+      toast("Couldn't save: " + (e?.code === 'permission-denied' ? "you're not an instructor for this class, or the latest firestore.rules aren't published." : e?.message || e), 'bad');
+    }
+    box.outerHTML = practiceCtl({ id, title });
+    main.querySelector(`[data-pr="${CSS.escape(id)}"] ${focus}`)?.focus();
   }
 
   // ---------- question file ----------
@@ -95,9 +142,9 @@ export async function render(main, { classId }) {
     const target = mode.examId ? uploaded.find((e) => e.id === mode.examId) || { title: mode.title } : null;
     return `
       <section class="upload-panel">
-        <h2>${mode.move ? `Move ${esc(mode.title)} to this page` : target ? `Replace the questions of ${esc(target.title)}` : 'Add an exam'}</h2>
+        <h2>${mode.move ? `Move ${esc(mode.title)} to this page` : target ? `Replace the questions of ${esc(target.title)}` : 'Add a practice set'}</h2>
         ${mode.move ? '<p class="small">Choose the same questions.md that is in GitHub (or an updated one). After publishing, this page manages it and students keep their progress. Its programming assignments need to be added again here as a .zip. You can then delete the exam folder from GitHub.</p>' : ''}
-        <p class="muted small">Choose the exam's question file (.md). It's checked here first; nothing is published until you click Publish.${target ? ' Students keep their progress on questions whose IDs (Q1, Q2…) stay the same.' : ''}</p>
+        <p class="muted small">Choose the practice set's question file (.md). It's checked here first; nothing is published until you click Publish.${target ? ' Students keep their progress on questions whose IDs (Q1, Q2…) stay the same.' : ''}</p>
         <div class="dropzone" data-drop="md">
           <p class="drop-hint">${icon('upload')} <strong>Drag the .md file here</strong> <span class="muted">or</span></p>
           <div class="row center"><label class="btn">Choose .md file<input type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" data-md-file hidden></label></div>
@@ -123,7 +170,7 @@ export async function render(main, { classId }) {
       <div class="parse-result ${ok ? 'pr-good' : 'pr-bad'}">
         <p><strong>${ok ? `${icon('check')} Looks good` : `${icon('x')} ${r.errors.length ? plural(r.errors.length, 'problem') + ' to fix' : 'No questions found'}`}</strong></p>
         <p>${plural(r.questions.length, 'question')} in ${plural(r.topics.length, 'topic')}${r.questions.some((q) => q.onExam) ? `, ${r.questions.filter((q) => q.onExam).length} in the timed practice test` : ''}${r.meta.timeLimit ? `, ${r.meta.timeLimit} minutes` : ''}.</p>
-        ${!replacing ? `<label class="field"><span>Exam name</span><input data-exam-title value="${esc(r.meta.title || '')}" maxlength="80"></label>` : ''}
+        ${!replacing ? `<label class="field"><span>Name students see</span><input data-exam-title value="${esc(r.meta.title ? (/practice/i.test(r.meta.title) ? r.meta.title : r.meta.title + ' Practice') : '')}" maxlength="80"></label>` : ''}
         ${r.errors.length ? `<ul class="issue-list bad">${r.errors.slice(0, 30).map((e) => `<li><strong>Line ${e.line}:</strong> ${esc(e.message)}</li>`).join('')}${r.errors.length > 30 ? `<li>…and ${r.errors.length - 30} more</li>` : ''}</ul>` : ''}
         ${r.warnings.length ? `<details><summary>${plural(r.warnings.length, 'warning')} (you can still publish)</summary><ul class="issue-list">${r.warnings.slice(0, 30).map((w) => `<li><strong>Line ${w.line}:</strong> ${esc(w.message)}</li>`).join('')}</ul></details>` : ''}
         ${r.questions.some((q) => /!\[[^\]]*\]\((?!https?:)/.test(q.text)) ? '<p class="small bad">Some questions use pictures from files next to the .md. Uploaded exams can only show pictures from web links (https://…).</p>' : ''}
@@ -255,6 +302,30 @@ export async function render(main, { classId }) {
   // ---------- events ----------
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button');
+    if (b?.matches('[data-rename]')) {
+      const id = b.dataset.rename, oldTitle = b.dataset.title;
+      const m = modal({
+        title: `Rename ${oldTitle}`,
+        body: `<label class="field"><span>New name</span><input data-new-title maxlength="80" value="${esc(oldTitle)}"></label><p class="muted small">This is the name students see. Tip: put "Practice" in the name (for example <strong>${esc(oldTitle.replace(/\s*practice\s*$/i, ''))} Practice</strong>) so it isn't confused with the real exam. Students keep their progress.</p>`,
+        actions: [{ label: 'Cancel' }, { label: 'Rename', kind: 'primary', onClick: (close) => {
+          const v = m.el.querySelector('[data-new-title]').value.trim();
+          if (!v) { toast('Type a name', 'bad'); return true; }
+          cloud.renameExam(classId, id, v).then(() => { toast(`Renamed to ${v}`, 'good'); draw(); }).catch((e) => toast("Couldn't rename: " + (e?.code === 'permission-denied' ? "you're not an instructor for this class." : e?.message || e), 'bad'));
+          close(); return true;
+        } }],
+      });
+      const inp = m.el.querySelector('[data-new-title]');
+      if (!/practice/i.test(oldTitle)) inp.value = `${oldTitle} Practice`;
+      inp.focus(); inp.select();
+      inp.addEventListener('keydown', (k) => { if (k.key === 'Enter') { k.preventDefault(); m.el.querySelector('.modal-foot .btn.primary').click(); } });
+      return;
+    }
+    if (b?.matches('[data-pr-setdue]')) {
+      const box = b.closest('[data-pr]'), v = box.querySelector('[data-pr-due]').value;
+      if (!fromLocalInput(v)) { toast('Pick a date and time first (or use Remove due date)', 'bad'); return; }
+      return savePractice(box, { dueAt: fromLocalInput(v) }, '[data-pr-due]');
+    }
+    if (b?.matches('[data-pr-nodue]')) return savePractice(b.closest('[data-pr]'), { dueAt: null, closeAfterDue: false }, '[data-pr-due]');
     if (!b) return;
     if ('newExam' in b.dataset) { mode = { kind: 'exam' }; parsed = null; fileName = ''; return draw(); }
     if (b.dataset.move) { mode = { kind: 'exam', examId: b.dataset.move, title: b.dataset.title, move: true }; parsed = null; fileName = ''; return draw(); }
@@ -285,7 +356,17 @@ export async function render(main, { classId }) {
       await cloud.deleteExam(classId, b.dataset.delExam); toast('Exam deleted'); return draw();
     }
   });
+  main.addEventListener('input', (ev) => { if (ev.target.matches('[data-pr-due]')) ev.target.closest('[data-pr]').querySelector('[data-pr-setdue]').disabled = false; });
   main.addEventListener('change', async (ev) => {
+    const pr = ev.target.closest('[data-pr]');
+    if (pr) {
+      if (ev.target.matches('[data-pr-on]') && !ev.target.checked) {
+        const ok = await confirmDialog({ title: 'Turn practice off?', body: '<p>Students in this class won’t see this practice or be able to open it. Their progress is kept, and you can turn it back on any time.</p>', confirm: 'Turn off' });
+        if (!ok) { ev.target.checked = true; return; }
+      }
+      if (ev.target.matches('[data-pr-due]')) { pr.querySelector('[data-pr-setdue]').disabled = false; return; }
+      return savePractice(pr, {}, ev.target.matches('[data-pr-close]') ? '[data-pr-close]' : '[data-pr-on]');
+    }
     if (ev.target.matches('[data-md-file]') && ev.target.files[0]) useMdFile(ev.target.files[0]);
     if (ev.target.matches('[data-zip]') && ev.target.files[0]) useZipFile(ev.target.files[0]);
     if (ev.target.matches('[data-asg-folder]') && ev.target.files.length) {

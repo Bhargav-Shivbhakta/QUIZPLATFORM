@@ -422,7 +422,7 @@ function finalizeQuestion(q, { err, warn, allowLong }) {
       break;
     }
     case 'long': {
-      if (!allowLong) { err(q.line, `${q.id} is a written-answer question. Those are graded by hand, so they can only be used in timed exams.`, q.id); break; }
+      if (!allowLong) { err(q.line, `${q.id} is a written-answer question. Those are graded by hand, so they can only be used in graded exams, quizzes and assignments (Graded work), not in practice.`, q.id); break; }
       if (q.options.length) err(q.line, `${q.id} is a written answer, so it can't have choices.`, q.id);
       // an optional "= ..." line is kept as a model answer for the grader
       q.answer = q.answers.length ? { model: q.answers.map((a) => a.raw).join('\n') } : null;

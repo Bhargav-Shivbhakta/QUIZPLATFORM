@@ -157,5 +157,26 @@ console.log('\nMock exams');
   }
 }
 
+// ---- Canvas gradebook import (made-up students)
+{
+  const { readCanvasExport, matchCanvas, canvasCsv } = await import('../app/js/canvas.js');
+  test('reads a Canvas export, matches by RedID / email / name, and writes an importable file', () => {
+    const csv = 'Student,ID,SIS User ID,SIS Login ID,Section,Quiz 4 (2010509),Current Score\n    Points Possible,,,,,10.00,(read only)\n'
+      + '"Lopez, Maria",11,826000001,mlopez@sdsu.edu,Section 04,,\n"Kim, Jo",12,,jkim@sdsu.edu,Section 04,,\n"Diaz, Ana",13,,,Section 04,,\n"Student, Test",14,,,Section 04,,\n';
+    const ex = readCanvasExport(csv);
+    assert.equal(ex.students.length, 4);
+    assert.deepEqual(ex.assignments.map((a) => [a.base, a.points]), [['Quiz 4', 10]]);
+    const people = [{ name: 'Maria Lopez', email: 'x@sdsu.edu', redId: '826000001' }, { name: 'J K', email: 'JKim@sdsu.edu', redId: '' }, { name: 'Ana Diaz', email: '', redId: '' }, { name: 'Not There', email: 'nt@sdsu.edu', redId: '1' }];
+    const m = matchCanvas(ex.students, people);
+    assert.deepEqual(m.pairs.map((x) => x.how), ['RedID', 'email', 'name']);
+    assert.equal(m.notInCanvas.length, 1);
+    const out = canvasCsv({ column: 'Quiz 4 (2010509)', points: 10, rows: m.pairs.map(({ c }) => ({ c, score: 7.456 })) }).trim().split('\r\n');
+    assert.equal(out[0], 'Student,ID,SIS User ID,SIS Login ID,Section,Quiz 4 (2010509)');
+    assert.equal(out[1], 'Points Possible,,,,,10');
+    assert.equal(out[2], '"Lopez, Maria",11,826000001,mlopez@sdsu.edu,Section 04,7.46');
+    assert.throws(() => readCanvasExport('Name,Score\nA,1\n'), /Canvas gradebook export/);
+  });
+}
+
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

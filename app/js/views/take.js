@@ -12,7 +12,7 @@ import { CodeJar } from '../../vendor/codejar.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../main.js';
-import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
 const pad = (n) => String(n).padStart(2, '0');
@@ -34,20 +34,30 @@ export async function render(main, { classId, tid }, query = {}) {
 
   // what the class page knows (works before the exam opens)
   const cls = await cloud.getClass(classId).catch(() => null);
-  const sum = cls?.timed?.[tid];
-  if (!cls || !sum || (sum.status !== 'published' && !preview)) {
+  const allSum = cls?.timed?.[tid];
+  if (!cls || !allSum || (allSum.status !== 'published' && !preview)) {
     page(`<h1>Exam not available</h1><p>This exam doesn't exist or isn't published yet.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     return;
   }
+  // an exam can be for some sections only, each with its own times: use this student's
+  const mySection = cloud.myClasses().find((c) => c.id === classId)?.section ?? '';
+  const sum = preview ? allSum : forSection(allSum, mySection);
+  if (!sum) {
+    page(`<h1>${esc(allSum.title)}</h1><p>This ${W} is for ${Object.keys(allSum.windows || {}).length === 1 ? 'another section' : 'other sections'}, not ${mySection ? `section ${esc(mySection)}` : 'your section'}. If that's wrong, ask your professor to check your section on the roster.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
+    return;
+  }
+  const W = KINDS[kindOf(allSum)].label.toLowerCase(); // "exam", "quiz" or "assignment" in what students read
+  const kindTag = `<span class="kind-badge kind-${kindOf(allSum)}">${KINDS[kindOf(allSum)].label} · graded</span>`;
   const phase = preview ? 'open' : examPhase({ ...sum, opensAt: sum.opensAt, closesAt: sum.closesAt });
   if (phase === 'upcoming') return upcoming();
 
   let test = null, attempt = null;
   try { ({ test, attempt } = await cloud.openTimed(classId, tid)); } catch (e) { console.warn(e); }
+  if (test && !preview) test = forSection(test, mySection) || test;
   if (preview) attempt = null;
   if (!test) {
     if (attempt) return finishedScreen(attempt);
-    page(`<h1>${esc(sum.title)}</h1><p>${phase === 'closed' ? `This exam closed ${when(sum.closesAt)}. You didn't start it.` : "The exam couldn't be loaded. Check your internet connection and reload."}</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
+    page(`<h1>${esc(sum.title)}</h1><p>${phase === 'closed' ? `This ${W} closed ${when(sum.closesAt)}. You didn't start it.` : `The ${W} couldn't be loaded. Check your internet connection and reload.`}</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     return;
   }
   if (attempt) {
@@ -61,21 +71,21 @@ export async function render(main, { classId, tid }, query = {}) {
       return finishedScreen(await cloud.myAttempt(classId, tid).catch(() => null) || { ...attempt, status: 'ended', endedReason: left || 'page-leave' });
     }
     page(`<h1>${esc(test.title)}</h1>
-      <div class="lock-note bad">${icon('lock')}<div><h2>This exam is open on another device</h2><p>An exam can only be taken on one device. If that wasn't you, or your other device stopped working, ask your professor to let you back in.</p></div></div>
+      <div class="lock-note bad">${icon('lock')}<div><h2>This ${W} is open on another device</h2><p>It can only be taken on one device. If that wasn't you, or your other device stopped working, ask your professor to let you back in.</p></div></div>
       <p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     return;
   }
-  if (phase === 'closed') { page(`<h1>${esc(test.title)}</h1><p>This exam closed ${when(ms(test.closesAt))}. You didn't start it.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
+  if (phase === 'closed') { page(`<h1>${esc(test.title)}</h1><p>This ${W} closed ${when(ms(test.closesAt))}. You didn't start it.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
   return preStart({ resume: false });
 
   // ------------------------------------------------ screens before / after
   function upcoming() {
     page(`
-      <p class="eyebrow">${esc(cls.name)}</p><h1>${esc(sum.title)}</h1>
+      <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(sum.title)}</h1>
       <div class="take-facts"><p><strong>Opens:</strong> ${when(sum.opensAt)}</p><p><strong>Closes:</strong> ${when(sum.closesAt)}</p><p><strong>Time limit:</strong> ${sum.durationMin} minutes once you start</p></div>
       <p class="take-countdown" aria-live="off">Opens in <strong data-count></strong></p>
       ${checksHtml(sum)}
-      <p class="muted small">This page opens the exam by itself when it's time. You can also come back later.</p>
+      <p class="muted small">This page opens the ${W} by itself when it's time. You can also come back later.</p>
       <p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     const el = main.querySelector('[data-count]');
     const iv = setInterval(() => { const left = sum.opensAt - Date.now(); if (left <= 0) { clearInterval(iv); location.reload(); return; } el.textContent = mmss(left); }, 1000);
@@ -99,25 +109,25 @@ export async function render(main, { classId, tid }, query = {}) {
     const latest = Math.min(Date.now() + test.durationMin * 60000, close);
     page(`
       ${preview ? `<p class="preview-note">${icon('eye')} Preview: this is what students see. Nothing is saved, and leaving only shows a message.</p>` : ''}
-      <p class="eyebrow">${esc(cls.name)}</p><h1>${esc(test.title)}</h1>
+      <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(test.title)}</h1>
       ${resume ? `<div class="lock-note">${icon('note')}<div><h2>Your professor let you back in</h2><p>You continue your same attempt with the answers you had saved. Time left: <strong>${mmss(attemptDeadline({ ...test, closesAt: close }, attempt) - Date.now())}</strong>.</p></div></div>` : ''}
       <div class="take-facts">
         <p><strong>${plural(test.questions.length, 'question')}</strong> · ${r1(test.totalPoints)} points${Object.entries(test.questions.reduce((c, q) => ((c[QTYPE_LABEL[q.type]] = (c[QTYPE_LABEL[q.type]] || 0) + 1), c), {})).map(([k, v]) => ` · ${v} ${k.toLowerCase()}`).join('')}</p>
-        ${resume ? '' : `<p><strong>Time limit:</strong> ${fullMin} minutes from when you press Start${latest < Date.now() + test.durationMin * 60000 ? ` (but the exam closes at ${hm(close)}, so you'll have until then)` : ''}.</p>`}
+        ${resume ? '' : `<p><strong>Time limit:</strong> ${fullMin} minutes from when you press Start${latest < Date.now() + test.durationMin * 60000 ? ` (but the ${W} closes at ${hm(close)}, so you'll have until then)` : ''}.</p>`}
       </div>
       ${test.instructions ? `<div class="take-instructions">${md(test.instructions)}</div>` : ''}
       <h2>Rules</h2>
       <ul class="take-rules">
         <li><strong>One attempt.</strong> You can't start again.</li>
-        <li><strong>Leaving ends your exam.</strong> Switching to another tab, app or desktop, leaving full screen, closing or reloading this page, or taking a screenshot submits your exam right away. There is no warning.</li>
-        <li><strong>One device.</strong> Opening the exam anywhere else won't work.</li>
+        <li><strong>Leaving ends your ${W}.</strong> Switching to another tab, app or desktop, leaving full screen, closing or reloading this page, or taking a screenshot submits your ${W} right away. There is no warning.</li>
+        <li><strong>One device.</strong> Opening the ${W} anywhere else won't work.</li>
         <li>Copy, paste and right-click are turned off. There are no hints and no answer checking.</li>
-        <li>Your answers save by themselves. When time runs out, the exam is submitted for you.</li>
+        <li>Your answers save by themselves. When time runs out, the ${W} is submitted for you.</li>
         <li>Your name is shown faintly across the screen.</li>
       </ul>
       ${checksHtml(test)}
-      <label class="check take-agree"><input type="checkbox" data-agree><span>I understand. Leaving the exam ends it, and I'm the only one taking it.</span></label>
-      <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? 'Continue the exam' : 'Start the exam'}</button></div>`);
+      <label class="check take-agree"><input type="checkbox" data-agree><span>I understand. Leaving the ${W} ends it, and I'm the only one taking it.</span></label>
+      <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? `Continue the ${W}` : `Start the ${W}`}</button></div>`);
     const btn = main.querySelector('[data-start]');
     const can = !blockers(test) || preview;
     main.querySelector('[data-agree]').addEventListener('change', (e) => { btn.disabled = !(e.target.checked && can); });
@@ -138,9 +148,9 @@ export async function render(main, { classId, tid }, query = {}) {
     const grade = sum.released ? await cloud.myTestGrade(classId, tid) : null;
     const left = a.status === 'ended';
     page(`
-      <p class="eyebrow">${esc(cls.name)}</p><h1>${esc(t.title)}</h1>
+      <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(t.title)}</h1>
       <div class="lock-note ${left ? 'bad' : 'good'}">${icon(left ? 'lock' : 'check')}<div>
-        <h2>${left ? 'Your exam has ended' : 'Your exam was submitted'}</h2>
+        <h2>${left ? `Your ${W} has ended` : `Your ${W} was submitted`}</h2>
         <p>${left ? `It ended because: <strong>${esc(EXIT_LABEL[reason] || reason || 'you left the exam')}</strong>. The answers you had saved were submitted.` : reason === 'time-up' ? 'Time ran out, so it was submitted for you.' : 'Thanks. Your answers are in.'}${a.submittedAt ? ` (${when(ms(a.submittedAt))})` : ''}</p>
         ${left ? '<p>If this was a mistake, for example your computer crashed, contact your professor. Only they can let you back in.</p>' : ''}
       </div></div>
@@ -158,7 +168,7 @@ export async function render(main, { classId, tid }, query = {}) {
     const wantFs = !dev.seb && (document.fullscreenEnabled || document.webkitFullscreenEnabled);
     if (wantFs) {
       try { await (document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }) || document.documentElement.webkitRequestFullscreen?.()); }
-      catch { toast('Allow full screen to start the exam.', 'bad'); btn.disabled = false; btn.innerHTML = `${icon('play')} Start the exam`; return; }
+      catch { toast(`Allow full screen to start the ${W}.`, 'bad'); btn.disabled = false; btn.innerHTML = `${icon('play')} Start the ${W}`; return; }
     }
     let offset = 0;
     const session = newSession();
@@ -205,7 +215,7 @@ export async function render(main, { classId, tid }, query = {}) {
           <div class="exam-title"><strong>${esc(test.title)}</strong>${preview ? ' <span class="pill">Preview</span>' : ''}</div>
           <div class="exam-timer" role="timer" aria-live="off"><span class="sr-only">Time left</span><span data-timer></span></div>
           <div class="exam-save small" data-save aria-live="polite"></div>
-          <button class="btn primary" data-submit>${icon('check')} Submit exam</button>
+          <button class="btn primary" data-submit>${icon('check')} Submit ${W}</button>
         </header>
         <div class="exam-body">
           <nav class="exam-nav" aria-label="Questions"><ol data-nav></ol><p class="muted small exam-legend"><span class="dot a"></span> answered <span class="dot f"></span> flagged</p></nav>
@@ -296,7 +306,7 @@ export async function render(main, { classId, tid }, query = {}) {
           // the professor may have added time or ended the exam, or another device took over: look again
           const fresh = await cloud.myAttempt(classId, tid).catch(() => null);
           if (fresh && fresh.status !== 'open') { finished = true; teardown(); finishedScreen(fresh); return false; }
-          if (fresh && fresh.session !== lsGet('sess:' + attempt.id)) { finished = true; teardown(); page(`<h1>${esc(test.title)}</h1><div class="lock-note bad">${icon('lock')}<div><h2>This exam was opened on another device</h2><p>Ask your professor if you need help.</p></div></div>`); return false; }
+          if (fresh && fresh.session !== lsGet('sess:' + attempt.id)) { finished = true; teardown(); page(`<h1>${esc(test.title)}</h1><div class="lock-note bad">${icon('lock')}<div><h2>This ${W} was opened on another device</h2><p>Ask your professor if you need help.</p></div></div>`); return false; }
           if (fresh) {
             attempt = { ...fresh, id: attempt.id };
             deadline = attemptDeadline({ ...test, closesAt: ms(test.closesAt) }, attempt);
@@ -434,7 +444,7 @@ export async function render(main, { classId, tid }, query = {}) {
       if ('submit' in b.dataset) {
         const missing = qs.filter((q) => !answered(q, answers[q.id])).length;
         const flagged = flags.size;
-        const ok = await confirmDialog({ title: 'Submit your exam?', body: `<p>${missing ? `<strong>${plural(missing, 'question')} ${missing === 1 ? 'has' : 'have'} no answer.</strong> ` : 'Every question has an answer. '}${flagged ? `${plural(flagged, 'question')} ${flagged === 1 ? 'is' : 'are'} flagged for review. ` : ''}You can't change anything after submitting.</p>`, confirm: 'Submit', cancel: 'Keep working' });
+        const ok = await confirmDialog({ title: `Submit your ${W}?`, body: `<p>${missing ? `<strong>${plural(missing, 'question')} ${missing === 1 ? 'has' : 'have'} no answer.</strong> ` : 'Every question has an answer. '}${flagged ? `${plural(flagged, 'question')} ${flagged === 1 ? 'is' : 'are'} flagged for review. ` : ''}You can't change anything after submitting.</p>`, confirm: 'Submit', cancel: 'Keep working' });
         if (ok && !finished) { if (editor) answers[qs[idx].id] = editor.toString(); finish('submitted', 'submitted'); }
       }
     });

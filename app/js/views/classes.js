@@ -9,9 +9,12 @@ import { examCard, readinessFor, resumeBanner } from './home.js';
 import { studyPanel } from './nextup.js';
 import { announcementBanners, bindAnnouncements } from './announce.js';
 import { CLASS_COLORS } from '../colors.js';
+import { forSection, overallWindow, assignedSections, KINDS, kindOf } from '../timed.js';
 
 const swatch = (c) => (CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch;
 const withDate = (e, cls) => (e && cls.examDates?.[e.id] ? { ...e, examDate: cls.examDates[e.id] } : e);
+// the instructor's practice settings for this class: due date, and whether students can open it
+const withPractice = (e, cls) => { if (!e) return e; const p = cloud.practiceState(cls, e.id); return { ...e, dueAt: p.dueAt, pastDue: p.pastDue, practiceClosed: p.closed, practiceOff: p.off }; };
 function daysTo(d) { if (!d) return null; const t = new Date(d + 'T00:00:00'); if (isNaN(t)) return null; const n = Math.ceil((t - new Date(new Date().toDateString())) / 86400000); return n >= 0 ? n : null; }
 
 export async function render(main, params = {}) {
@@ -40,7 +43,7 @@ export async function render(main, params = {}) {
       ${resumeBanner()}
       <div class="class-grid">
         ${classes.map((c) => {
-          const exams = (c.exams || []).map((id) => byId.get(id)).filter(Boolean);
+          const exams = (c.exams || []).map((id) => withPractice(byId.get(id), c)).filter((e) => e && (cloud.isStaffRole(c.role) || !e.practiceClosed));
           return `
           <a class="class-card" style="--sw:${swatch(c)}" href="#/class/${encodeURIComponent(c.id)}">
             <span class="class-course">${esc(c.course || '')}${c.term ? ` · ${esc(c.term)}` : ''}</span>
@@ -57,12 +60,17 @@ export async function render(main, params = {}) {
 }
 
 async function classPage(main, cls, byId, several) {
-  const exams = (cls.exams || []).map((id) => withDate(byId.get(id), cls)).filter(Boolean);
+  const teacher = cloud.isStaffRole(cls.role);
+  const all = (cls.exams || []).map((id) => withPractice(withDate(byId.get(id), cls), cls)).filter(Boolean);
+  const exams = teacher ? all : all.filter((e) => !e.practiceClosed);
+  const closedNote = teacher ? '' : (() => {
+    const shut = all.filter((e) => e.practiceClosed && !e.practiceOff && e.dueAt);
+    return shut.length ? `<p class="muted small closed-note">${icon('clock')} Closed after the due date: ${shut.map((e) => esc(e.title)).join(', ')}</p>` : '';
+  })();
   const current = exams.filter((e) => !e.archived);
   const past = exams.filter((e) => e.archived);
   const featured = current.find((e) => e.active) || current[0];
   const others = current.filter((e) => e !== featured);
-  const teacher = cloud.isStaffRole(cls.role);
   const [ready, panel, ann, doc] = await Promise.all([readinessFor(featured ? [featured.id] : []), featured && !teacher ? studyPanel(featured) : '', announcementBanners(cls.id, { staff: teacher }), cloud.getClass(cls.id).catch(() => null)]);
   const timed = timedCards(cls, doc?.timed || {}, teacher);
   main.innerHTML = `
@@ -74,39 +82,52 @@ async function classPage(main, cls, byId, several) {
           <h1>${esc(cls.name)}</h1>
           <p class="tagline">${teacher ? (cls.role === 'ta' ? `You are a TA for this class${cls.sections?.length ? ` (${cls.sections.length > 1 ? 'sections' : 'section'} ${esc(cls.sections.join(', '))})` : ''}.` : 'You are an instructor for this class.') : `Welcome, ${esc((cloud.currentUser().displayName || '').split(' ')[0] || 'back')}.`}</p>
         </div>
-        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Exams & assignments</a><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">${icon('clock')} Timed exams</a><a class="btn" href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=scores">${icon('chart')} Exam scores</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
+        ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('book')} Practice</a><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">${icon('clock')} Graded work</a><a class="btn" href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=scores">${icon('chart')} Exam scores</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
       </header>
       ${ann}
       ${timed}
+      <section class="practice-section" aria-labelledby="practice-h">
+      <h2 class="section-title" id="practice-h">${icon('book')} Practice <span class="kind-badge kind-practice">Not graded</span></h2>
+      <p class="muted section-sub">Practise as often as you like. Nothing here counts toward your grade.</p>
       ${panel && store.getSession()?.examId === featured?.id ? '' : resumeBanner()}
       ${panel}
-      ${panel ? `<h2 class="section-title">Your exam${others.length ? 's' : ''}</h2>` : ''}
-      ${featured ? examCard(featured, { big: !panel, grouped: true, ready: ready.get(featured.id) }) : `<div class="empty-state"><p>No exams have been added to this class yet.</p>${teacher ? `<a class="btn primary" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Add an exam</a>` : ''}</div>`}
-      ${others.length ? `<h2 class="section-title">Also in this class</h2><div class="exam-grid">${others.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
-      ${past.length ? `<h2 class="section-title">Past exams</h2><p class="muted section-sub">Still available for practice.</p><div class="exam-grid">${past.map((e) => examCard(e, { grouped: true })).join('')}</div>` : ''}
+      ${featured ? examCard(featured, { big: !panel, grouped: true, practice: true, ready: ready.get(featured.id) }) : `<div class="empty-state"><p>${all.length && !teacher ? 'There’s no practice open right now. Your instructor will open the next one.' : 'No practice sets have been added to this class yet.'}</p>${teacher ? `<a class="btn primary" href="#/content/${encodeURIComponent(cls.id)}">${icon('upload')} Add a practice set</a>` : ''}</div>`}
+      ${others.length ? `<h3 class="group-title">More practice</h3><div class="exam-grid">${others.map((e) => examCard(e, { grouped: true, practice: true })).join('')}</div>` : ''}
+      ${closedNote}
+      ${past.length ? `<h3 class="group-title">Older practice</h3><div class="exam-grid">${past.map((e) => examCard(e, { grouped: true, practice: true })).join('')}</div>` : ''}
+      </section>
     </section>`;
   bindDiscard(main, () => classPage(main, cls, byId, several));
   bindAnnouncements(main);
 }
 
-// Timed exams on the class page: what's coming up, what's open now, and past ones (for the score)
+// Graded work on the class page (exams, quizzes, assignments), each type in its own group:
+// what's coming up, what's open now, and past ones (for the score)
 function timedCards(cls, timed, teacher) {
   const now = Date.now();
-  const list = Object.entries(timed).map(([id, t]) => ({ id, ...t })).filter((t) => t.status === 'published' && (teacher || t.closesAt > now - 60 * 86400000))
+  // students: only items for their section, at their section's times. Staff: the whole span.
+  const list = Object.entries(timed).map(([id, t]) => (teacher ? { id, ...t, ...overallWindow(t) } : forSection({ id, ...t }, cls.section ?? '')))
+    .filter((t) => t && t.status === 'published' && (teacher || t.closesAt > now - 60 * 86400000))
     .sort((a, b) => a.opensAt - b.opensAt);
   if (!list.length) return '';
   const fmt = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const hm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const card = (t) => {
     const open = now >= t.opensAt && now < t.closesAt, upcoming = now < t.opensAt;
+    const k = kindOf(t), K = KINDS[k];
     const href = teacher ? `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}` : `#/take/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}`;
-    return `<a class="timed-card ${open ? 'open' : upcoming ? 'soon' : 'past'}" href="${href}">
+    return `<a class="timed-card kind-${k} ${open ? 'open' : upcoming ? 'soon' : 'past'}" href="${href}">
       <span class="timed-card-icon" aria-hidden="true">${icon(open ? 'clock' : upcoming ? 'clock' : 'check')}</span>
-      <span class="timed-card-text"><span class="mode-name">${esc(t.title)}</span>
-        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
-      <span class="btn ${open && !teacher ? 'primary' : ''}">${teacher ? 'Monitor' : open ? 'Go to exam' : upcoming ? 'Details' : t.released ? 'See score' : 'Details'}</span></a>`;
+      <span class="timed-card-text"><span class="kind-badge kind-${k}">${K.label} · graded</span><span class="mode-name">${esc(t.title)}${teacher && assignedSections(t) ? ` <span class="tag">${assignedSections(t).length === 1 ? 'Section' : 'Sections'} ${esc(assignedSections(t).join(', '))}</span>` : ''}</span>
+        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start · one attempt` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes · one attempt` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
+      <span class="btn ${open && !teacher ? 'primary' : ''}">${teacher ? 'Monitor' : open ? `Start ${K.label.toLowerCase()}` : upcoming ? 'Details' : t.released ? 'See score' : 'Details'}</span></a>`;
   };
-  return `<section class="timed-section" aria-label="Timed exams"><h2 class="section-title">${icon('clock')} Timed exams</h2><div class="timed-cards">${list.map(card).join('')}</div></section>`;
+  const groups = Object.keys(KINDS).map((k) => [k, list.filter((t) => kindOf(t) === k)]).filter(([, l]) => l.length);
+  return `<section class="graded-section" aria-labelledby="graded-h">
+    <h2 class="section-title" id="graded-h">${icon('clock')} Graded work</h2>
+    <p class="muted section-sub">These count toward your grade: one attempt, timed and locked down.</p>
+    ${groups.map(([k, l]) => `<h3 class="group-title"><span class="kind-dot kind-${k}" aria-hidden="true"></span>${KINDS[k].plural}</h3><div class="timed-cards">${l.map(card).join('')}</div>`).join('')}
+  </section>`;
 }
 
 function notEnrolled(main) {

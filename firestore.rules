@@ -30,6 +30,18 @@ service cloud.firestore {
 
     // ---- timed exams: starting and saving an attempt
     function testOf(classId, testId) { return get(/databases/$(database)/documents/classes/$(classId)/tests/$(testId)).data; }
+    // An exam for some sections only has windows: { "<section>": { opensAt, closesAt } }. The student's
+    // section is the one on their enrollment; students in other sections can't open or start it.
+    function mySection(classId) { return get(enrollmentPath()).data.classes[classId].get('section', ''); }
+    function hasWindows(t) { return t.get('windows', null) != null; }
+    function examOpened(classId, t) {
+      return (!hasWindows(t) && request.time >= t.opensAt)
+        || (hasWindows(t) && request.time >= t.windows[mySection(classId)].opensAt);
+    }
+    function beforeClose(classId, t, extraMin, graceSec) {
+      return (!hasWindows(t) && request.time < t.closesAt + duration.value(extraMin, 'm') + duration.value(graceSec, 's'))
+        || (hasWindows(t) && request.time < t.windows[mySection(classId)].closesAt + duration.value(extraMin, 'm') + duration.value(graceSec, 's'));
+    }
     function startOk(classId, attemptId, d) {
       let t = testOf(classId, d.tid);
       let ex = /databases/$(database)/documents/classes/$(classId)/testExtra/$(d.tid + '_' + myEmail());
@@ -44,8 +56,8 @@ service cloud.firestore {
         && d.saves == 0
         && d.reopened == 0
         && t.status == 'published'
-        && request.time >= t.opensAt
-        && request.time < t.closesAt
+        && examOpened(classId, t)
+        && beforeClose(classId, t, 0, 0)
         && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes));
     }
     // Saves must come from the device that started (or, after the professor lets the student back in,
@@ -59,7 +71,7 @@ service cloud.firestore {
         && d.beatAt == request.time
         && request.time <= old.beatAt + duration.value(300, 's')
         && request.time <= old.startedAt + duration.value(mins, 'm') + duration.value(30, 's')
-        && request.time <= t.closesAt + duration.value(int(old.extraMin), 'm') + duration.value(30, 's')
+        && beforeClose(classId, t, int(old.extraMin), 30)
         && d.status in ['open', 'submitted', 'ended']
         && (d.status == 'open' || d.submittedAt == request.time);
     }
@@ -73,9 +85,10 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
       allow write: if isAdmin();
-      // a class's instructors can add or remove the exams they upload (nothing else)
+      // a class's instructors can add or remove the exams they upload, turn practice on/off and set
+      // due dates, and list their timed exams (nothing else)
       allow update: if teaches(classId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice']);
 
       // Exams and assignments uploaded on the site: everyone in the class reads them,
       // the class's instructors (and admins) upload, replace and delete them.
@@ -135,10 +148,10 @@ service cloud.firestore {
 
       // ---------------- Timed exams ----------------
       // The exam itself: questions and choices only (no answers). Students can open it only once it
-      // is published and its start time has passed (by Firebase's clock, not the student's).
+      // is published and its start time (for their section) has passed, by Firebase's clock.
       match /tests/{testId} {
         allow read: if isAdmin() || teaches(classId)
-          || (enrolledIn(classId) && resource.data.status == 'published' && request.time >= resource.data.opensAt);
+          || (enrolledIn(classId) && resource.data.status == 'published' && examOpened(classId, resource.data));
         allow write: if isAdmin() || teaches(classId);
       }
       // Answer keys and hidden tests: the class's staff only, never students.

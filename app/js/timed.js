@@ -76,6 +76,38 @@ export function codePoints(q, result) {
   return Math.round((q.points * result.passed / result.total) * 100) / 100;
 }
 
+// ---- What kind of graded work it is (students see these in separate groups)
+export const KINDS = {
+  exam: { label: 'Exam', plural: 'Exams', a: 'an exam' },
+  quiz: { label: 'Quiz', plural: 'Quizzes', a: 'a quiz' },
+  assignment: { label: 'Assignment', plural: 'Assignments', a: 'an assignment' },
+};
+export const kindOf = (t) => (KINDS[t?.kind] ? t.kind : 'exam');
+
+// ---- Who takes the exam
+// An exam is for everyone in the class (no windows), or only for some sections:
+// windows = { "<section>": { opensAt, closesAt } }, each section with its own times.
+// A student's section must match a key exactly (that's what the security rules check).
+export function windowFor(t, section) {
+  if (!t) return null;
+  const w = t.windows;
+  if (!w || !Object.keys(w).length) return { opensAt: ms(t.opensAt), closesAt: ms(t.closesAt) };
+  const mine = w[String(section ?? '')];
+  return mine ? { opensAt: ms(mine.opensAt), closesAt: ms(mine.closesAt) } : null;
+}
+// The exam as one student sees it (their section's times), or null if it isn't for their section
+export function forSection(t, section) {
+  const w = windowFor(t, section);
+  return w && { ...t, opensAt: w.opensAt, closesAt: w.closesAt };
+}
+// Earliest opening and latest closing over all sections (for the professor's lists)
+export function overallWindow(t) {
+  const w = t?.windows && Object.values(t.windows);
+  if (!w?.length) return { opensAt: ms(t.opensAt), closesAt: ms(t.closesAt) };
+  return { opensAt: Math.min(...w.map((x) => ms(x.opensAt))), closesAt: Math.max(...w.map((x) => ms(x.closesAt))) };
+}
+export const assignedSections = (t) => (t?.windows ? Object.keys(t.windows).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) : null);
+
 // Exam status for a time (ms)
 export function examPhase(t, now = Date.now()) {
   if (t.status !== 'published') return 'draft';

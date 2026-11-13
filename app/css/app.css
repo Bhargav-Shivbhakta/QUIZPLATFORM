@@ -2272,7 +2272,7 @@ fieldset.an-picklist { margin: .6rem 0; min-width: 0; }
 .timed-form legend { font-weight: 700; font-size: 1.05rem; padding: 0 .4rem; }
 .timed-form .field { display: grid; gap: .3rem; }
 .timed-form .field > span { font-weight: 600; font-size: .92rem; }
-.timed-form input:not([type=checkbox]):not([type=file]), .timed-form textarea, .timed-form select { min-height: 42px; padding: .45rem .6rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; width: 100%; }
+.timed-form input:not([type=checkbox]):not([type=radio]):not([type=file]), .timed-form textarea, .timed-form select { min-height: 42px; padding: .45rem .6rem; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; width: 100%; }
 .timed-form .check { display: flex; gap: .6rem; align-items: flex-start; }
 .timed-form .check input { margin-top: .25rem; width: 18px; height: 18px; flex: none; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: .8rem; }
@@ -2420,3 +2420,92 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
 .timed-qtable td:nth-child(2) { min-width: 220px; overflow-wrap: anywhere; }
 .timed-exam .inst-tools .field.inline { display: inline-flex; gap: .4rem; align-items: center; }
 .timed-exam .inst-tools .field.inline select { width: auto; min-width: 12em; }
+
+/* ---------- practice on/off and due date (instructor's Exams and assignments page) ---------- */
+.practice-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.25rem; margin: .8rem 0 .3rem; padding: .75rem .9rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.practice-ctl .check { margin: 0; }
+.practice-ctl .pr-due { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.practice-ctl .pr-due .field.inline { display: inline-flex; align-items: center; gap: .45rem; margin: 0; }
+.practice-ctl .pr-due .field.inline > span { font-weight: 600; }
+.practice-ctl .pr-due input { width: auto; }
+.practice-ctl .pr-status { flex-basis: 100%; margin: 0; font-weight: 600; }
+.exam-card .due-line { margin: .35rem 0 0; font-size: .9rem; font-weight: 600; }
+.closed-note { margin: .5rem 0 1rem; }
+
+/* ---------- timed exams: who takes it (sections) ---------- */
+.who-fs .check { margin-bottom: .35rem; }
+.sec-pick { margin-top: .6rem; }
+.sec-table { width: 100%; border-collapse: collapse; }
+.sec-table th, .sec-table td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.sec-table th { font-size: .85rem; font-weight: 600; }
+.sec-table td .check { margin: 0; white-space: nowrap; }
+.sec-table input[type=datetime-local] { width: auto; min-width: 13.5em; }
+
+/* ---------- kinds of work: graded (exam, quiz, assignment) vs practice ---------- */
+.kind-badge { display: inline-block; vertical-align: middle; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; line-height: 1.2; padding: .2rem .55rem; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.kind-badge.kind-exam { color: var(--bad); background: var(--bad-soft); border-color: var(--bad-line); }
+.kind-badge.kind-quiz { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+.kind-badge.kind-assignment { color: var(--good); background: var(--good-soft); border-color: var(--good-line); }
+.kind-badge.kind-practice { color: var(--ink); background: var(--sunken); border-color: var(--line-strong); font-weight: 600; }
+.kind-dot { display: inline-block; width: .65rem; height: .65rem; border-radius: 50%; margin-right: .5rem; vertical-align: middle; }
+.kind-dot.kind-exam { background: var(--bad); } .kind-dot.kind-quiz { background: var(--accent); } .kind-dot.kind-assignment { background: var(--good); }
+.timed-card.kind-exam { border-left: 4px solid var(--bad); }
+.timed-card.kind-quiz { border-left: 4px solid var(--accent); }
+.timed-card.kind-assignment { border-left: 4px solid var(--good); }
+.timed-card-text .kind-badge { align-self: flex-start; margin-bottom: .25rem; }
+.exam-card .kind-badge { margin-bottom: .35rem; }
+.exam-hub .kind-badge { margin: .25rem 0 .4rem; }
+.group-title { display: flex; align-items: center; font-size: 1.05rem; margin: 1.1rem 0 .55rem; }
+.graded-section, .practice-section { margin-top: 1.75rem; }
+.graded-section .section-title, .practice-section .section-title { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: .2rem; }
+.graded-section .section-sub, .practice-section .section-sub { margin-top: 0; }
+.eyebrow .kind-badge { margin-left: .4rem; text-transform: uppercase; }
+.kind-pick { display: flex; flex-wrap: wrap; gap: .6rem; margin: .2rem 0 .4rem; }
+.kind-pick .kind-opt { display: inline-flex; align-items: center; gap: .4rem; padding: .45rem .7rem; border: 1px solid var(--line-strong); border-radius: 10px; cursor: pointer; background: var(--surface); }
+.kind-pick .kind-opt:has(input:checked) { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.kind-pick input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.timed-title .kind-badge { margin-right: .35rem; }
+
+/* ---------- notification bell (top bar) ---------- */
+.bell-wrap { position: relative; margin-left: .5rem; display: flex; align-items: center; }
+.bell-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.bell-btn svg { width: 20px; height: 20px; }
+.bell-btn:hover { background: var(--sunken); }
+.bell-btn[aria-expanded="true"] { border-color: var(--ink); }
+.bell-count { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font-size: .72rem; font-weight: 700; line-height: 20px; text-align: center; border: 2px solid var(--paper); }
+.bell-panel { position: absolute; top: calc(100% + 8px); right: 0; width: min(380px, calc(100vw - 24px)); max-height: min(70vh, 560px); overflow: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 16px 40px rgba(0,0,0,.18); z-index: 60; }
+.bell-head { display: flex; align-items: center; justify-content: space-between; padding: .7rem .9rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+.bell-head h2 { font-size: 1rem; margin: 0; }
+.bell-head h2:focus { outline: none; }
+.bell-list { list-style: none; margin: 0; padding: 0; }
+.bell-list li + li { border-top: 1px solid var(--line); }
+.bell-item { display: flex; gap: .7rem; padding: .7rem .9rem; color: var(--ink); text-decoration: none; }
+.bell-item:hover, .bell-item:focus-visible { background: var(--sunken); }
+.bell-list li.is-new .bell-item { background: var(--accent-soft); }
+.bell-list li.is-new .bell-main { font-weight: 700; }
+.bell-ic { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--sunken); color: var(--ink); }
+.bell-ic svg { width: 17px; height: 17px; }
+.bell-ic.kind-exam { background: var(--bad-soft); color: var(--bad); }
+.bell-ic.kind-quiz { background: var(--accent-soft); color: var(--accent); }
+.bell-ic.kind-assignment { background: var(--good-soft); color: var(--good); }
+.bell-text { display: grid; gap: .1rem; min-width: 0; }
+.bell-main { overflow-wrap: anywhere; }
+.bell-empty { padding: 1rem .9rem; margin: 0; }
+@media (max-width: 640px) {
+  .bell-wrap { margin-left: auto; }
+  .bell-panel { position: fixed; top: calc(var(--topbar-h, 56px) + 6px); right: 12px; left: 12px; width: auto; }
+}
+.timed-card-text .kind-badge { justify-self: start; }
+.bell-wrap + .account-chip { margin-left: .5rem; }
+@media (max-width: 640px) { .topbar .bell-wrap + .account-chip { margin-left: .5rem; } }
+
+/* ---------- Send to Canvas ---------- */
+.cv-steps { margin: 0; padding-left: 1.3rem; display: grid; gap: 1rem; }
+.cv-steps h3 { font-size: 1rem; margin: 0 0 .35rem; }
+.cv-steps .small-drop { padding: .9rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
+.cv-steps .small-drop .drop-hint { margin: 0; }
+.cv-steps select { width: 100%; max-width: 100%; }
+.cv-summary { padding: .7rem .9rem; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--sunken); margin-bottom: .7rem; }
+.cv-summary p { margin: .2rem 0; }
+.cv-summary details { margin-top: .4rem; }
+.cv-summary ul { margin: .3rem 0; padding-left: 1.2rem; max-height: 180px; overflow: auto; }

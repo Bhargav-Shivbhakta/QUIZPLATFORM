@@ -1,10 +1,14 @@
 import config from '../config.js';
+// The site was renamed from "Exam Practice" (it hosts real exams too). A config.js that still has the
+// old default name gets the new one; any other name set there is kept.
+if (!config.siteName || config.siteName === 'Exam Practice') config.siteName = 'Cramming';
 import * as store from './store.js';
 import { esc, toast, closeModal, icon } from './ui.js';
 import { closeCalculator } from './calculator.js';
 import * as cloud from './cloud.js';
 import { applyClassColor } from './colors.js';
 import { getExam } from './data.js';
+import { mountBell } from './notify.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
@@ -85,8 +89,9 @@ async function route() {
   const m = path.match(r.re);
   const params = {};
   (r.keys || []).forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
-  if (cloud.enabled && params.id && !cloud.canSeeExam(params.id)) {
-    main.innerHTML = `<section class="page narrow empty-state"><h1>This exam isn't part of your classes</h1><p>You can only open exams from classes you're enrolled in.</p><a class="btn primary" href="#/">Go to my classes</a></section>`;
+  const examOfPage = params.id || (path === '/quiz' ? store.getSession()?.examId : null);
+  if (cloud.enabled && examOfPage && !cloud.canSeeExam(examOfPage)) {
+    main.innerHTML = `<section class="page narrow empty-state"><h1>This practice isn't available</h1><p>Your instructor has closed it, or it isn't part of your classes.</p><a class="btn primary" href="#/">Go to my classes</a></section>`;
     return;
   }
   const skTimer = setTimeout(() => { if (token === renderToken && !main.childElementCount) main.innerHTML = SKELETON; }, 120);
@@ -163,6 +168,7 @@ function paintChrome() {
     const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
     nav.insertAdjacentHTML('afterend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
   }
+  mountBell();
   document.body.classList.toggle('signed-out', cloud.enabled && !u);
   // phones: the same links as a bottom tab bar, within thumb reach
   document.querySelector('.tabbar')?.remove();
