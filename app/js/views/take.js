@@ -119,14 +119,15 @@ export async function render(main, { classId, tid }, query = {}) {
       <h2>Rules</h2>
       <ul class="take-rules">
         <li><strong>One attempt.</strong> You can't start again.</li>
-        <li><strong>Leaving ends your ${W}.</strong> Switching to another tab, app or desktop, leaving full screen, closing or reloading this page, or taking a screenshot submits your ${W} right away. There is no warning.</li>
+        ${Number(test.warnings) > 0 ? `<li><strong>Leaving gives a warning: you get ${test.warnings === 1 ? 'one warning' : `${Number(test.warnings)} warnings`}.</strong> Switching to another tab, app or desktop (including swiping with three or four fingers), clicking outside the ${W} or leaving full screen counts as leaving. The ${test.warnings === 1 ? '2nd' : test.warnings === 2 ? '3rd' : '4th'} time ends your ${W}, and so does staying away more than ${Number(test.awayMaxSec) || 15} seconds. Your professor sees every warning.</li>
+        <li><strong>These end it right away, with no warning:</strong> taking a screenshot, opening developer tools, or closing or reloading this page.</li>` : `<li><strong>Leaving ends your ${W}.</strong> Switching to another tab, app or desktop, leaving full screen, closing or reloading this page, or taking a screenshot submits your ${W} right away. There is no warning.</li>`}
         <li><strong>One device.</strong> Opening the ${W} anywhere else won't work.</li>
         <li>Copy, paste and right-click are turned off. There are no hints and no answer checking.</li>
         <li>Your answers save by themselves. When time runs out, the ${W} is submitted for you.</li>
         <li>Your name is shown faintly across the screen.</li>
       </ul>
       ${checksHtml(test)}
-      <label class="check take-agree"><input type="checkbox" data-agree><span>I understand. Leaving the ${W} ends it, and I'm the only one taking it.</span></label>
+      <label class="check take-agree"><input type="checkbox" data-agree><span>I understand the rules above${Number(test.warnings) > 0 ? ' (warnings, then the ' + W + ' ends)' : `. Leaving the ${W} ends it`}, and I'm the only one taking it.</span></label>
       <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? `Continue the ${W}` : `Start the ${W}`}</button></div>`);
     const btn = main.querySelector('[data-start]');
     const can = !blockers(test) || preview;
@@ -336,20 +337,66 @@ export async function render(main, { classId, tid }, query = {}) {
       lsSet('left:' + attempt.id, null);
       finishedScreen(ok ? { ...attempt, status, endedReason: reason, submittedAt: serverNow() } : (await cloud.myAttempt(classId, tid).catch(() => null)) || { ...attempt, status, endedReason: reason });
     }
+    // Leaving the exam. Screenshots, developer tools and closing the page always end it. Switching app,
+    // tab or desktop (keyboard or a 3/4-finger swipe), clicking outside or leaving full screen can be
+    // allowed a few times as warnings (the professor's setting); the next one ends it, and so does
+    // staying away longer than the allowed seconds. One trip away counts once, however many events fire.
+    const allowed = Math.max(0, Math.min(3, Math.round(Number(test.warnings) || 0)));
+    const awayMax = Math.max(3, Number(test.awayMaxSec) || 15) * 1000;
+    const HARD = new Set(['print-screen', 'devtools-key', 'page-leave']);
+    const sinceReopen = events.slice(events.map((e) => e.type).lastIndexOf('reopened') + 1);
+    let strikes = sinceReopen.filter((e) => e.warning).length;
+    let away = null, awayTimer = null, awayTick = null;
+    const fullNow = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const isBack = () => document.visibilityState === 'visible' && document.hasFocus() && fullNow();
     const leave = (reason) => {
       if (finished) return;
-      if (preview) { toast(`In a real exam this would end it now: ${EXIT_LABEL[reason] || reason}`, 'bad'); events.push({ t: Date.now(), type: reason }); return; }
-      finish('ended', reason);
+      if (!allowed || HARD.has(reason)) { finish('ended', reason); return; }
+      if (away) return; // still the same trip away
+      strikes++;
+      if (strikes > allowed) { finish('ended', reason); return; }
+      away = { since: Date.now(), reason };
+      events.push({ t: serverNow(), type: reason, warning: strikes });
+      save(); lastSave = 0; // tell the server now (or on the next tick if a save is running)
+      awayTimer = setTimeout(() => { if (away && !finished) finish('ended', 'away-too-long'); }, awayMax);
+      showWarning();
     };
+    function showWarning() {
+      document.querySelector('.exam-warn')?.remove();
+      const left = allowed - strikes;
+      const el = document.createElement('div');
+      el.className = 'exam-warn';
+      el.innerHTML = `<div class="exam-warn-box" role="alertdialog" aria-modal="true" aria-labelledby="warn-h" aria-describedby="warn-p">
+        <p class="eyebrow">Warning ${strikes} of ${allowed}</p>
+        <h2 id="warn-h">You left the ${W}</h2>
+        <p id="warn-p"><strong>${esc(EXIT_LABEL[away.reason] || 'You left the exam')}.</strong> ${left ? `${left === 1 ? 'One more warning' : `${left} more warnings`}, then leaving again ends your ${W}.` : `<strong>Leaving again ends your ${W}.</strong>`} Your professor can see this.</p>
+        <p class="exam-warn-count" aria-live="polite">Go back within <strong data-warn-left>${Math.ceil(awayMax / 1000)}</strong> seconds or your ${W} ends.</p>
+        <button class="btn primary big" data-warn-back>Back to the ${W}</button></div>`;
+      document.body.appendChild(el);
+      const b = el.querySelector('[data-warn-back]');
+      b.addEventListener('click', async () => { try { await (document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }) || document.documentElement.webkitRequestFullscreen?.()); } catch {} fsWas = fullNow(); setTimeout(checkBack, 100); });
+      clearInterval(awayTick);
+      awayTick = setInterval(() => { const n = el.querySelector('[data-warn-left]'); if (n && away) n.textContent = Math.max(0, Math.ceil((away.since + awayMax - Date.now()) / 1000)); }, 250);
+      setTimeout(() => b.focus(), 50);
+    }
+    function checkBack() {
+      if (!away || finished || !isBack()) return;
+      clearTimeout(awayTimer); clearInterval(awayTick);
+      events.push({ t: serverNow(), type: 'returned-after-leaving', awayMs: Date.now() - away.since });
+      away = null;
+      document.querySelector('.exam-warn')?.remove();
+      save(); lastSave = 0;
+    }
+    cleanupFns.push(() => { clearTimeout(awayTimer); clearInterval(awayTick); document.querySelector('.exam-warn')?.remove(); });
 
     // ---- lockdown
     const on = (target, type, fn, opts) => { target.addEventListener(type, fn, opts); cleanupFns.push(() => target.removeEventListener(type, fn, opts)); };
     let fsWas = !!(document.fullscreenElement || document.webkitFullscreenElement);
     let blurTimer = null;
-    on(document, 'visibilitychange', () => { if (document.visibilityState === 'hidden') leave('tab-hidden'); });
+    on(document, 'visibilitychange', () => { if (document.visibilityState === 'hidden') leave('tab-hidden'); else checkBack(); });
     on(window, 'blur', () => { clearTimeout(blurTimer); blurTimer = setTimeout(() => { if (!document.hasFocus() && !finished) leave('window-blur'); }, 1200); });
-    on(window, 'focus', () => clearTimeout(blurTimer));
-    const fsChange = () => { const now = !!(document.fullscreenElement || document.webkitFullscreenElement); if (fsWas && !now) leave('fullscreen-exit'); fsWas = now; };
+    on(window, 'focus', () => { clearTimeout(blurTimer); checkBack(); });
+    const fsChange = () => { const now = !!(document.fullscreenElement || document.webkitFullscreenElement); if (fsWas && !now) leave('fullscreen-exit'); fsWas = now; if (now) checkBack(); };
     on(document, 'fullscreenchange', fsChange); on(document, 'webkitfullscreenchange', fsChange);
     on(window, 'pagehide', () => { if (!finished && !preview) { lsSet('left:' + attempt.id, 'page-leave'); cloud.saveAttempt(classId, attempt, { answers, status: 'ended', endedReason: 'page-leave', events: [...events, { t: serverNow(), type: 'page-leave' }].slice(-200), saves: (attempt.saves || 0) + 1 }).catch(() => {}); } });
     on(window, 'beforeunload', (e) => { if (!finished && !preview) { e.preventDefault(); e.returnValue = ''; } });

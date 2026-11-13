@@ -152,6 +152,7 @@ export const EXIT_LABEL = {
   'print-screen': 'Pressed the screenshot key',
   'devtools-key': 'Tried to open developer tools',
   'returned-after-leaving': 'Came back after leaving',
+  'away-too-long': 'Stayed away too long after a warning',
   'other-device': 'Opened the exam on another device',
   'professor-ended': 'Ended by the professor',
   'time-up': 'Time ran out',

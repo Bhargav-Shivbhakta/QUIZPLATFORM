@@ -20,7 +20,7 @@ const when = (t) => (t ? new Date(t).toLocaleString(undefined, { weekday: 'short
 const clock = (t) => (t ? new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '–');
 const mmss = (msLeft) => { if (msLeft <= 0) return '0:00'; const s = Math.round(msLeft / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const r1 = (x) => (x == null || isNaN(x) ? '–' : String(Math.round(x * 10) / 10));
-const LEAVES = ['tab-hidden', 'window-blur', 'fullscreen-exit', 'page-leave', 'print-screen', 'devtools-key', 'returned-after-leaving'];
+const LEAVES = ['tab-hidden', 'window-blur', 'fullscreen-exit', 'page-leave', 'print-screen', 'devtools-key', 'away-too-long'];
 // "Sections 01, 03" or "" when everyone takes it
 const whoText = (t) => { const s = assignedSections(t); return s ? `${s.length === 1 ? 'Section' : 'Sections'} ${s.join(', ')}` : ''; };
 const PHASE_LABEL = { draft: 'Draft', upcoming: 'Scheduled', open: 'Open now', closed: 'Closed' };
@@ -77,7 +77,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     [key, extra] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => [])]);
     attemptsExist = (await cloud.listAttempts(cls.id, existing.id).catch(() => [])).length > 0;
   }
-  const t = existing || { title: '', instructions: 'Answer every question. You have one attempt. Leaving this page, switching tabs or apps, or leaving full screen ends your exam immediately.', durationMin: 60, shuffleQ: true, shuffleOpts: true, requireSEB: false, allowPhones: false, releaseDetail: true, questions: [], totalPoints: 0, status: 'draft' };
+  const t = existing || { title: '', instructions: 'Answer every question. You have one attempt. Leaving this page, switching tabs or apps, or leaving full screen ends your exam immediately.', durationMin: 60, shuffleQ: true, shuffleOpts: true, requireSEB: false, allowPhones: false, releaseDetail: true, warnings: 2, awayMaxSec: 15, questions: [], totalPoints: 0, status: 'draft' };
   const startDefault = (() => { const d = new Date(Date.now() + DAY); d.setMinutes(0, 0, 0); return d.getTime(); })();
   const state = {
     opensAt: ms(t.opensAt) || startDefault, closesAt: ms(t.closesAt) || startDefault + 2 * 3600000,
@@ -158,7 +158,13 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         <label class="check"><input type="checkbox" name="requireSEB" ${t.requireSEB ? 'checked' : ''}><span><strong>Require Safe Exam Browser</strong> (free app for Windows, Mac and iPad that blocks screenshots, other apps and switching). Students without it can't start.</span></label>
         <label class="check"><input type="checkbox" name="allowPhones" ${t.allowPhones ? 'checked' : ''}><span><strong>Allow phones</strong> (off: laptops and iPads only)</span></label>
         <label class="check"><input type="checkbox" name="releaseDetail" ${t.releaseDetail !== false ? 'checked' : ''}><span>When scores are released, also show students <strong>which questions they got right</strong> (the right answers are never shown)</span></label>
-        <p class="muted small">Always on: one attempt, full screen, no copy/paste or right-click, no hints or answer checking, and leaving the exam (switching tab, app or desktop, leaving full screen, closing or reloading) ends it immediately. Only you can let a student back in.</p>
+        <div class="grid2 leave-rules">
+          <label class="field"><span>When a student leaves the exam (switches app, tab or desktop, swipes with 3 or 4 fingers, clicks outside, leaves full screen)</span>
+            <select name="warnings">${[[0, 'End it right away'], [1, 'Warn once, end it the 2nd time'], [2, 'Warn twice, end it the 3rd time (recommended)'], [3, 'Warn 3 times, end it the 4th time']].map(([v, l]) => `<option value="${v}" ${Number(t.warnings ?? 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          <label class="field"><span>After a warning, end it anyway if they're away longer than</span>
+            <select name="awayMaxSec">${[5, 10, 15, 30].map((v) => `<option value="${v}" ${Number(t.awayMaxSec || 15) === v ? 'selected' : ''}>${v} seconds${v === 15 ? ' (recommended)' : ''}</option>`).join('')}</select></label>
+        </div>
+        <p class="muted small">Always on: one attempt, full screen, no copy/paste or right-click, no hints or answer checking. <strong>Always ends the exam at once, no warning:</strong> the screenshot keys, developer tools, closing or reloading the page. Two-finger scrolling and swiping inside the page never count. Every warning, and how long they were away, shows on the Live tab. Only you can let a student back in.</p>
       </fieldset>
       <fieldset><legend>6. Extra time (accommodations)</legend>
         <label class="field"><span>One student per line: email (or username) and extra minutes</span><textarea name="extra" rows="3" placeholder="jdoe@sdsu.edu 30&#10;asmith 45">${esc(extra.map((x) => `${x.email} ${x.minutes}`).join('\n'))}</textarea></label>
@@ -319,6 +325,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       title, kind: KINDS[f.get('kind')] ? f.get('kind') : 'exam', instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, windows, durationMin,
       shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on',
       allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on',
+      warnings: Math.max(0, Math.min(3, Number(f.get('warnings')) || 0)), awayMaxSec: [5, 10, 15, 30].includes(Number(f.get('awayMaxSec'))) ? Number(f.get('awayMaxSec')) : 15,
       questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
       status, released: !!t.released, createdAt: t.createdAt || null, createdBy: t.createdBy || null,
     };
@@ -387,8 +394,11 @@ async function examPage(main, cls, tid, query) {
     if (!a) return { st: 'none', label: now < win.opensAt ? `Opens ${when(win.opensAt)}` : now >= win.closesAt ? "Didn't take it" : 'Not started', win };
     const dl = attemptDeadline({ ...test, closesAt: win.closesAt }, a);
     const exits = (a.events || []).filter((e) => LEAVES.includes(e.type));
+    const evs = a.events || [], fromReopen = evs.slice(evs.map((e) => e.type).lastIndexOf('reopened') + 1);
+    const warns = fromReopen.filter((e) => e.warning).length;
+    const awaySec = Math.round(evs.reduce((n, e) => n + (Number(e.awayMs) || 0), 0) / 1000);
     const answeredN = (test.questions || []).filter((q) => answered(q, a.answers?.[q.id])).length;
-    const base = { deadline: dl, exits, answeredN, beat: ms(a.beatAt) };
+    const base = { deadline: dl, exits, warns, awaySec, answeredN, beat: ms(a.beatAt) };
     if (a.status === 'submitted') return { ...base, st: 'submitted', label: a.endedReason === 'time-up' ? 'Time ran out (submitted)' : 'Submitted' };
     if (a.status === 'ended') return { ...base, st: 'ended', label: 'Ended: ' + (EXIT_LABEL[a.endedReason] || a.endedReason || 'left the exam') };
     if (now > dl + 30000) return { ...base, st: 'timeup', label: 'Time up (last save kept)' };
@@ -429,7 +439,7 @@ async function examPage(main, cls, tid, query) {
             <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
             <td data-label="Answered">${a ? `${r.answeredN} of ${(test.questions || []).length}` : '–'}</td>
-            <td data-label="Exits">${r.exits?.length ? `<span class="bad">${r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}</span>` : a ? '0' : '–'}</td>
+            <td data-label="Exits">${r.exits?.length ? `<span class="bad">${Number(test.warnings) > 0 ? `${r.warns} of ${test.warnings} warnings` : r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}${r.awaySec ? ` · away ${r.awaySec}s in all` : ''}</span>` : a ? '0' : '–'}</td>
             <td data-label="Device">${a?.device ? `${esc(a.device.browser)} · ${esc(a.device.os)}${a.device.seb ? ' ✓' : ''}` : '–'}</td>
             <td class="row-actions">${a ? `${['ended', 'lost', 'timeup', 'submitted'].includes(r.st) ? `<button class="btn small" data-reopen="${esc(a.id)}">Let back in</button>` : ''}${r.st === 'working' || r.st === 'lost' ? `<button class="btn small" data-addtime="${esc(a.id)}">+ Time</button><button class="btn small danger-outline" data-endnow="${esc(a.id)}">End</button>` : ''}` : ''}</td>
           </tr>`;
@@ -657,7 +667,7 @@ async function examPage(main, cls, tid, query) {
         <p class="muted small">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''} · <span class="st-pill st-${r.st}">${esc(r.label)}</span></p>
         <dl class="kv"><dt>Started</dt><dd>${when(ms(a.startedAt))}</dd><dt>Must finish by</dt><dd>${when(r.deadline)}${a.extraMin ? ` (includes ${a.extraMin} extra min)` : ''}</dd><dt>Last saved</dt><dd>${when(r.beat)} · ${plural(a.saves || 0, 'save')}</dd>${a.submittedAt ? `<dt>Finished</dt><dd>${when(ms(a.submittedAt))}</dd>` : ''}<dt>Device</dt><dd>${a.device ? `${esc(a.device.browser)} on ${esc(a.device.os)}${a.device.seb ? ' (Safe Exam Browser)' : ''}${a.device.screen ? ` · screen ${esc(a.device.screen)}` : ''}` : '–'}</dd><dt>Answered</dt><dd>${r.answeredN} of ${qs.length}</dd></dl>
         <h3>What happened</h3>
-        <ol class="timeline">${[{ t: ms(a.startedAt), type: 'started' }, ...(a.events || [])].map((e) => `<li class="${LEAVES.includes(e.type) || e.type === 'professor-ended' ? 'bad' : ''}"><span class="muted small">${clock(e.t)}</span> ${esc(e.type === 'started' ? 'Started the exam' : e.type === 'reopened' ? `Let back in by ${e.by || 'the professor'}${e.add ? ` (+${e.add} min)` : ''}` : e.type === 'time-added' ? `${e.add} minutes added by ${e.by || 'the professor'}` : EXIT_LABEL[e.type] || e.type)}${e.detail ? ` <span class="muted small">${esc(e.detail)}</span>` : ''}</li>`).join('')}</ol>
+        <ol class="timeline">${[{ t: ms(a.startedAt), type: 'started' }, ...(a.events || [])].map((e) => `<li class="${LEAVES.includes(e.type) || e.type === 'professor-ended' ? 'bad' : ''}"><span class="muted small">${clock(e.t)}</span> ${esc(e.type === 'started' ? 'Started the exam' : e.type === 'reopened' ? `Let back in by ${e.by || 'the professor'}${e.add ? ` (+${e.add} min)` : ''}` : e.type === 'time-added' ? `${e.add} minutes added by ${e.by || 'the professor'}` : EXIT_LABEL[e.type] || e.type)}${e.warning ? ` <strong>(warning ${e.warning} of ${test.warnings || e.warning})</strong>` : ''}${e.awayMs ? ` <span class="muted small">after ${Math.round(e.awayMs / 1000)} s</span>` : ''}${e.detail ? ` <span class="muted small">${esc(e.detail)}</span>` : ''}</li>`).join('')}</ol>
         <h3>Saved answers</h3>
         <ol class="saved-answers">${qs.map((q) => { const v = a.answers?.[q.id]; return `<li><strong>${esc(q.label)}</strong> <span class="muted small">${QTYPE_LABEL[q.type]}</span><div>${!answered(q, v) ? '<span class="muted">No answer</span>' : q.options ? esc((Array.isArray(v) ? v : [v]).map((i) => q.options[i]).join(' · ')) : q.type === 'code' ? `<pre class="code-view small"><code>${esc(v)}</code></pre>` : esc(v)}</div></li>`; }).join('')}</ol>`,
     });
