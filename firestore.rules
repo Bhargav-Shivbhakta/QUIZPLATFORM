@@ -27,6 +27,25 @@ service cloud.firestore {
 
     function classDoc(classId) { return get(/databases/$(database)/documents/classes/$(classId)).data; }
     function teaches(classId) { return schoolAccount() && myEmail() in classDoc(classId).instructors; }
+    // the class's instructor (not a TA), as the admin set it on the class: read from their own enrollment
+    function leads(classId) {
+      return teaches(classId) && exists(enrollmentPath())
+        && get(enrollmentPath()).data.classes.get(classId, {}).get('role', '') == 'instructor';
+    }
+    // An instructor adding, editing or removing ONE student of their own class. The write names the
+    // class in editClass; only that class's entry may change, and only for students (never staff).
+    function instructorRosterEdit(email) {
+      let d = request.resource.data;
+      let c = d.get('editClass', '');
+      let before = resource == null ? {} : resource.data.get('classes', {});
+      let after = d.get('classes', {});
+      return c is string && c != '' && leads(c)
+        && d.get('email', '') == email
+        && d.keys().hasOnly(['email', 'classes', 'editClass'])
+        && after.diff(before).affectedKeys().hasOnly([c])
+        && (!(c in before) || before[c].get('role', 'student') == 'student')
+        && (!(c in after) || after[c].get('role', '') == 'student');
+    }
 
     // ---- timed exams: starting and saving an attempt
     function testOf(classId, testId) { return get(/databases/$(database)/documents/classes/$(classId)/tests/$(testId)).data; }
@@ -83,14 +102,17 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
-    // ---- classes, rosters and enrollments: only admins can change them
+    // ---- classes, rosters and enrollments: admins change everything; a class's instructor can
+    //      add, edit and remove the students of their own class (not staff, not other classes)
     match /classes/{classId} {
       allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
       allow write: if isAdmin();
       // a class's instructors can add or remove the exams they upload, turn practice on/off and set
-      // due dates, and list their timed exams (nothing else)
+      // due dates, and list their timed exams; its instructor also keeps the student count up to date
       allow update: if teaches(classId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice']);
+      allow update: if leads(classId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentCount', 'updatedAt', 'updatedBy']);
 
       // Exams and assignments uploaded on the site: everyone in the class reads them,
       // the class's instructors (and admins) upload, replace and delete them.
@@ -212,10 +234,15 @@ service cloud.firestore {
     match /rosters/{classId} {
       allow read: if isAdmin() || teaches(classId);
       allow write: if isAdmin();
+      // the list shown on the dashboard; who can open the class is decided by enrollments (below)
+      allow update: if leads(classId)
+        && request.resource.data.keys().hasOnly(['classId', 'people', 'updatedAt'])
+        && request.resource.data.classId == classId;
     }
     match /enrollments/{email} {
       allow read: if isAdmin() || (schoolAccount() && email == myEmail());
       allow write: if isAdmin();
+      allow create, update: if instructorRosterEdit(email);
     }
 
     // ---- school accounts that signed in but aren't on any roster (so the admin can spot

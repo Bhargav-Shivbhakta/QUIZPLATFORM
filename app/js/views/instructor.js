@@ -2,7 +2,7 @@
 // Only accounts listed in firestore.rules can read this data; everyone else gets "not allowed".
 import { getManifest, getAssignments, getExam } from '../data.js';
 import * as cloud from '../cloud.js';
-import { esc, icon, meter, toneFor, plural, toast, confirmDialog } from '../ui.js';
+import { esc, icon, meter, toneFor, plural, toast, confirmDialog, modal } from '../ui.js';
 import { fmtDate } from '../engine.js';
 import { REASON_LABEL } from '../report.js';
 
@@ -369,7 +369,7 @@ export async function render(main, params = {}, query = {}) {
         <input type="search" placeholder="Find a student by name, email or RedID" value="${esc(filter)}" data-filter aria-label="Find a student">
         <label class="field inline sort-pick"><span>Sort by</span><select data-sort-select>${cols.map((k) => `<option value="${k}" ${k === sortKey ? 'selected' : ''}>${SORT_LABEL[k]}</option>`).join('')}</select></label>
         ${!section && sectionList().length > 1 ? `<label class="check group-toggle"><input type="checkbox" data-group ${grouped ? 'checked' : ''}><span>Group by section</span></label>` : ''}
-        <span class="tools-end"><button class="btn" data-refresh>${icon('shuffle')} Refresh</button><button class="btn" data-csv>${icon('download')} Download list</button></span>
+        <span class="tools-end">${cloud.canEditRoster(classId) ? `<button class="btn" data-add-student>${icon('plus')} Add student</button>` : ''}<button class="btn" data-refresh>${icon('shuffle')} Refresh</button><button class="btn" data-csv>${icon('download')} Download list</button></span>
       </div>
       <p class="muted small dash-hint">${only !== 'all' ? `Showing <strong>${esc(cards.find((c) => c[0] === only)[1].toLowerCase())}</strong> (${list.length}). ` : ''}Click a student's name to see everything about them.${(() => { const d = rows.filter((r) => r.dropped && inSectionAll(r)).length; return d ? ` <span>${plural(d, 'student')} no longer on the roster ${d === 1 ? 'is' : 'are'} not listed.</span>` : ''; })()}</p>
       <div class="table-wrap inst-table-wrap">
@@ -505,7 +505,7 @@ export async function render(main, params = {}, query = {}) {
         <h2 id="stu-drawer-title">${esc(r.name || r.email)}</h2>
         <p class="muted small">${esc(r.email)}${r.redId ? ' · RedID ' + esc(r.redId) : ''}${r.section ? ' · ' + esc(r.section) : ''}${r.dropped ? ' · <span class="bad">not on roster</span>' : ''}</p>
         <p class="small">${status}</p>
-        ${cloud.isAdmin() && !r.dropped ? `<button class="btn small" data-stu-edit>${icon('note')} Edit section or name</button>` : ''}
+        ${cloud.canEditRoster(classId) && !r.dropped ? `<button class="btn small" data-stu-edit>${icon('note')} Edit section or name</button>` : ''}
       </div>`;
   }
   function drawerBody(r, g) {
@@ -620,7 +620,7 @@ export async function render(main, params = {}, query = {}) {
       toast(`Saved ${person.name || person.email}`, 'good');
       await load(); // reloads the class and reopens this student
     } catch (e) {
-      err.textContent = e?.code === 'permission-denied' ? 'Only the site admin can change student details.' : e?.message || String(e);
+      err.textContent = e?.code === 'permission-denied' ? 'Only this class\'s instructor or the site admin can change student details.' : e?.message || String(e);
       btn.disabled = false;
     }
   }
@@ -634,7 +634,47 @@ export async function render(main, params = {}, query = {}) {
       toast(`${r.name || r.email} removed from ${cls().name}`, 'good');
       closeDrawer();
       await load();
-    } catch (e) { toast("Couldn't remove: " + (e?.code === 'permission-denied' ? 'only the site admin can remove students.' : e?.message || e), 'bad'); }
+    } catch (e) { toast("Couldn't remove: " + (e?.code === 'permission-denied' ? 'only this class\'s instructor or the site admin can remove students.' : e?.message || e), 'bad'); }
+  }
+  // instructor or admin: put one student on this class (a late add, or an email the roster got wrong)
+  function addStudentForm() {
+    const secs = sectionList();
+    const m = modal({
+      title: `Add a student to ${cls().name}`,
+      body: `<form class="stu-add" data-stu-add-form novalidate>
+        <label class="field"><span>Name</span><input name="name" maxlength="120" autocomplete="off" required></label>
+        <label class="field"><span>School email</span><input name="email" type="email" placeholder="name@${esc(cloud.domain)}" autocomplete="off" required></label>
+        <label class="field"><span>Section</span><input name="section" maxlength="60" list="stu-add-secs" autocomplete="off"><datalist id="stu-add-secs">${secs.map((x) => `<option value="${esc(x)}">`).join('')}</datalist></label>
+        <label class="field"><span>RedID <span class="muted">(optional)</span></span><input name="redId" inputmode="numeric" maxlength="20" autocomplete="off"></label>
+        <p class="bad small" data-add-err role="alert"></p>
+        <p class="muted small">They can sign in and open this class right away. Use the same email they sign in with.</p>
+        <div class="row"><button class="btn primary" type="submit">${icon('check')} Add student</button><button class="btn" type="button" data-close-add>Cancel</button></div>
+      </form>`,
+    });
+    const f = m.el.querySelector('form');
+    f.elements.name.focus();
+    m.el.querySelector('[data-close-add]').onclick = () => m.close();
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const err = f.querySelector('[data-add-err]'), btn = f.querySelector('[type=submit]');
+      const name = f.elements.name.value.trim(), section = f.elements.section.value.trim(), redId = f.elements.redId.value.trim();
+      let email = f.elements.email.value.trim().toLowerCase();
+      if (email && !email.includes('@') && cloud.domain) email += '@' + cloud.domain;
+      if (!name) { err.textContent = 'Type the student\'s name.'; f.elements.name.focus(); return; }
+      if (!/^[^\s@]+@[^\s@]+$/.test(email) || (cloud.domain && !email.endsWith('@' + cloud.domain))) { err.textContent = `Type their @${cloud.domain} email.`; f.elements.email.focus(); return; }
+      if (roster.some((p) => p.email === email)) { err.textContent = 'That person is already on this class\'s roster.'; return; }
+      btn.disabled = true; err.textContent = '';
+      try {
+        const r = await cloud.addStudentToClass(classId, { email, name, section, redId });
+        if (r.already) throw new Error('That person is already on this class\'s roster.');
+        m.close();
+        toast(`${name} added to ${cls().name}. They can sign in now.`, 'good');
+        await load();
+      } catch (e) {
+        err.textContent = e?.code === 'permission-denied' ? 'Couldn\'t add them. If this person teaches the class, ask the site admin.' : e?.message || String(e);
+        btn.disabled = false;
+      }
+    });
   }
   async function showCode(b) {
     const r = rows.find((x) => x.email === open);
@@ -687,6 +727,7 @@ export async function render(main, params = {}, query = {}) {
     else if ('stuClose' in b.dataset) closeDrawer();
     else if ('stuEdit' in b.dataset) editForm();
     else if ('stuRemove' in b.dataset) removeFromClass();
+    else if ('addStudent' in b.dataset) addStudentForm();
     else if ('stuEditCancel' in b.dataset) { main.querySelector('[data-drawer] [data-stu-edit-box]')?.remove(); const e = main.querySelector('[data-drawer] [data-stu-edit]'); if (e) { e.hidden = false; e.focus(); } }
     else if (b.dataset.code) showCode(b);
     else if ('refresh' in b.dataset) { grades = null; load(); }

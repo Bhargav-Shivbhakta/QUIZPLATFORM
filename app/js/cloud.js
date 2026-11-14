@@ -876,7 +876,10 @@ export async function saveClass({ id, name, course, term, exams, staff, students
   return { added: [...everyone.keys()].filter((e) => !prevPeople.some((p) => p.email === e)).length, removed: removed.length, total: everyone.size };
 }
 
-// Admin: put one person on a class roster as a student (e.g. someone who signed in with an
+// The class's instructor (or an admin) can add, edit and remove students; TAs only look
+export const canEditRoster = (classId) => !!enabled && (admin || myClasses().some((c) => c.id === classId && c.role === 'instructor'));
+
+// Admin or the class's instructor: put one person on a class roster as a student (e.g. someone who signed in with an
 // email the roster didn't have). Same records as saving the class, for just this person.
 export async function addStudentToClass(classId, { email, name = '', section = '', redId = '' }) {
   await load();
@@ -891,14 +894,14 @@ export async function addStudentToClass(classId, { email, name = '', section = '
   const info = { name: cls.name, course: cls.course || '', term: cls.term || '', exams: cls.exams || [], color: cls.color || 'blue', examDates: cls.examDates || {} };
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: [...people, person], updatedAt: Date.now() });
-  b.set(fb.doc(fb.db, 'enrollments', email), { email, classes: { [classId]: { ...info, role: 'student', section } } }, { merge: true });
-  b.set(fb.doc(fb.db, 'classes', classId), { studentCount: people.filter((p) => p.role === 'student').length + 1, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
-  b.delete(fb.doc(fb.db, 'signins', email));
+  b.set(fb.doc(fb.db, 'enrollments', email), { email, editClass: classId, classes: { [classId]: { ...info, role: 'student', section } } }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { studentCount: people.filter((p) => !p.role || p.role === 'student').length + 1, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
+  if (admin) b.delete(fb.doc(fb.db, 'signins', email));
   await b.commit();
   return { added: true };
 }
 
-// Admin: change a student's name or section on one class's roster. Email and RedID come from the
+// Admin or the class's instructor: change a student's name or section on one class's roster. Email and RedID come from the
 // roster upload and aren't changed here.
 export async function updateStudent(classId, email, { name, section }) {
   await load();
@@ -908,25 +911,28 @@ export async function updateStudent(classId, email, { name, section }) {
   const people = await getRoster(classId);
   const i = people.findIndex((p) => p.email === email);
   if (i < 0) throw new Error('This student is no longer on the roster. Refresh the page.');
+  if (people[i].role && people[i].role !== 'student') throw new Error('Teaching staff are changed on the Admin page.');
   const person = { ...people[i], name: String(name ?? people[i].name ?? '').trim().slice(0, 120), section: String(section ?? people[i].section ?? '').trim().slice(0, 60) };
   const info = { name: cls.name, course: cls.course || '', term: cls.term || '', exams: cls.exams || [], color: cls.color || 'blue', examDates: cls.examDates || {} };
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: people.map((p, j) => (j === i ? person : p)), updatedAt: Date.now() });
-  b.set(fb.doc(fb.db, 'enrollments', email), { email, classes: { [classId]: { ...info, role: 'student', section: person.section } } }, { merge: true });
+  b.set(fb.doc(fb.db, 'enrollments', email), { email, editClass: classId, classes: { [classId]: { ...info, role: 'student', section: person.section } } }, { merge: true });
   b.set(fb.doc(fb.db, 'classes', classId), { updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
   await b.commit();
   return person;
 }
-// Admin: take a student off one class (they lose access to it; their saved practice is kept)
+// Admin or the class's instructor: take a student off one class (they lose access to it; their saved practice is kept)
 export async function removeStudent(classId, email) {
   await load();
   email = String(email || '').trim().toLowerCase();
   const people = await getRoster(classId);
-  if (!people.some((p) => p.email === email)) throw new Error('This student is no longer on the roster. Refresh the page.');
+  const who = people.find((p) => p.email === email);
+  if (!who) throw new Error('This student is no longer on the roster. Refresh the page.');
+  if (who.role && who.role !== 'student') throw new Error('Teaching staff are changed on the Admin page.');
   const next = people.filter((p) => p.email !== email);
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: next, updatedAt: Date.now() });
-  b.set(fb.doc(fb.db, 'enrollments', email), { classes: { [classId]: fb.deleteField() } }, { merge: true });
+  b.set(fb.doc(fb.db, 'enrollments', email), { email, editClass: classId, classes: { [classId]: fb.deleteField() } }, { merge: true });
   b.set(fb.doc(fb.db, 'classes', classId), { studentCount: next.filter((p) => !p.role || p.role === 'student').length, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
   await b.commit();
 }

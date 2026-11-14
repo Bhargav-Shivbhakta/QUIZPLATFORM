@@ -317,7 +317,8 @@ With sign-in on:
 - After signing in, students land straight on their class (or a short list if they're in several). They only see the exams of their own classes. Someone not on any roster sees "You're not on a class roster yet."
 - Each student's answers, scores, saved questions, notes and assignment code are saved to their account and appear on any device they sign in from. Signing out removes them from that browser, so shared lab computers are safe.
 - **Instructors** (the class's Teachers and TAs from the roster, plus any emails you add) get a dashboard for their own classes only: who has started and who has never signed in, last active, questions tried, accuracy, quiz readiness, best real-exam score, assignments, weakest topics, each student's code, filters by section, and a CSV download.
-- **Admins** (you) create classes and upload rosters on the **Admin** page.
+- **Admins** (you) create classes, upload rosters and choose each class's instructors and TAs on the **Admin** page.
+- A class's **instructor** can add, edit (name, section) and remove the *students* of their own class from the Class dashboard. They can't change teaching staff or touch other classes. **TAs** can only look.
 - Rosters are stored in the Firebase database, never in this repo, and only admins and that class's instructors can read them. Students can only ever see their own data.
 
 It runs on Google Firebase's free plan, which needs no credit card. The free plan allows 50,000 sign-ins a month, 1 GB of data, and 20,000 saves and 50,000 reads a day. Progress stays in the student's browser while they study and is saved to their account when they leave the site (close the tab, switch app or lock the device), after a quiz or assignment test run (at most every 10 minutes), from Settings → Save now, and every 30 minutes if the page stays open. It never sends data the account already has. Each save writes at most two records per exam: the student's progress (including their assignment code) and the dashboard summary (including the instructor's copy of the code). Each student's device may also write at most 60 records a day (`dailySaveLimit` in `app/config.js`); after that, progress stays on the device and is saved after midnight Pacific. 300 students × 60 = 18,000, inside the free 20,000 a day whatever happens. A class of a few hundred stays far inside the free limits, even the night before an exam. If a daily limit were ever reached, saving pauses until the next day (progress stays safe in the browser) and you are never charged.
@@ -392,7 +393,9 @@ Uploaded exams are only readable by people on the class roster, unlike files in 
 
 **Signed in:** a student counts as signed in as soon as they sign in to the site, even before they practise. Each student's first visit of the day leaves a small "signed in" record for each of their classes. Students who signed in before this update are picked up the first time the site admin opens that class's dashboard.
 
-**Changing a student (admin):** open the student and click **Edit section or name**. Email and RedID come from the roster and can't be changed there. **Remove** takes the student off that class; their saved practice is kept, so adding them back restores it.
+**Adding a student (instructor or admin):** on the Students tab click **Add student**, type the name, school email (just the part before @ is fine), section and optional RedID. They can sign in straight away.
+
+**Changing a student (instructor or admin):** open the student and click **Edit section or name**. Email and RedID come from the roster and can't be changed there. **Remove** takes the student off that class; their saved practice is kept, so adding them back restores it.
 
 **One student in detail:** on the class dashboard, click a student's name (or double-click their row). A panel opens on the right with everything about them: their real exam scores (for example Midterm 1 and Midterm 2, with the points and the change between them), their practice on the chosen exam (questions tried and solved, accuracy, readiness, quizzes, timed tests), the days they studied in the last 4 weeks, their practice on every exam of the class, topics, the questions they keep getting wrong, and their assignments with **View code**. Use the arrows to go to the next or previous student, and Esc or × to close. Exam scores come from **Exam analytics**.
 
@@ -408,7 +411,7 @@ Uploaded exams are only readable by people on the class roster, unlike files in 
 
 **Manage classes** on that page goes to class and roster editing. Opening the overview reads about one record per student per exam, plus one per person who has signed in, and keeps the result for 10 minutes; **Refresh** reads it fresh. A student counts as active on a day they answered questions, finished a quiz or worked on an assignment. This comes from the progress they already save, so it costs no extra saves.
 
-**Adds and drops:** open the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
+**Adds and drops:** for one or two students, the instructor uses **Add student** or opens the student on the Class dashboard. For many at once, an admin opens the class, click **Edit / new roster**, paste the current roster and save. The preview shows who is new and who will lose access. Students who are dropped keep their saved progress in case they're re-added.
 
 **A new term:** create a new class (for example `CS150 Spring 2027`) with that term's exams and roster. Each class's dashboard only shows its own students.
 
