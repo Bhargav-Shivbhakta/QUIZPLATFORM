@@ -46,7 +46,7 @@ service cloud.firestore {
       let t = testOf(classId, d.tid);
       let ex = /databases/$(database)/documents/classes/$(classId)/testExtra/$(d.tid + '_' + myEmail());
       return attemptId == d.tid + '_' + request.auth.uid
-        && d.keys().hasOnly(['tid', 'uid', 'email', 'name', 'status', 'session', 'startedAt', 'beatAt', 'answers', 'events', 'saves', 'extraMin', 'device', 'reopened', 'submittedAt', 'endedReason'])
+        && d.keys().hasOnly(['tid', 'uid', 'email', 'name', 'status', 'session', 'startedAt', 'beatAt', 'answers', 'events', 'saves', 'extraMin', 'device', 'reopened', 'submittedAt', 'endedReason', 'code'])
         && d.uid == request.auth.uid
         && d.email == myEmail()
         && d.status == 'open'
@@ -58,7 +58,9 @@ service cloud.firestore {
         && t.status == 'published'
         && examOpened(classId, t)
         && beforeClose(classId, t, 0, 0)
-        && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes));
+        && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes))
+        && (t.get('requireCode', false) != true
+            || d.get('code', '') == get(/databases/$(database)/documents/classes/$(classId)/testCodes/$(d.tid)).data.code);
     }
     // Saves must come from the device that started (or, after the professor lets the student back in,
     // the device that takes over), at least every 5 minutes, and before the time is up (30 s grace).
@@ -156,6 +158,11 @@ service cloud.firestore {
       }
       // Answer keys and hidden tests: the class's staff only, never students.
       match /testKeys/{testId} {
+        allow read, write: if isAdmin() || teaches(classId);
+      }
+      // The access code students type to start (shown by the professor in the room). Staff only:
+      // students never read it; the start rule above compares what they typed with it.
+      match /testCodes/{testId} {
         allow read, write: if isAdmin() || teaches(classId);
       }
       // Extra time for one student (accommodations). Id: "<testId>_<email>". A student can look up their

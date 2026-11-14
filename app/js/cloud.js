@@ -878,7 +878,7 @@ export async function saveClass({ id, name, course, term, exams, staff, students
 
 // Admin: put one person on a class roster as a student (e.g. someone who signed in with an
 // email the roster didn't have). Same records as saving the class, for just this person.
-export async function addStudentToClass(classId, { email, name = '', section = '' }) {
+export async function addStudentToClass(classId, { email, name = '', section = '', redId = '' }) {
   await load();
   email = String(email || '').trim().toLowerCase();
   if (!email) throw new Error('No email');
@@ -886,7 +886,8 @@ export async function addStudentToClass(classId, { email, name = '', section = '
   if (!cls) throw new Error('That class no longer exists');
   const people = await getRoster(classId).catch(() => []);
   if (people.some((p) => p.email === email)) return { already: true };
-  const person = { email, name: String(name || '').slice(0, 120), redId: '', section, role: 'student' };
+  section = String(section || '').trim().slice(0, 60);
+  const person = { email, name: String(name || '').trim().slice(0, 120), redId: String(redId || '').replace(/\D/g, '').slice(0, 20), section, role: 'student' };
   const info = { name: cls.name, course: cls.course || '', term: cls.term || '', exams: cls.exams || [], color: cls.color || 'blue', examDates: cls.examDates || {} };
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'rosters', classId), { classId, people: [...people, person], updatedAt: Date.now() });
@@ -955,7 +956,7 @@ const tdoc = (classId, kind, id) => fb.doc(fb.db, 'classes', classId, kind, id);
 const toTs = (v) => (v == null ? null : fb.Timestamp.fromMillis(typeof v === 'number' ? v : Date.parse(v)));
 const plainMs = (v) => (v == null ? null : typeof v === 'number' ? v : typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v));
 const plainWindows = (w) => (w && Object.keys(w).length ? Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { opensAt: plainMs(v.opensAt), closesAt: plainMs(v.closesAt) }])) : null);
-const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
+const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', requireCode: !!t.requireCode, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
 
 export async function listTimed(classId) {
   await load();
@@ -1011,10 +1012,20 @@ export async function setTimedReleased(classId, tid, released) {
   b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary({ ...t, released }) }, updatedAt: Date.now() }, { merge: true });
   await b.commit();
 }
+// The access code students type to start (staff only; the security rules compare it on start)
+export async function getAccessCode(classId, tid) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'testCodes', tid));
+  return snap.exists() ? String(snap.data().code || '') : '';
+}
+export async function setAccessCode(classId, tid, code) {
+  await load();
+  await fb.setDoc(tdoc(classId, 'testCodes', tid), { code: String(code), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+}
 export async function deleteTimed(classId, tid) {
   await load();
   const [atts, grades, extra] = await Promise.all([listAttempts(classId, tid), listTestGrades(classId, tid), listTimedExtra(classId, tid)]);
-  const refs = [tdoc(classId, 'tests', tid), tdoc(classId, 'testKeys', tid), ...atts.map((a) => tdoc(classId, 'attempts', a.id)), ...grades.map((g) => tdoc(classId, 'testGrades', g.id)), ...extra.map((x) => tdoc(classId, 'testExtra', `${tid}_${x.email}`))];
+  const refs = [tdoc(classId, 'tests', tid), tdoc(classId, 'testKeys', tid), tdoc(classId, 'testCodes', tid), ...atts.map((a) => tdoc(classId, 'attempts', a.id)), ...grades.map((g) => tdoc(classId, 'testGrades', g.id)), ...extra.map((x) => tdoc(classId, 'testExtra', `${tid}_${x.email}`))];
   for (let i = 0; i < refs.length; i += 400) { const b = fb.writeBatch(fb.db); refs.slice(i, i + 400).forEach((r) => b.delete(r)); await b.commit(); }
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: fb.deleteField() }, updatedAt: Date.now() }, { merge: true });
@@ -1064,12 +1075,13 @@ export async function myAttempt(classId, tid) {
 }
 // Start: Firebase sets the start time. Returns the stored attempt (with Firebase's times) and the
 // difference between Firebase's clock and this computer's.
-export async function startAttempt(classId, tid, { session, device, extraMin = 0 }) {
+export async function startAttempt(classId, tid, { session, device, extraMin = 0, code = '' }) {
   await load();
   const t0 = Date.now();
   await fb.setDoc(tdoc(classId, 'attempts', `${tid}_${user.uid}`), {
     tid, uid: user.uid, email: user.email.toLowerCase(), name: user.displayName || '', status: 'open', session,
     startedAt: fb.serverTimestamp(), beatAt: fb.serverTimestamp(), answers: {}, events: [], saves: 0, extraMin, device, reopened: 0, submittedAt: null, endedReason: '',
+    ...(code ? { code } : {}),
   });
   const t1 = Date.now();
   const a = await myAttempt(classId, tid);

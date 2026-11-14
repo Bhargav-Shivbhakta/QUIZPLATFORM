@@ -98,7 +98,9 @@ async function editor(main, cls, exams, classes) {
           <div class="color-swatches">${CLASS_COLORS.map((c, i) => `<label class="swatch" style="--sw:${c.swatch}"><input type="radio" name="color" value="${c.id}" ${(cls?.color || 'blue') === c.id ? 'checked' : ''}><span>${c.label}</span></label>`).join('')}</div>
         </fieldset>
         <fieldset><legend>Roster</legend>
-          ${!isNew ? `<p class="small">Current roster: <strong>${plural(studentsOf(current).length, 'student')}</strong>. Upload a new roster to replace it, or leave this empty to keep it.</p>` : ''}
+          ${!isNew ? `<div class="roster-box" data-roster></div>
+          <h2 class="roster-upload-h">Replace the whole roster</h2>
+          <p class="small">Upload a new roster to replace the list above (students not on it lose access), or leave this empty to keep it.</p>` : ''}
           <p class="muted small fieldset-help">In Canvas, open the course's <strong>People</strong> page, select the whole table and copy it, then paste below. A CSV file works too (for example a Gradebook export). It needs a Name column and a Login ID or Email column.</p>
           <div class="row"><label class="btn">${icon('upload')} Choose CSV file<input type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" data-file hidden></label><span class="muted small" data-file-name></span></div>
           <textarea name="paste" rows="5" placeholder="…or paste the roster table here" spellcheck="false"></textarea>
@@ -114,6 +116,114 @@ async function editor(main, cls, exams, classes) {
       </form>
     </section>`;
   const form = main.querySelector('[data-form]');
+
+  // ---- the current roster: see it, search it, change a name or section, remove or add a student.
+  // Each change is saved straight away (no need to press Save class). Email and RedID come from
+  // Canvas, so they can't be edited here: remove the student and add them again instead.
+  let rq = '', editing = null, adding = false;
+  const rosterBox = main.querySelector('[data-roster]');
+  function drawRoster(focusSel) {
+    if (!rosterBox) return;
+    const list = sortedStudents();
+    const secs = [...new Set(list.map((p) => String(p.section || '')).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    rosterBox.innerHTML = rosterHead(list, secs);
+    if (focusSel) rosterBox.querySelector(focusSel)?.focus();
+  }
+  const sortedStudents = () => studentsOf(current).slice().sort((a, b) => String(a.name || a.email).localeCompare(String(b.name || b.email)));
+  function bodyRows() {
+    const q = rq.trim().toLowerCase();
+    const shown = sortedStudents().filter((p) => !q || `${p.name} ${p.email} ${p.redId || ''} ${p.section || ''}`.toLowerCase().includes(q));
+    return shown.map(rosterRow).join('') || `<tr><td colspan="5" class="muted">No student matches "${esc(rq)}".</td></tr>`;
+  }
+  function rosterRow(p) {
+    return editing === p.email ? `
+      <tr class="editing" data-row="${esc(p.email)}">
+        <td data-label="Name"><input data-ed-name value="${esc(p.name || '')}" aria-label="Name for ${esc(p.email)}" maxlength="120"></td>
+        <td class="small" data-label="Email">${esc(p.email)}</td><td class="small" data-label="RedID">${esc(p.redId || '')}</td>
+        <td data-label="Section"><input data-ed-section value="${esc(p.section || '')}" list="roster-sections" aria-label="Section for ${esc(p.email)}" maxlength="60"></td>
+        <td class="row-actions"><button type="button" class="btn small primary" data-ed-save>Save</button><button type="button" class="btn small" data-ed-cancel>Cancel</button></td>
+      </tr>` : `
+      <tr data-row="${esc(p.email)}">
+        <td data-label="Name"><strong>${esc(p.name || '(no name)')}</strong></td><td class="small" data-label="Email">${esc(p.email)}</td><td class="small" data-label="RedID">${esc(p.redId || '–')}</td><td data-label="Section">${esc(p.section || '–')}</td>
+        <td class="row-actions"><button type="button" class="btn small" data-ed="${esc(p.email)}" aria-label="Edit ${esc(p.name || p.email)}">${icon('edit')} Edit</button><button type="button" class="btn small danger-outline" data-rm="${esc(p.email)}" aria-label="Remove ${esc(p.name || p.email)}">Remove</button></td>
+      </tr>`;
+  }
+  function rosterHead(list, secs) {
+    return `
+      <div class="row between wrap roster-head">
+        <h2>Students on the roster <span class="muted">(${list.length})</span></h2>
+        <div class="row wrap"><input type="search" data-rq value="${esc(rq)}" placeholder="Search name, email, RedID or section" aria-label="Search the roster"><button type="button" class="btn small" data-add-open>${icon('plus')} Add a student</button></div>
+      </div>
+      ${adding ? `
+      <div class="roster-add" role="group" aria-label="Add a student">
+        <label class="field"><span>Name</span><input data-add-name maxlength="120" autocomplete="off"></label>
+        <label class="field"><span>Email</span><input data-add-email type="email" placeholder="name@${esc(cloud.domain)}" autocomplete="off"></label>
+        <label class="field"><span>RedID</span><input data-add-red inputmode="numeric" autocomplete="off"></label>
+        <label class="field"><span>Section</span><input data-add-section list="roster-sections" autocomplete="off"></label>
+        <div class="row"><button type="button" class="btn primary" data-add-save>Add to roster</button><button type="button" class="btn" data-add-cancel>Cancel</button></div>
+      </div>` : ''}
+      <datalist id="roster-sections">${secs.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+      ${list.length ? `<div class="table-wrap roster-scroll"><table class="roster-table">
+        <thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">RedID</th><th scope="col">Section</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>${bodyRows()}</tbody></table></div>` : '<p class="muted">No students on the roster yet.</p>'}
+      <p class="muted small">Changes here save straight away. Email and RedID come from Canvas and can't be changed; to fix one, remove the student and add them again.</p>`;
+  }
+  async function rosterSave(btn, work, done) {
+    btn.disabled = true;
+    try { await work(); done(); } catch (e) {
+      toast("Couldn't save: " + (e?.code === 'permission-denied' ? 'your account is not an admin in firestore.rules.' : e?.message || e), 'bad');
+      btn.disabled = false;
+    }
+  }
+  rosterBox?.addEventListener('input', (e) => {
+    if (!e.target.matches('[data-rq]')) return;
+    rq = e.target.value;
+    const tb = rosterBox.querySelector('tbody');
+    if (tb) tb.innerHTML = bodyRows();
+  });
+  rosterBox?.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !e.target.matches('input')) return;
+    e.preventDefault(); // inside the class form: Enter must not save the whole class
+    if (e.target.closest('.editing')) rosterBox.querySelector('[data-ed-save]')?.click();
+    else if (e.target.closest('.roster-add')) rosterBox.querySelector('[data-add-save]')?.click();
+  });
+  rosterBox?.addEventListener('click', async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.ed) { editing = b.dataset.ed; drawRoster('[data-ed-name]'); return; }
+    if ('edCancel' in b.dataset) { const em = editing; editing = null; drawRoster(`[data-ed="${CSS.escape(em)}"]`); return; }
+    if ('edSave' in b.dataset) {
+      const tr = b.closest('tr'), em = tr.dataset.row;
+      const name = tr.querySelector('[data-ed-name]').value.trim(), section = tr.querySelector('[data-ed-section]').value.trim();
+      if (!name) { toast('Type a name', 'bad'); return; }
+      return rosterSave(b, async () => { const p = await cloud.updateStudent(cls.id, em, { name, section }); current = current.map((x) => (x.email === em ? { ...x, ...p } : x)); },
+        () => { editing = null; drawRoster(`[data-ed="${CSS.escape(em)}"]`); toast(`${name} saved`, 'good'); });
+    }
+    if (b.dataset.rm) {
+      const em = b.dataset.rm, p = current.find((x) => x.email === em);
+      const ok = await confirmDialog({ title: `Remove ${p?.name || em} from ${cls.name}?`, body: '<p>They lose access to this class straight away. Their saved practice and any exam attempts are kept, and you can add them again later.</p>', confirm: 'Remove', danger: true });
+      if (!ok) return;
+      return rosterSave(b, async () => { await cloud.removeStudent(cls.id, em); current = current.filter((x) => x.email !== em); },
+        () => { drawRoster('[data-rq]'); toast(`${p?.name || em} removed`, 'good'); });
+    }
+    if ('addOpen' in b.dataset) { adding = true; drawRoster('[data-add-name]'); return; }
+    if ('addCancel' in b.dataset) { adding = false; drawRoster('[data-add-open]'); return; }
+    if ('addSave' in b.dataset) {
+      const box = b.closest('.roster-add');
+      const name = box.querySelector('[data-add-name]').value.trim();
+      let email = box.querySelector('[data-add-email]').value.trim().toLowerCase();
+      const redId = box.querySelector('[data-add-red]').value.trim(), section = box.querySelector('[data-add-section]').value.trim();
+      if (email && !email.includes('@') && cloud.domain) email += '@' + cloud.domain;
+      if (!name) { toast('Type the student\'s name', 'bad'); box.querySelector('[data-add-name]').focus(); return; }
+      if (!/^[^\s@]+@[^\s@]+$/.test(email) || (cloud.domain && !email.endsWith('@' + cloud.domain))) { toast(`Type their @${cloud.domain} email`, 'bad'); box.querySelector('[data-add-email]').focus(); return; }
+      if (current.some((x) => x.email === email)) { toast('That student is already on the roster', 'bad'); return; }
+      return rosterSave(b, async () => {
+        const r = await cloud.addStudentToClass(cls.id, { email, name, redId, section });
+        if (r.already) throw new Error('That student is already on the roster');
+        current = [...current, { email, name, redId: redId.replace(/\D/g, ''), section, role: 'student' }];
+      }, () => { adding = false; rq = ''; drawRoster(); toast(`${name} added. They can sign in now.`, 'good'); });
+    }
+  });
+  drawRoster();
   const err = main.querySelector('[data-err]');
   const preview = main.querySelector('[data-preview]');
   const idEl = main.querySelector('[data-id]');

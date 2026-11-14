@@ -119,7 +119,7 @@ function timedCards(cls, timed, teacher) {
     return `<a class="timed-card kind-${k} ${open ? 'open' : upcoming ? 'soon' : 'past'}" href="${href}">
       <span class="timed-card-icon" aria-hidden="true">${icon(open ? 'clock' : upcoming ? 'clock' : 'check')}</span>
       <span class="timed-card-text"><span class="kind-badge kind-${k}">${K.label} · graded</span><span class="mode-name">${esc(t.title)}${teacher && assignedSections(t) ? ` <span class="tag">${assignedSections(t).length === 1 ? 'Section' : 'Sections'} ${esc(assignedSections(t).join(', '))}</span>` : ''}</span>
-        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start · one attempt` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes · one attempt` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
+        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start · one attempt` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes · one attempt` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}${t.requireCode && !teacher ? ' · access code given in class' : ''}</span></span>
       <span class="btn ${open && !teacher ? 'primary' : ''}">${teacher ? 'Monitor' : open ? `Start ${K.label.toLowerCase()}` : upcoming ? 'Details' : t.released ? 'See score' : 'Details'}</span></a>`;
   };
   const groups = Object.keys(KINDS).map((k) => [k, list.filter((t) => kindOf(t) === k)]).filter(([, l]) => l.length);

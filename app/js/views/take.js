@@ -12,7 +12,7 @@ import { CodeJar } from '../../vendor/codejar.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../main.js';
-import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
 const pad = (n) => String(n).padStart(2, '0');
@@ -127,12 +127,21 @@ export async function render(main, { classId, tid }, query = {}) {
         <li>Your name is shown faintly across the screen${test.aiNotice !== false ? ', with a notice telling AI tools not to answer these questions' : ''}.</li>
       </ul>
       ${checksHtml(test)}
+      ${test.requireCode && !resume ? `<div class="take-code">
+        <label class="field"><span>Access code</span><input data-code autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" inputmode="text" aria-describedby="code-hint code-err"></label>
+        <p class="muted small" id="code-hint">Your professor shows it in the room when you may start.${preview ? ' (Preview: any code works.)' : ''}</p>
+        <p class="bad small" id="code-err" data-code-err role="alert"></p>
+      </div>` : ''}
       <label class="check take-agree"><input type="checkbox" data-agree><span>I understand the rules above${Number(test.warnings) > 0 ? ' (warnings, then the ' + W + ' ends)' : `. Leaving the ${W} ends it`}, and I'm the only one taking it.</span></label>
       <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? `Continue the ${W}` : `Start the ${W}`}</button></div>`);
     const btn = main.querySelector('[data-start]');
     const can = !blockers(test) || preview;
-    main.querySelector('[data-agree]').addEventListener('change', (e) => { btn.disabled = !(e.target.checked && can); });
-    btn.addEventListener('click', () => begin(resume));
+    const codeIn = main.querySelector('[data-code]');
+    const ready = () => { btn.disabled = !(main.querySelector('[data-agree]').checked && can && (!codeIn || normCode(codeIn.value).length >= 4 || preview)); };
+    main.querySelector('[data-agree]').addEventListener('change', ready);
+    codeIn?.addEventListener('input', () => { main.querySelector('[data-code-err]').textContent = ''; ready(); });
+    codeIn?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
+    btn.addEventListener('click', () => begin(resume, codeIn ? normCode(codeIn.value) : ''));
   }
 
   async function endOnServer(a, reason) {
@@ -162,7 +171,7 @@ export async function render(main, { classId, tid }, query = {}) {
   }
 
   // ------------------------------------------------ the exam
-  async function begin(resume) {
+  async function begin(resume, code = '') {
     const btn = main.querySelector('[data-start]');
     btn.disabled = true; btn.textContent = 'Starting…';
     // full screen must be asked for straight from the click
@@ -183,11 +192,22 @@ export async function render(main, { classId, tid }, query = {}) {
           offset = ms(attempt.beatAt) - (t0 + Date.now()) / 2;
         } else {
           const extraMin = await cloud.myExtraTime(classId, tid);
-          ({ attempt, offset } = await cloud.startAttempt(classId, tid, { session, device, extraMin }));
+          ({ attempt, offset } = await cloud.startAttempt(classId, tid, { session, device, extraMin, code }));
         }
         lsSet('sess:' + attempt.id, session);
       } catch (e) {
         document.exitFullscreen?.().catch(() => {});
+        // a wrong access code is the usual reason: say so and let them try again on the same screen
+        if (!resume && test.requireCode && e?.code === 'permission-denied') {
+          const errEl = main.querySelector('[data-code-err]');
+          if (errEl) {
+            errEl.textContent = "That code didn't work. Check it with your professor (it may have just changed) and try again.";
+            btn.disabled = false; btn.innerHTML = `${icon('play')} Start the ${W}`;
+            main.querySelector('[data-code]').select();
+            main.querySelector('[data-code]').focus();
+            return;
+          }
+        }
         page(`<h1>${esc(test.title)}</h1><p class="bad">The exam couldn't start: ${esc(e?.code === 'permission-denied' ? "it may have closed, you may already have an attempt, or your professor's settings changed. Reload the page to check." : e?.message || e)}</p><p><button class="btn" onclick="location.reload()">Reload</button></p>`);
         return;
       }

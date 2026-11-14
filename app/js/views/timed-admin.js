@@ -10,7 +10,7 @@ import { readAssignments, solutionProblems } from '../assignments-core.js';
 import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
 import { readCanvasExport, matchCanvas, canvasCsv, rosterAsCanvas } from '../canvas.js';
-import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, KINDS, kindOf, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, KINDS, kindOf, newAccessCode, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -71,13 +71,13 @@ export function timedList(cls, list) {
 // ---------------------------------------------------------------- editor
 async function editorPage(main, cls, existing, host = null, onSaved = null) {
   const root = host || main;
-  let key = null, extra = [], attemptsExist = false;
+  let key = null, extra = [], attemptsExist = false, accessCode = '';
   const roster = (await cloud.getRoster(cls.id).catch(() => [])).filter((p) => !p.role || p.role === 'student');
   if (existing) {
-    [key, extra] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => [])]);
+    [key, extra, accessCode] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => []), cloud.getAccessCode(cls.id, existing.id).catch(() => '')]);
     attemptsExist = (await cloud.listAttempts(cls.id, existing.id).catch(() => [])).length > 0;
   }
-  const t = existing || { title: '', instructions: 'Answer every question. You have one attempt. Leaving this page, switching tabs or apps, or leaving full screen ends your exam immediately.', durationMin: 60, shuffleQ: true, shuffleOpts: true, requireSEB: false, allowPhones: false, releaseDetail: true, warnings: 2, awayMaxSec: 15, questions: [], totalPoints: 0, status: 'draft' };
+  const t = existing || { title: '', instructions: 'Answer every question. You have one attempt. Stay in this window, in full screen, until you submit: leaving it gives a warning and can end your exam.', requireCode: true, durationMin: 60, shuffleQ: true, shuffleOpts: true, requireSEB: false, allowPhones: false, releaseDetail: true, warnings: 2, awayMaxSec: 15, questions: [], totalPoints: 0, status: 'draft' };
   const startDefault = (() => { const d = new Date(Date.now() + DAY); d.setMinutes(0, 0, 0); return d.getTime(); })();
   const state = {
     opensAt: ms(t.opensAt) || startDefault, closesAt: ms(t.closesAt) || startDefault + 2 * 3600000,
@@ -155,6 +155,12 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       <fieldset><legend>5. Rules</legend>
         <label class="check"><input type="checkbox" name="shuffleQ" ${t.shuffleQ ? 'checked' : ''}><span><strong>Shuffle the question order</strong> for each student (programming problems stay at the end)</span></label>
         <label class="check"><input type="checkbox" name="shuffleOpts" ${t.shuffleOpts ? 'checked' : ''}><span><strong>Shuffle the answer choices</strong> for each student</span></label>
+        <label class="check"><input type="checkbox" name="requireCode" ${t.requireCode ? 'checked' : ''}><span><strong>Require an access code to start</strong> (recommended in class): you show the code in the room, so students who aren't there can't start. Turn it off for take-home work.</span></label>
+        <div class="code-set" data-code-set ${t.requireCode ? '' : 'hidden'}>
+          <label class="field inline"><span>Access code</span><input name="accessCode" value="${esc(accessCode || newAccessCode())}" maxlength="12" autocomplete="off" spellcheck="false" aria-describedby="code-help"></label>
+          <button type="button" class="btn small" data-newcode>${icon('shuffle')} New code</button>
+          <p class="muted small" id="code-help">Letters and numbers, at least 4. It's on the exam's Live tab too, with a full-screen view for the projector, and you can change it there during the exam.</p>
+        </div>
         <label class="check"><input type="checkbox" name="requireSEB" ${t.requireSEB ? 'checked' : ''}><span><strong>Require Safe Exam Browser</strong> (free app for Windows, Mac and iPad that blocks screenshots, other apps and switching). Students without it can't start.</span></label>
         <label class="check"><input type="checkbox" name="aiNotice" ${t.aiNotice !== false ? 'checked' : ''}><span><strong>Add a notice for AI tools</strong> (recommended): a small line above every question and a faint background tells any AI that sees a photo or screenshot of the screen not to answer. Students see it too.</span></label>
         <label class="check"><input type="checkbox" name="allowPhones" ${t.allowPhones ? 'checked' : ''}><span><strong>Allow phones</strong> (off: laptops and iPads only)</span></label>
@@ -180,7 +186,9 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     </form>
     ${host ? '' : '</section>'}`;
   const form = root.querySelector('[data-editor]');
+  form.querySelector('[data-newcode]').addEventListener('click', () => { form.querySelector('[name=accessCode]').value = newAccessCode(); });
   form.addEventListener('change', (ev) => {
+    if (ev.target.name === 'requireCode') form.querySelector('[data-code-set]').hidden = !ev.target.checked;
     if (ev.target.name === 'who') form.querySelector('[data-secs]').hidden = ev.target.value !== 'sections';
     // typing a section's own time ticks that section
     if (ev.target.matches('[data-sec-open],[data-sec-close]') && ev.target.value) ev.target.closest('tr').querySelector('[data-sec-on]').checked = true;
@@ -315,6 +323,8 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     if (state.parsed?.errors.length || state.asg?.errors.length || [...state.asgProblems.values()].some((x) => x.length)) problems.push('Fix the problems in the question files first.');
     if (state.asgRunning) problems.push('Wait until the programming problems have been checked.');
     const windows = readWho(opensAt, closesAt, problems);
+    const code = normCode(f.get('accessCode'));
+    if (f.get('requireCode') === 'on' && code.length < 4) problems.push('The access code needs at least 4 letters or numbers (or untick "Require an access code").');
     const ex = parseExtraTime(f.get('extra'), cloud.domain || 'sdsu.edu');
     if (ex.bad.length) problems.push(`Extra time: couldn't read "${ex.bad[0]}". Write an email and a number of minutes, like  jdoe@sdsu.edu 30`);
     if (problems.length) { err.textContent = problems.join(' '); err.scrollIntoView({ block: 'nearest' }); return; }
@@ -324,7 +334,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     err.textContent = '';
     const test = {
       title, kind: KINDS[f.get('kind')] ? f.get('kind') : 'exam', instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, windows, durationMin,
-      shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on',
+      shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on', requireCode: f.get('requireCode') === 'on',
       allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on', aiNotice: f.get('aiNotice') === 'on',
       warnings: Math.max(0, Math.min(3, Number(f.get('warnings')) || 0)), awayMaxSec: [5, 10, 15, 30].includes(Number(f.get('awayMaxSec'))) ? Number(f.get('awayMaxSec')) : 15,
       questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
@@ -334,6 +344,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     const btns = form.querySelectorAll('button[type=submit]'); btns.forEach((b) => (b.disabled = true));
     try {
       const id = await cloud.saveTimed(cls.id, existing?.id || null, test, state.filesChanged || !existing ? { questions: state.key || {} } : null, ex.list);
+      if (test.requireCode && code !== accessCode) await cloud.setAccessCode(cls.id, id, code);
       toast(status === 'published' ? (windows ? `${title} is published for ${plural(Object.keys(windows).length, 'section')}.` : `${title} is published. Students can start at ${when(opensAt)}.`) : `${title} saved as a draft`, 'good');
       window.removeEventListener('dragover', stray); window.removeEventListener('drop', stray);
       if (onSaved) onSaved(); else location.hash = `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(id)}`;
@@ -352,6 +363,7 @@ async function examPage(main, cls, tid, query) {
   const phaseNow = () => examPhase({ ...test, ...overallWindow(test) });
   let tab = ['live', 'results', 'settings'].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' ? 'settings' : 'live';
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
+  let accessCode = test.requireCode ? await cloud.getAccessCode(cls.id, tid).catch(() => '') : '';
   const mySecs = (() => { const c = cloud.myClasses().find((x) => x.id === cls.id); return c?.role === 'ta' && !cloud.isAdmin() ? (c.sections?.length ? c.sections : String(c.section || '').split(',').map((s) => s.trim()).filter(Boolean)) : null; })();
 
   main.innerHTML = `
@@ -409,6 +421,21 @@ async function examPage(main, cls, tid, query) {
 
   // ------------------------------------------------ Live
   const FILTERS = { all: () => true, none: (r) => r.st === 'none', working: (r) => r.st === 'working', submitted: (r) => r.st === 'submitted' || r.st === 'timeup', ended: (r) => r.st === 'ended', lost: (r) => r.st === 'lost', exits: (r) => (r.exits || []).length > 0 };
+  // the code, huge, for the projector (Esc or click to close)
+  function showCodeBig() {
+    const el = document.createElement('div');
+    el.className = 'code-projector';
+    el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Access code');
+    el.innerHTML = `<p class="code-proj-title">${esc(test.title)}</p><p class="code-proj-label">Access code</p><p class="code-proj-code">${esc(accessCode)}</p>
+      <p class="code-proj-help">Open the exam on your class page, type this code, and press Start.</p><button class="btn" data-close-proj>Close</button>`;
+    document.body.appendChild(el);
+    const close = () => { el.remove(); document.removeEventListener('keydown', onKey); main.querySelector('[data-showcode]')?.focus(); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    el.addEventListener('click', close);
+    el.querySelector('[data-close-proj]').focus();
+    el.requestFullscreen?.().catch(() => {});
+  }
   function livePanel() {
     const rows = rowsNow().filter((r) => !section || String(r.p.section || '').split(',').map((x) => x.trim()).includes(section));
     const n = (k) => rows.filter(FILTERS[k]).length;
@@ -418,7 +445,13 @@ async function examPage(main, cls, tid, query) {
     const secs = [...new Set(students().flatMap((p) => String(p.section || '').split(',').map((s) => s.trim()).filter(Boolean)))].sort();
     const now = Date.now();
     const cards = [['all', 'Everyone', ''], ['none', 'Not started', ''], ['working', 'Working now', 'good'], ['submitted', 'Submitted', 'good'], ['ended', 'Ended by leaving', 'bad'], ['lost', 'No contact 5+ min', 'warn'], ['exits', 'Any exit recorded', 'warn']];
-    return `
+    const codeBox = test.requireCode ? `
+      <div class="code-box">
+        <div><p class="eyebrow">Access code</p><p class="code-big" data-code-text>${esc(accessCode || '(not set)')}</p>
+          <p class="muted small">Show it in the room when students may start. Students who have already started don't need it again.</p></div>
+        <div class="row wrap"><button class="btn primary" data-showcode>${icon('eye')} Show on projector</button><button class="btn" data-newaccess>${icon('shuffle')} New code</button></div>
+      </div>` : '';
+    return `${codeBox}
       <div class="row between wrap live-bar">
         <p class="muted small" aria-live="polite">Updated ${clock(loadedAt)}${auto ? ' · refreshes every minute' : ''}</p>
         <span class="row"><label class="check"><input type="checkbox" data-auto ${auto ? 'checked' : ''}><span>Auto-refresh</span></label><button class="btn" data-refresh>${icon('shuffle')} Refresh</button></span>
@@ -754,6 +787,15 @@ async function examPage(main, cls, tid, query) {
     }
     if (b.dataset.lf) { filter = filter === b.dataset.lf ? 'all' : b.dataset.lf; paint(); return; }
     if ('refresh' in b.dataset) { b.disabled = true; await refresh(); return; }
+    if ('showcode' in b.dataset) { showCodeBig(); return; }
+    if ('newaccess' in b.dataset) {
+      const ok = await confirmDialog({ title: 'Make a new access code?', body: '<p>The old code stops working straight away. Students who have already started keep going; anyone who hasn\'t started yet needs the new code.</p><p class="muted small">Useful if the code may have been shared outside the room.</p>', confirm: 'New code' });
+      if (!ok) return;
+      const code = newAccessCode();
+      try { await cloud.setAccessCode(cls.id, tid, code); accessCode = code; paint(); toast(`New access code: ${code}`, 'good'); }
+      catch (e) { toast("Couldn't change the code: " + (e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e), 'bad'); }
+      return;
+    }
     if (b.dataset.detail) { attemptDetail(b.dataset.detail); return; }
     if (b.dataset.reopen) { reopen(b.dataset.reopen); return; }
     if (b.dataset.addtime) { addTime(b.dataset.addtime); return; }
