@@ -111,17 +111,21 @@ export const kindOf = (t) => (KINDS[t?.kind] ? t.kind : 'exam');
 // An exam is for everyone in the class (no windows), or only for some sections:
 // windows = { "<section>": { opensAt, closesAt } }, each section with its own times.
 // A student's section must match a key exactly (that's what the security rules check).
+// A section can have its own rules on top of its own times. Anything not set uses the exam's rule.
+// (Each section's own access code is kept with the code, staff only: testCodes/{T}.sections)
+export const SECTION_RULES = ['durationMin', 'requireCode', 'requireSEB', 'warnings', 'allowPhones'];
+export const sectionRules = (v) => Object.fromEntries(SECTION_RULES.filter((k) => v?.[k] != null && v[k] !== '').map((k) => [k, v[k]]));
 export function windowFor(t, section) {
   if (!t) return null;
   const w = t.windows;
   if (!w || !Object.keys(w).length) return { opensAt: ms(t.opensAt), closesAt: ms(t.closesAt) };
   const mine = w[String(section ?? '')];
-  return mine ? { opensAt: ms(mine.opensAt), closesAt: ms(mine.closesAt) } : null;
+  return mine ? { opensAt: ms(mine.opensAt), closesAt: ms(mine.closesAt), ...sectionRules(mine) } : null;
 }
 // The exam as one student sees it (their section's times), or null if it isn't for their section
 export function forSection(t, section) {
   const w = windowFor(t, section);
-  return w && { ...t, opensAt: w.opensAt, closesAt: w.closesAt };
+  return w && { ...t, ...w };
 }
 // Earliest opening and latest closing over all sections (for the professor's lists)
 export function overallWindow(t) {

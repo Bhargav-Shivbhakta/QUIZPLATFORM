@@ -2370,14 +2370,19 @@ body.exam-locked .topbar, body.exam-locked .tabbar, body.exam-locked .sitefoot {
 body.exam-locked #main { padding: 0; max-width: none; }
 @media print { body.exam-locked * { display: none !important; } }
 .exam-shell { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; background: var(--paper); z-index: 50; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-x pan-y; }
-.exam-shell input, .exam-shell textarea, .exam-shell [data-editor] { user-select: text; -webkit-user-select: text; }
+.exam-shell input, .exam-shell textarea, .exam-shell [data-editor], .exam-shell [data-editor] * { user-select: text; -webkit-user-select: text; -webkit-touch-callout: default; }
 .exam-watermark { position: absolute; inset: 0; pointer-events: none; opacity: .07; z-index: 2; background-repeat: repeat; }
 .exam-bar { display: flex; align-items: center; gap: 1rem; padding: .6rem 1rem; border-bottom: 1px solid var(--line); background: var(--surface); z-index: 3; }
 .exam-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .exam-timer { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; padding: .2rem .7rem; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
 .exam-timer.low { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-line); }
 .exam-save { min-width: 9em; text-align: right; color: var(--ink-2); }
-.exam-body { display: grid; grid-template-columns: 210px 1fr; min-height: 0; z-index: 1; }
+.exam-body { display: grid; grid-template-columns: 210px 1fr; min-height: 0; }
+/* screenshot keys held down: the question disappears until they are let go */
+.exam-shell.shot-guard .exam-body { visibility: hidden; }
+.exam-shell.shot-guard::after { content: 'Screenshots are not allowed. Let go of the keys to continue.'; position: absolute; inset: 60px 0 0; display: flex; align-items: center; justify-content: center; padding: 16px; text-align: center; font-weight: 700; font-size: 1.2rem; color: var(--ink); z-index: 5; }
+/* the watermark lies over the question, but not over the boxes students type in or read output from */
+.exam-code .editor-wrap, .exam-out, .exam-run textarea, .exam-input { position: relative; z-index: 3; }
 .exam-nav { border-right: 1px solid var(--line); padding: 1rem; overflow-y: auto; background: var(--surface); }
 .exam-nav ol { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: .4rem; }
 .exam-nav button { width: 100%; aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; position: relative; }
@@ -2571,3 +2576,72 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
   .roster-table td.row-actions .btn { width: auto; flex: 1; }
   .roster-table td.row-actions .btn + .btn { margin-top: 0; }
 }
+
+/* exam editor: does the closing time leave the full time limit? */
+.time-fit { margin: .35rem 0 0; }
+.time-fit:empty { display: none; }
+.time-fit.good { color: var(--ink-2); }
+.time-fit.warn { color: var(--ink); padding: .4rem .6rem; border-left: 3px solid var(--flag); background: var(--flag-soft); border-radius: 4px; }
+.time-fit.bad { padding: .4rem .6rem; border-left: 3px solid var(--bad); background: var(--bad-soft); border-radius: 4px; }
+
+/* ---- code editor (CodeMirror): fills its panel; same accessible colours as the code blocks */
+.cm-host { display: block; overflow: hidden; position: relative; }
+.cm-host .cm-editor { height: 100%; }
+.tok-kw { color: #a3172d; }
+.tok-type { color: #8a4a00; }
+.tok-str { color: #0f6a3b; }
+.tok-num { color: #0b54b0; }
+.tok-fn { color: #6b32b8; }
+.tok-com { color: #5f6670; font-style: italic; }
+.tok-meta { color: #8a4a00; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tok-kw { color: #ff8f9f; }
+  :root:not([data-theme="light"]) .tok-type, :root:not([data-theme="light"]) .tok-meta { color: #ffbb73; }
+  :root:not([data-theme="light"]) .tok-str { color: #8fd99a; }
+  :root:not([data-theme="light"]) .tok-num { color: #86c5ff; }
+  :root:not([data-theme="light"]) .tok-fn { color: #d2b0ff; }
+  :root:not([data-theme="light"]) .tok-com { color: #a2a9b2; }
+  :root:not([data-theme="light"]) { --code-active: rgba(255,255,255,.05); --code-sel: rgba(110,150,255,.35); }
+}
+:root[data-theme="dark"] .tok-kw { color: #ff8f9f; }
+:root[data-theme="dark"] .tok-type, :root[data-theme="dark"] .tok-meta { color: #ffbb73; }
+:root[data-theme="dark"] .tok-str { color: #8fd99a; }
+:root[data-theme="dark"] .tok-num { color: #86c5ff; }
+:root[data-theme="dark"] .tok-fn { color: #d2b0ff; }
+:root[data-theme="dark"] .tok-com { color: #a2a9b2; }
+:root[data-theme="dark"] { --code-active: rgba(255,255,255,.05); --code-sel: rgba(110,150,255,.35); }
+.tool-group { display: inline-flex; gap: 2px; }
+.tool-group .tool { min-width: 34px; justify-content: center; font-family: var(--mono); }
+@media (pointer: coarse) { .cm-host .cm-editor { font-size: max(16px, var(--code-user, 16px)) !important; } } /* 16px stops iPhone zooming in on tap */
+
+/* ---- exam coding questions: problem on the left, code on the right (like LeetCode) */
+.exam-q > .exam-split { max-width: none; }
+.exam-split { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(400px, 1.3fr); gap: 1.5rem; align-items: start; }
+.exam-problem { min-width: 0; }
+.exam-work { min-width: 0; position: sticky; top: 0; z-index: 3; }
+.exam-sh { font-size: 1rem; margin: 1.1rem 0 .4rem; }
+.exam-example { margin: 0 0 .7rem; }
+.exam-example pre { background: var(--surface-2); padding: .5rem .7rem; border-radius: 8px; white-space: pre-wrap; margin: .2rem 0 0; }
+.exam-code .editor-head { border: 1px solid var(--line-strong); border-bottom: 0; border-radius: 10px 10px 0 0; position: relative; z-index: 3; }
+.exam-code .editor-wrap.cm-host { border-radius: 0 0 10px 10px; max-height: none; height: max(300px, calc(100vh - 400px)); }
+@media (max-width: 1100px) {
+  .exam-split { grid-template-columns: 1fr; }
+  .exam-work { position: static; }
+  .exam-code .editor-wrap.cm-host { height: max(300px, 55vh); }
+}
+
+/* graded work turned off */
+.phase-off { background: var(--surface-2); color: var(--ink-2); border: 1px dashed var(--line-strong); }
+.off-note { display: flex; gap: .6rem; align-items: flex-start; padding: .65rem .85rem; margin: .4rem 0 .8rem; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface-2); }
+.off-note[hidden] { display: none; }
+.off-note .icon { flex: none; margin-top: .15rem; }
+/* per-section rules */
+.sec-rules { margin: .6rem 0; }
+.sec-rules > summary { cursor: pointer; padding: .3rem 0; }
+.sec-rules-table select, .sec-rules-table input { width: 100%; min-width: 6.5rem; }
+.sec-rules-table td:nth-child(3) { max-width: 12rem; }
+.sec-rules-table input[type=number] { min-width: 5rem; }
+.sec-rules-table [data-r-code] { margin-top: .3rem; font-family: var(--mono); text-transform: uppercase; }
+.code-box:has(.code-row) { flex-direction: column; align-items: stretch; }
+.code-box .code-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.code-box.multi .code-row + .code-row { border-top: 1px solid var(--line); padding-top: .6rem; }

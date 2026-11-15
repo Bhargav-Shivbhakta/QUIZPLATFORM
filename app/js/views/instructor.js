@@ -415,7 +415,7 @@ export async function render(main, params = {}, query = {}) {
     const host = body.querySelector('[data-timed]');
     if (!host) return;
     try {
-      const [mod, list] = await Promise.all([import('./timed-admin.js'), cloud.listTimed(classId)]);
+      const [mod, list] = await Promise.all([import('./timed-admin.js'), cloud.listTimed(classId), cloud.syncClock()]);
       if (body.contains(host)) host.innerHTML = mod.timedList(cls(), list);
     } catch (e) { host.innerHTML = `<p class="bad">Couldn't load the exams, quizzes and assignments: ${esc(e?.message || e)}</p>`; }
   }

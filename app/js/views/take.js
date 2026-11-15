@@ -8,7 +8,7 @@
 import * as cloud from '../cloud.js';
 import { esc, icon, toast, confirmDialog, closeModal, plural } from '../ui.js';
 import { md, highlight } from '../render.js';
-import { CodeJar } from '../../vendor/codejar.js';
+import { createCodeEditor, codeSize } from '../java/editor.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../main.js';
@@ -33,7 +33,7 @@ export async function render(main, { classId, tid }, query = {}) {
   const page = (html) => { main.innerHTML = `<section class="page narrow take-page">${html}</section>`; };
 
   // what the class page knows (works before the exam opens)
-  const cls = await cloud.getClass(classId).catch(() => null);
+  const [cls] = await Promise.all([cloud.getClass(classId).catch(() => null), cloud.syncClock()]);
   const allSum = cls?.timed?.[tid];
   if (!cls || !allSum || (allSum.status !== 'published' && !preview)) {
     page(`<h1>Exam not available</h1><p>This exam doesn't exist or isn't published yet.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
@@ -48,7 +48,12 @@ export async function render(main, { classId, tid }, query = {}) {
   }
   const W = KINDS[kindOf(allSum)].label.toLowerCase(); // "exam", "quiz" or "assignment" in what students read
   const kindTag = `<span class="kind-badge kind-${kindOf(allSum)}">${KINDS[kindOf(allSum)].label} · graded</span>`;
-  const phase = preview ? 'open' : examPhase({ ...sum, opensAt: sum.opensAt, closesAt: sum.closesAt });
+  // turned off by the professor: nobody new can start; someone already working can finish
+  if (allSum.disabled && !preview) {
+    const mine = await cloud.myAttempt(classId, tid).catch(() => null);
+    if (!mine) { page(`<p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(allSum.title)}</h1><div class="lock-note">${icon('lock')}<div><h2>This ${W} is turned off</h2><p>Your professor has turned it off for now, so it can't be started. Check back later or ask your professor.</p></div></div><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
+  }
+  const phase = preview ? 'open' : examPhase({ ...sum, opensAt: sum.opensAt, closesAt: sum.closesAt }, cloud.trueNow());
   if (phase === 'upcoming') return upcoming();
 
   let test = null, attempt = null;
@@ -88,8 +93,8 @@ export async function render(main, { classId, tid }, query = {}) {
       <p class="muted small">This page opens the ${W} by itself when it's time. You can also come back later.</p>
       <p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     const el = main.querySelector('[data-count]');
-    const iv = setInterval(() => { const left = sum.opensAt - Date.now(); if (left <= 0) { clearInterval(iv); location.reload(); return; } el.textContent = mmss(left); }, 1000);
-    el.textContent = mmss(sum.opensAt - Date.now());
+    const iv = setInterval(() => { const left = sum.opensAt - cloud.trueNow(); if (left <= 0) { clearInterval(iv); location.reload(); return; } el.textContent = mmss(left); }, 1000);
+    el.textContent = mmss(sum.opensAt - cloud.trueNow());
     return () => clearInterval(iv);
   }
   function checksHtml(t) {
@@ -106,14 +111,14 @@ export async function render(main, { classId, tid }, query = {}) {
   function preStart({ resume }) {
     const close = ms(test.closesAt);
     const fullMin = test.durationMin + (attempt?.extraMin || 0);
-    const latest = Math.min(Date.now() + test.durationMin * 60000, close);
+    const latest = Math.min(cloud.trueNow() + test.durationMin * 60000, close);
     page(`
       ${preview ? `<p class="preview-note">${icon('eye')} Preview: this is what students see. Nothing is saved, and leaving only shows a message.</p>` : ''}
       <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(test.title)}</h1>
-      ${resume ? `<div class="lock-note">${icon('note')}<div><h2>Your professor let you back in</h2><p>You continue your same attempt with the answers you had saved. Time left: <strong>${mmss(attemptDeadline({ ...test, closesAt: close }, attempt) - Date.now())}</strong>.</p></div></div>` : ''}
+      ${resume ? `<div class="lock-note">${icon('note')}<div><h2>Your professor let you back in</h2><p>You continue your same attempt with the answers you had saved. Time left: <strong>${mmss(attemptDeadline({ ...test, closesAt: close }, attempt) - cloud.trueNow())}</strong>.</p></div></div>` : ''}
       <div class="take-facts">
         <p><strong>${plural(test.questions.length, 'question')}</strong> · ${r1(test.totalPoints)} points${Object.entries(test.questions.reduce((c, q) => ((c[QTYPE_LABEL[q.type]] = (c[QTYPE_LABEL[q.type]] || 0) + 1), c), {})).map(([k, v]) => ` · ${v} ${k.toLowerCase()}`).join('')}</p>
-        ${resume ? '' : `<p><strong>Time limit:</strong> ${fullMin} minutes from when you press Start${latest < Date.now() + test.durationMin * 60000 ? ` (but the ${W} closes at ${hm(close)}, so you'll have until then)` : ''}.</p>`}
+        ${resume ? '' : `<p><strong>Time limit:</strong> ${fullMin} minutes from when you press Start${latest < cloud.trueNow() + test.durationMin * 60000 ? ` (but the ${W} closes at ${hm(close)}, so you'll have until then)` : ''}.</p>`}
       </div>
       ${test.instructions ? `<div class="take-instructions">${md(test.instructions)}</div>` : ''}
       <h2>Rules</h2>
@@ -146,7 +151,7 @@ export async function render(main, { classId, tid }, query = {}) {
 
   async function endOnServer(a, reason) {
     try {
-      await cloud.saveAttempt(classId, a, { status: 'ended', endedReason: reason, events: [...(a.events || []), { t: Date.now(), type: reason }].slice(-200), saves: (a.saves || 0) + 1 });
+      await cloud.saveAttempt(classId, a, { status: 'ended', endedReason: reason, events: [...(a.events || []), { t: cloud.trueNow(), type: reason }].slice(-200), saves: (a.saves || 0) + 1 });
     } catch (e) { console.warn('could not end', e?.message); }
     lsSet('left:' + a.id, null);
   }
@@ -167,7 +172,7 @@ export async function render(main, { classId, tid }, query = {}) {
       ${grade ? `<div class="take-score"><p class="eyebrow">Your score</p><p class="big-score">${r1(grade.total)} <span class="muted">/ ${r1(grade.max)}</span></p><p class="muted">${Math.round((grade.total / (grade.max || 1)) * 100)}%</p>
         ${test?.releaseDetail !== false && test?.questions?.length ? `<ol class="score-list">${test.questions.map((q) => { const p = grade.perQ?.[q.id]; return `<li><span>${esc(q.label)} <span class="muted small">${QTYPE_LABEL[q.type]}</span></span><strong>${p?.pts == null ? '–' : r1(p.pts)} / ${r1(q.points)}</strong></li>`; }).join('')}</ol>` : ''}</div>`
         : `<p class="muted">${sum.released ? 'Your score isn\'t ready yet.' : 'Your professor will release scores later. They\'ll show here.'}</p>`}
-      <p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
+      ${dev.seb ? `<p><a class="btn primary big" href="/seb-quit.html">${icon('check')} Quit Safe Exam Browser</a></p><p class="muted small">This closes Safe Exam Browser and gives you your computer back.</p>` : `<p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`}`);
   }
 
   // ------------------------------------------------ the exam
@@ -275,14 +280,29 @@ export async function render(main, { classId, tid }, query = {}) {
       } else if (q.type === 'code') {
         input = `
           <div class="exam-code">
-            <div class="editor-wrap"><div class="editor language-java" data-editor tabindex="0" role="textbox" aria-multiline="true" aria-label="Java code for ${esc(q.label)}" spellcheck="false" autocapitalize="off" autocorrect="off"></div></div>
+            <div class="editor-head"><span class="file-tab">${icon('note')} ${esc((q.cls || 'Main') + '.java')}</span><span class="spacer"></span>
+              <span class="tool-group" role="group" aria-label="Code text size"><button class="tool" data-size="-1" title="Smaller code text" aria-label="Smaller code text">A−</button><button class="tool" data-size="1" title="Bigger code text" aria-label="Bigger code text">A+</button></span>
+              <button class="tool" data-reset-code title="Start over from the starter code">${icon('shuffle')}<span>Reset</span></button></div>
+            <div class="editor-wrap cm-host" data-cm></div>
             <div class="exam-run">
-              <label class="field"><span>Input for Run</span><textarea data-input rows="2" spellcheck="false"></textarea></label>
-              <div class="row"><button class="btn" data-run>${icon('play')} Run</button>${q.samples?.length ? `<button class="btn" data-samples>Run the ${plural(q.samples.length, 'sample test')}</button>` : ''}<button class="link-btn small" data-reset-code>Start over from the starter code</button></div>
+              <label class="field"><span>Input for Run <span class="muted">(what your program reads)</span></span><textarea data-input rows="2" spellcheck="false"></textarea></label>
+              <div class="row"><button class="btn primary" data-run>${icon('play')} Run</button>${q.samples?.length ? `<button class="btn" data-samples>${icon('check')} Run the ${plural(q.samples.length, 'sample test')}</button>` : ''}</div>
               <pre class="exam-out" data-out aria-live="polite"></pre>
             </div>
           </div>`;
       }
+      if (q.type === 'code') return `
+        <div class="exam-split">
+          <div class="exam-problem">
+            <div class="exam-qhead"><p class="eyebrow">Question ${i + 1} of ${qs.length} · ${QTYPE_LABEL[q.type]} · ${plural(q.points, 'point')}</p>
+              <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button></div>
+            ${aiOn ? `<p class="ai-notice" aria-hidden="true">${esc(AI_NOTICE)}</p>` : ''}
+            <div class="exam-text">${md(q.text)}</div>
+            ${q.samples?.length ? `<h3 class="exam-sh">Examples</h3>${q.samples.map((s, k) => `<div class="exam-example"><p class="small"><strong>Example ${k + 1}</strong></p><div class="grid2"><div><p class="small muted">Input</p><pre>${esc(s.input || '(none)')}</pre></div><div><p class="small muted">Expected output</p><pre>${esc(s.output)}</pre></div></div></div>`).join('')}` : ''}
+            <div class="row between exam-move"><button class="btn" data-prev ${i === 0 ? 'disabled' : ''}>${icon('left')} Previous</button><button class="btn" data-next ${i === qs.length - 1 ? 'disabled' : ''}>Next ${icon('right')}</button></div>
+          </div>
+          <div class="exam-work">${input}</div>
+        </div>`;
       return `
         <div class="exam-qhead"><p class="eyebrow">Question ${i + 1} of ${qs.length} · ${QTYPE_LABEL[q.type]} · ${plural(q.points, 'point')}</p>
           <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button></div>
@@ -294,18 +314,14 @@ export async function render(main, { classId, tid }, query = {}) {
     }
     function show(i) {
       idx = Math.max(0, Math.min(qs.length - 1, i));
-      editor = null;
+      editor?.destroy(); editor = null;
       $('[data-nav]').innerHTML = navHtml();
       const q = qs[idx];
       $('[data-q]').innerHTML = qHtml(q, idx);
       highlight($('[data-q] .exam-text'));
       if (q.type === 'code') {
-        const el = $('[data-editor]');
-        const hl = (e) => { if (window.hljs) { delete e.dataset.highlighted; e.className = 'editor language-java'; e.textContent = e.textContent; try { window.hljs.highlightElement(e); } catch {} } };
-        el.textContent = answers[q.id] ?? q.starter ?? '';
-        editor = CodeJar(el, hl, { tab: '    ', indentOn: /[({[]$/, addClosing: false, spellcheck: false, catchTab: true });
-        editor.updateCode(answers[q.id] ?? q.starter ?? '');
-        editor.onUpdate((c) => { answers[q.id] = c; changed(false); });
+        codeSize();
+        editor = createCodeEditor($('[data-cm]'), { doc: answers[q.id] ?? q.starter ?? '', exam: true, label: `Java code for ${q.label}`, onChange: (c) => { answers[q.id] = c; changed(false); } });
       }
       $('[data-q]').focus({ preventScroll: true });
       $('[data-q]').scrollTop = 0;
@@ -376,7 +392,9 @@ export async function render(main, { classId, tid }, query = {}) {
     let strikes = sinceReopen.filter((e) => e.warning).length;
     let away = null, awayTimer = null, awayTick = null;
     const fullNow = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const isBack = () => document.visibilityState === 'visible' && document.hasFocus() && fullNow();
+    // full screen is only asked for where it exists, and never in Safe Exam Browser (it locks the screen itself)
+    const usesFs = !dev.seb && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    const isBack = () => document.visibilityState === 'visible' && document.hasFocus() && (!usesFs || fullNow());
     const leave = (reason) => {
       if (finished) return;
       if (!allowed || HARD.has(reason)) { finish('ended', reason); return; }
@@ -402,7 +420,7 @@ export async function render(main, { classId, tid }, query = {}) {
         <button class="btn primary big" data-warn-back>Back to the ${W}</button></div>`;
       document.body.appendChild(el);
       const b = el.querySelector('[data-warn-back]');
-      b.addEventListener('click', async () => { try { await (document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }) || document.documentElement.webkitRequestFullscreen?.()); } catch {} fsWas = fullNow(); setTimeout(checkBack, 100); });
+      b.addEventListener('click', async () => { if (usesFs) try { await (document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }) || document.documentElement.webkitRequestFullscreen?.()); } catch {} fsWas = fullNow(); setTimeout(checkBack, 100); });
       clearInterval(awayTick);
       awayTick = setInterval(() => { const n = el.querySelector('[data-warn-left]'); if (n && away) n.textContent = Math.max(0, Math.ceil((away.since + awayMax - Date.now()) / 1000)); }, 250);
       setTimeout(() => b.focus(), 50);
@@ -430,7 +448,9 @@ export async function render(main, { classId, tid }, query = {}) {
     on(window, 'beforeunload', (e) => { if (!finished && !preview) { e.preventDefault(); e.returnValue = ''; } });
     const block = (e) => { if (finished) return; e.preventDefault(); e.stopPropagation(); };
     for (const t of ['copy', 'cut', 'paste', 'contextmenu', 'dragstart', 'drop', 'beforeprint']) on(document, t, (e) => { block(e); if (t !== 'contextmenu' && t !== 'dragstart') notice('Copy, paste and printing are turned off during the exam.'); }, true);
-    on(document, 'selectstart', (e) => { if (!e.target.closest?.('input, textarea, [data-editor]')) e.preventDefault(); }, true);
+    // (Safari fires this on the text inside the code box, not on the box itself: look from its element)
+    const typingArea = (t) => { const el = t?.nodeType === 1 ? t : t?.parentElement; return !!el?.closest?.('input, textarea, [data-editor], [contenteditable]'); };
+    on(document, 'selectstart', (e) => { if (!typingArea(e.target)) e.preventDefault(); }, true);
     on(document, 'keydown', (e) => {
       if (finished) return;
       const k = e.key?.toLowerCase(), mod = e.ctrlKey || e.metaKey;
@@ -440,7 +460,20 @@ export async function render(main, { classId, tid }, query = {}) {
       if (k === 'f5' || (e.altKey && ['arrowleft', 'arrowright'].includes(k)) || k === 'browserback') { block(e); return; }
       if (e.key === 'Escape') { e.preventDefault(); }
     }, true);
-    on(document, 'keyup', (e) => { if (e.key === 'PrintScreen' || e.code === 'PrintScreen') { leave('print-screen'); } }, true);
+    // Screenshots: the computer takes them before the page hears about it, so a page can't block them.
+    // But Mac (Cmd+Shift+3/4/5) and Windows (Win+Shift+S) shortcuts start with Cmd/Win + Shift held
+    // down, which the page does see: hide the question while both are held, so the picture is blank.
+    const shotKeys = (e) => e.metaKey && e.shiftKey;
+    const hideForShot = (on) => { shell.classList.toggle('shot-guard', on); };
+    on(document, 'keydown', (e) => { if (!finished && (shotKeys(e) || e.key === 'PrintScreen')) hideForShot(true); }, true);
+    on(document, 'keyup', (e) => {
+      if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+        try { navigator.clipboard?.writeText('Screenshots are not allowed during the exam.').catch(() => {}); } catch {}
+        leave('print-screen');
+      }
+      if (!shotKeys(e)) setTimeout(() => { if (document.hasFocus()) hideForShot(false); }, 400);
+    }, true);
+    on(window, 'focus', () => setTimeout(() => hideForShot(false), 400));
     on(document, 'gesturestart', (e) => e.preventDefault(), { passive: false });
     setNavGuard({ hash: location.hash, blocked: () => notice('You can\'t leave the exam page. Use Submit when you\'re done.') });
     cleanupFns.push(() => setNavGuard(null));
@@ -499,18 +532,21 @@ export async function render(main, { classId, tid }, query = {}) {
       if ('next' in b.dataset) { show(idx + 1); return; }
       if ('clear' in b.dataset) { delete answers[qs[idx].id]; changed(); show(idx); return; }
       if ('flag' in b.dataset) { const id = qs[idx].id; if (flags.has(id)) flags.delete(id); else flags.add(id); lsSet('flags:' + attempt.id, JSON.stringify([...flags])); show(idx); return; }
+      if (b.dataset.size) { codeSize(Number(b.dataset.size)); editor?.view.requestMeasure(); return; }
       if ('resetCode' in b.dataset) { if (await confirmDialog({ title: 'Start over?', body: '<p>Your code for this question is replaced with the starter code.</p>', confirm: 'Start over', danger: true })) { answers[qs[idx].id] = qs[idx].starter; changed(); show(idx); } return; }
       if ('run' in b.dataset || 'samples' in b.dataset) {
         const q = qs[idx], out = $('[data-out]');
-        const src = editor ? editor.toString() : answers[q.id] || q.starter;
+        const src = editor ? editor.getValue() : answers[q.id] || q.starter;
         b.disabled = true; out.textContent = 'Running…';
         try {
           if ('run' in b.dataset) {
             const r = await runJava(src, $('[data-input]').value, { className: q.cls, fileName: q.cls + '.java' });
+            editor?.setErrorLines((r.compileErrors || []).map((x) => x.line));
             out.textContent = r.compileErrors ? r.errorText : r.killed || r.timedOut ? 'Stopped: it ran too long (infinite loop?).\n' + (r.stdout || '') : (r.stdout || '(no output)') + (r.stderr ? '\n' + r.stderr : '');
           } else {
             const r = await testJava(src, { className: q.cls, tests: q.samples, checks: [] }, q.cls + '.java');
-            out.textContent = r.compileErrors ? 'Your code does not compile yet.' : r.killed ? 'Stopped: it ran too long (infinite loop?).' : r.results.map((x) => `${x.passed ? '✓' : '✗'} sample ${x.name}${x.passed ? '' : `\n  expected:\n${normalizeOutput(x.expected)}\n  yours:\n${normalizeOutput(x.actual)}`}`).join('\n');
+            editor?.setErrorLines((r.compileErrors || []).map((x) => x.line));
+            out.textContent = r.compileErrors ? 'Your code does not compile yet. Click Run to see the errors (their lines are marked in red).' : r.killed ? 'Stopped: it ran too long (infinite loop?).' : r.results.map((x) => `${x.passed ? '✓' : '✗'} sample ${x.name}${x.passed ? '' : `\n  expected:\n${normalizeOutput(x.expected)}\n  yours:\n${normalizeOutput(x.actual)}`}`).join('\n');
           }
         } catch (err) { out.textContent = 'The runner had a problem: ' + (err?.message || err); }
         b.disabled = false;
@@ -520,7 +556,7 @@ export async function render(main, { classId, tid }, query = {}) {
         const missing = qs.filter((q) => !answered(q, answers[q.id])).length;
         const flagged = flags.size;
         const ok = await confirmDialog({ title: `Submit your ${W}?`, body: `<p>${missing ? `<strong>${plural(missing, 'question')} ${missing === 1 ? 'has' : 'have'} no answer.</strong> ` : 'Every question has an answer. '}${flagged ? `${plural(flagged, 'question')} ${flagged === 1 ? 'is' : 'are'} flagged for review. ` : ''}You can't change anything after submitting.</p>`, confirm: 'Submit', cancel: 'Keep working' });
-        if (ok && !finished) { if (editor) answers[qs[idx].id] = editor.toString(); finish('submitted', 'submitted'); }
+        if (ok && !finished) { if (editor) answers[qs[idx].id] = editor.getValue(); finish('submitted', 'submitted'); }
       }
     });
     show(0);

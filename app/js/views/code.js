@@ -3,11 +3,10 @@ import { getExam, getAssignments } from '../data.js';
 import * as store from '../store.js';
 import { esc, icon, toast, confirmDialog, modalOpen } from '../ui.js';
 import { md, highlight } from '../render.js';
-import { CodeJar } from '../../vendor/codejar.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { formatJava } from '../java/format-code.js';
-import { attachSuggestions } from '../java/suggest.js';
+import { createCodeEditor, codeSize } from '../java/editor.js';
 
 const humanize = (name) => {
   let s = name.replace(/^test\d*_?/i, '') || name;
@@ -87,14 +86,12 @@ export async function render(main, { id, slug }) {
           <div class="editor-head">
             <span class="file-tab">${icon('note')} ${esc(fileName)}</span>
             <span class="spacer"></span>
+            <span class="tool-group" role="group" aria-label="Code text size"><button class="tool" data-size="-1" title="Smaller code text" aria-label="Smaller code text">A−</button><button class="tool" data-size="1" title="Bigger code text" aria-label="Bigger code text">A+</button></span>
             <button class="tool" data-format title="Fix the indentation (Shift+Alt+F)">${icon('code')}<span>Format</span></button>
             <button class="tool" data-reset title="Start over from the starter code">${icon('shuffle')}<span>Reset</span></button>
             <button class="tool" data-download title="Download ${esc(fileName)}">${icon('download')}<span>Download</span></button>
           </div>
-          <div class="editor-wrap" data-editor-wrap>
-            <div class="gutter" data-gutter aria-hidden="true"></div>
-            <div class="editor language-java" data-editor tabindex="0" role="textbox" aria-multiline="true" aria-label="Java code editor" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
-          </div>
+          <div class="editor-wrap cm-host" data-editor-wrap></div>
           <div class="console">
             <div class="console-head">
               <div class="seg" role="tablist">
@@ -118,8 +115,6 @@ export async function render(main, { id, slug }) {
 
   const $ = (sel) => main.querySelector(sel);
   const ide = $('.ide');
-  const editorEl = $('[data-editor]');
-  const gutter = $('[data-gutter]');
   const leftBody = $('[data-left-body]');
   const out = $('[data-output]');
   const status = $('[data-status]');
@@ -127,56 +122,37 @@ export async function render(main, { id, slug }) {
   inputEl.value = input;
 
   // ---------- editor ----------
-  const hl = (el) => {
-    if (window.hljs) {
-      delete el.dataset.highlighted;
-      el.className = 'editor language-java';
-      el.textContent = el.textContent;
-      try { window.hljs.highlightElement(el); } catch {}
-    }
-  };
-  editorEl.textContent = code;
-  const jar = CodeJar(editorEl, hl, { tab: '    ', indentOn: /[({[]$/, addClosing: false, spellcheck: false, catchTab: true });
-  jar.updateCode(code);
-  const paintGutter = () => {
-    const n = (jar.toString().match(/\n/g) || []).length + 1;
-    let h = '';
-    for (let i = 1; i <= n; i++) h += `<span class="${errorLines.has(i) ? 'err' : ''}">${i}</span>`;
-    gutter.innerHTML = h;
-  };
-  paintGutter();
   let saveTimer;
   const saved = $('[data-saved]');
-  jar.onUpdate((c) => {
-    code = c;
-    if (errorLines.size) { errorLines = new Set(); }
-    paintGutter();
-    saved.textContent = 'Saving…';
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => { store.saveCode(exam.id, a.slug, code); saved.textContent = 'Saved on this device'; }, 400);
+  codeSize();
+  const ed = createCodeEditor($('[data-editor-wrap]'), {
+    doc: code,
+    label: `Java code editor, ${fileName}`,
+    onRun: () => doRun(),
+    onTest: () => doTest(),
+    onChange: (c) => {
+      code = c;
+      errorLines = new Set();
+      saved.textContent = 'Saving…';
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => { store.saveCode(exam.id, a.slug, code); saved.textContent = 'Saved on this device'; }, 400);
+    },
   });
+  const paintGutter = () => ed.setErrorLines(errorLines);
   saved.textContent = store.getCode(exam.id, a.slug) != null ? 'Saved on this device' : '';
-  const detachSuggest = attachSuggestions({ jar, editor: editorEl, host: $('[data-editor-wrap]') });
   function formatCode() {
-    const before = jar.toString();
+    const before = ed.getValue();
     const after = formatJava(before);
     if (after === before) { toast('Your code is already neatly indented'); return; }
-    const line = before.slice(0, jar.save().start).split('\n').length;
-    jar.updateCode(after);
+    const line = ed.currentLine();
+    ed.setValue(after);
     goToLine(line);
     toast('Indentation fixed. Only spaces changed, not your code.');
   }
 
   function goToLine(line) {
     pane = 'code'; syncPane();
-    const text = jar.toString();
-    let pos = 0;
-    for (let i = 1; i < line; i++) { const nl = text.indexOf('\n', pos); if (nl < 0) break; pos = nl + 1; }
-    editorEl.focus();
-    try { jar.restore({ start: pos, end: pos, dir: '->' }); } catch {}
-    const lh = parseFloat(getComputedStyle(editorEl).lineHeight) || 22;
-    const wrap = $('[data-editor-wrap]');
-    wrap.scrollTop = Math.max(0, (line - 4) * lh);
+    ed.goToLine(line);
   }
 
   // ---------- panes ----------
@@ -315,7 +291,7 @@ export async function render(main, { id, slug }) {
     out.innerHTML = '<span class="muted">Running…</span>';
     $('[data-compare]').innerHTML = '';
     setBusy(true, 'Running…');
-    const r = await runJava(jar.toString(), inputEl.value, { className: a.cls, fileName }).catch((err) => ({ crash: String(err.message || err) }));
+    const r = await runJava(ed.getValue(), inputEl.value, { className: a.cls, fileName }).catch((err) => ({ crash: String(err.message || err) }));
     setBusy(false);
     lastRun = r;
     errorLines = new Set();
@@ -368,7 +344,7 @@ export async function render(main, { id, slug }) {
     if (matchMedia('(max-width: 900px)').matches) pane = 'tests';
     syncPane();
     leftBody.insertAdjacentHTML('afterbegin', '<p class="muted testing-note">Running tests…</p>');
-    const r = await testJava(jar.toString(), spec, fileName).catch((err) => ({ crash: String(err.message || err) }));
+    const r = await testJava(ed.getValue(), spec, fileName).catch((err) => ({ crash: String(err.message || err) }));
     setBusy(false);
     status.textContent = '';
     if (r.crash) { toast('The runner had a problem: ' + r.crash, 'bad'); return; }
@@ -379,7 +355,7 @@ export async function render(main, { id, slug }) {
     const passed = r.compileErrors || r.killed ? 0 : r.passed;
     const wasDone = prog.done;
     prog = store.recordTestRun(exam.id, a.slug, passed, total);
-    store.saveCode(exam.id, a.slug, jar.toString());
+    store.saveCode(exam.id, a.slug, ed.getValue());
     renderLeft();
     if (!wasDone && prog.done) toast('All tests passed. Assignment complete!', 'good');
   }
@@ -388,7 +364,7 @@ export async function render(main, { id, slug }) {
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button, a');
     if (!b) return;
-    if (b.dataset.paneBtn) { pane = b.dataset.paneBtn; syncPane(); if (pane === 'code') editorEl.focus(); return; }
+    if (b.dataset.paneBtn) { pane = b.dataset.paneBtn; syncPane(); if (pane === 'code') ed.focus(); return; }
     if (b.dataset.left) { leftTab = b.dataset.left; pane = leftTab === 'tests' ? 'tests' : 'instructions'; syncPane(); return; }
     if (b.dataset.con) { setConsole(b.dataset.con); return; }
     if ('run' in b.dataset) return doRun();
@@ -398,7 +374,7 @@ export async function render(main, { id, slug }) {
     if (b.dataset.useInput) { inputEl.value = a.tests[Number(b.dataset.useInput)].input; inputEl.dispatchEvent(new Event('input')); pane = 'code'; syncPane(); setConsole('input'); toast('Input copied to the Run box'); return; }
     if ('moreHint' in b.dataset) { prog = store.saveAsgProgress(exam.id, a.slug, { hints: Math.min(a.hints.length, (prog.hints || 0) + 1) }); renderLeft(); leftBody.querySelector('.hint-list li:last-child')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
     if ('download' in b.dataset) {
-      const blob = new Blob([jar.toString()], { type: 'text/x-java' });
+      const blob = new Blob([ed.getValue()], { type: 'text/x-java' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob); link.download = fileName;
       document.body.appendChild(link); link.click(); link.remove();
@@ -406,18 +382,19 @@ export async function render(main, { id, slug }) {
       return;
     }
     if ('format' in b.dataset) return formatCode();
+    if (b.dataset.size) { codeSize(Number(b.dataset.size)); ed.view.requestMeasure(); return; }
     if ('reset' in b.dataset) {
       const ok = await confirmDialog({ title: 'Start over?', body: `<p>Your code will be replaced with the original starter code. Download it first if you want to keep a copy.</p>`, confirm: 'Reset code', danger: true });
-      if (ok) { jar.updateCode(a.starter); code = a.starter; store.clearCode(exam.id, a.slug); paintGutter(); saved.textContent = ''; toast('Code reset to the starter'); }
+      if (ok) { ed.setValue(a.starter); code = a.starter; store.clearCode(exam.id, a.slug); saved.textContent = ''; toast('Code reset to the starter'); }
     }
   });
   inputEl.addEventListener('input', () => { try { sessionStorage.setItem(`qp1:input:${exam.id}:${a.slug}`, inputEl.value); } catch {} });
   const onKey = (ev) => {
-    if (modalOpen()) return;
+    if (modalOpen() || ev.defaultPrevented) return;
     const mod = ev.ctrlKey || ev.metaKey;
     if (mod && ev.key === 'Enter') { ev.preventDefault(); if (ev.shiftKey) doRun(); else doTest(); }
     else if (ev.shiftKey && ev.altKey && (ev.code === 'KeyF')) { ev.preventDefault(); formatCode(); }
-    else if (mod && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); store.saveCode(exam.id, a.slug, jar.toString()); saved.textContent = 'Saved on this device'; toast('Saved on this device'); }
+    else if (mod && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); store.saveCode(exam.id, a.slug, ed.getValue()); saved.textContent = 'Saved on this device'; toast('Saved on this device'); }
   };
   document.addEventListener('keydown', onKey);
 
@@ -425,10 +402,9 @@ export async function render(main, { id, slug }) {
   if (matchMedia('(min-width: 901px)').matches) { pane = 'code'; ide.dataset.pane = 'code'; }
   return () => {
     clearTimeout(saveTimer);
-    store.saveCode(exam.id, a.slug, jar.toString());
-    if (jar.toString() === a.starter) store.clearCode(exam.id, a.slug);
+    store.saveCode(exam.id, a.slug, ed.getValue());
+    if (ed.getValue() === a.starter) store.clearCode(exam.id, a.slug);
     document.removeEventListener('keydown', onKey);
-    detachSuggest();
-    jar.destroy();
+    ed.destroy();
   };
 }

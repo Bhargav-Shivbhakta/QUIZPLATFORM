@@ -18,7 +18,7 @@ const withPractice = (e, cls) => { if (!e) return e; const p = cloud.practiceSta
 function daysTo(d) { if (!d) return null; const t = new Date(d + 'T00:00:00'); if (isNaN(t)) return null; const n = Math.ceil((t - new Date(new Date().toDateString())) / 86400000); return n >= 0 ? n : null; }
 
 export async function render(main, params = {}) {
-  const manifest = await getManifest();
+  const [manifest] = await Promise.all([getManifest(), cloud.enabled ? cloud.syncClock() : null]);
   const byId = new Map(manifest.exams.map((e) => [e.id, e]));
   const classes = cloud.myClasses();
 
@@ -104,10 +104,10 @@ async function classPage(main, cls, byId, several) {
 // Graded work on the class page (exams, quizzes, assignments), each type in its own group:
 // what's coming up, what's open now, and past ones (for the score)
 function timedCards(cls, timed, teacher) {
-  const now = Date.now();
+  const now = cloud.trueNow();
   // students: only items for their section, at their section's times. Staff: the whole span.
   const list = Object.entries(timed).map(([id, t]) => (teacher ? { id, ...t, ...overallWindow(t) } : forSection({ id, ...t }, cls.section ?? '')))
-    .filter((t) => t && t.status === 'published' && (teacher || t.closesAt > now - 60 * 86400000))
+    .filter((t) => t && t.status === 'published' && (teacher || !t.disabled) && (teacher || t.closesAt > now - 60 * 86400000))
     .sort((a, b) => a.opensAt - b.opensAt);
   if (!list.length) return '';
   const fmt = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -119,7 +119,7 @@ function timedCards(cls, timed, teacher) {
     return `<a class="timed-card kind-${k} ${open ? 'open' : upcoming ? 'soon' : 'past'}" href="${href}">
       <span class="timed-card-icon" aria-hidden="true">${icon(open ? 'clock' : upcoming ? 'clock' : 'check')}</span>
       <span class="timed-card-text"><span class="kind-badge kind-${k}">${K.label} · graded</span><span class="mode-name">${esc(t.title)}${teacher && assignedSections(t) ? ` <span class="tag">${assignedSections(t).length === 1 ? 'Section' : 'Sections'} ${esc(assignedSections(t).join(', '))}</span>` : ''}</span>
-        <span class="mode-sub">${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start · one attempt` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes · one attempt` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}${t.requireCode && !teacher ? ' · access code given in class' : ''}</span></span>
+        <span class="mode-sub">${t.disabled ? '<strong>Turned off</strong> (students can\'t see it) · ' : ''}${open ? `<strong>Open now</strong> · closes ${hm(t.closesAt)} · ${t.durationMin} minutes once you start · one attempt` : upcoming ? `Opens ${fmt(t.opensAt)} · ${t.durationMin} minutes · one attempt` : `Closed ${fmt(t.closesAt)}${t.released ? ' · <strong>score available</strong>' : ''}`}${t.requireSEB ? ' · Safe Exam Browser' : ''}${t.requireCode && !teacher ? ' · access code given in class' : ''}</span></span>
       <span class="btn ${open && !teacher ? 'primary' : ''}">${teacher ? 'Monitor' : open ? `Start ${K.label.toLowerCase()}` : upcoming ? 'Details' : t.released ? 'See score' : 'Details'}</span></a>`;
   };
   const groups = Object.keys(KINDS).map((k) => [k, list.filter((t) => kindOf(t) === k)]).filter(([, l]) => l.length);

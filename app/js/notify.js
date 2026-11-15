@@ -22,7 +22,7 @@ export function buildItems(classes, { now = Date.now(), titles = new Map(), anns
     const staff = cloud.isStaffRole(c.role);
     const where = many ? `${c.name} · ` : '';
     for (const [tid, t0] of Object.entries(c.timed || {})) {
-      if (t0.status !== 'published') continue;
+      if (t0.status !== 'published' || t0.disabled) continue;
       const t = staff ? { ...t0, ...overallWindow(t0) } : forSection(t0, c.section ?? '');
       if (!t) continue;
       const K = KINDS[kindOf(t)];

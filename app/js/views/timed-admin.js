@@ -5,12 +5,13 @@
 import * as cloud from '../cloud.js';
 import { esc, icon, toast, modal, confirmDialog, plural } from '../ui.js';
 import { md } from '../render.js';
+import { makeSebFile } from '../seb.js';
 import { parseExam } from '../parser.js';
 import { readAssignments, solutionProblems } from '../assignments-core.js';
 import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
 import { readCanvasExport, matchCanvas, canvasCsv, rosterAsCanvas } from '../canvas.js';
-import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, KINDS, kindOf, newAccessCode, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, sectionRules, KINDS, kindOf, newAccessCode, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -31,7 +32,7 @@ const loadJSZip = () => (window.JSZip ? Promise.resolve(window.JSZip) : (jszip |
 export async function render(main, { classId, tid }, query = {}) {
   if (!cloud.enabled || !cloud.currentUser()) { main.innerHTML = '<section class="page"><h1>Graded work</h1><p>Sign in with your school account first.</p></section>'; return; }
   const staffOf = cloud.myClasses().filter((c) => ['instructor', 'ta'].includes(c.role)).map((c) => c.id);
-  const cls = await cloud.getClass(classId).catch(() => null);
+  const [cls] = await Promise.all([cloud.getClass(classId).catch(() => null), cloud.syncClock()]);
   if (!cls || !(cloud.isAdmin() || staffOf.includes(classId))) {
     main.innerHTML = `<section class="page"><h1>Graded work</h1><p>Only this class's instructors and TAs can manage its exams, quizzes and assignments.</p><p><a class="btn" href="#/">Home</a></p></section>`;
     return;
@@ -52,7 +53,7 @@ async function listPage(main, cls) {
 }
 // also used inside the class dashboard's "Timed exams" tab
 export function timedList(cls, list) {
-  const now = Date.now();
+  const now = cloud.trueNow();
   return `
     <div class="row between wrap timed-head">
       <p class="dash-intro">Exams, quizzes and assignments that count: locked down, with a time limit and one attempt per student. Multiple choice, short and written answers, and Java programming. Students see each type in its own group, separate from practice.</p>
@@ -64,17 +65,17 @@ export function timedList(cls, list) {
       return `<li><a href="#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}">
         <span class="timed-title"><strong><span class="kind-badge kind-${kindOf(t)}">${KINDS[kindOf(t)].label}</span> ${esc(t.title || 'Untitled')}</strong>
           <span class="muted small">${whoText(t) ? `${esc(whoText(t))} · ` : ''}${when(span.opensAt)} → ${when(span.closesAt)} · ${t.durationMin} min · ${plural((t.questions || []).length, 'question')} · ${r1(t.totalPoints)} points${t.requireSEB ? ' · Safe Exam Browser' : ''}</span></span>
-        <span class="phase phase-${ph}">${PHASE_LABEL[ph]}${t.released ? ' · scores released' : ''}</span></a></li>`;
+        <span class="phase phase-${t.disabled ? 'off' : ph}">${t.disabled ? 'Turned off' : PHASE_LABEL[ph]}${t.released ? ' · scores released' : ''}</span></a></li>`;
     }).join('')}</ul>` : '<div class="empty-state"><h2>Nothing graded yet</h2><p>Create an exam, quiz or assignment from a question file (the same format as practice exams) and, if you like, Java programming problems.</p></div>'}`;
 }
 
 // ---------------------------------------------------------------- editor
 async function editorPage(main, cls, existing, host = null, onSaved = null) {
   const root = host || main;
-  let key = null, extra = [], attemptsExist = false, accessCode = '';
+  let key = null, extra = [], attemptsExist = false, accessCode = '', secCodes = {};
   const roster = (await cloud.getRoster(cls.id).catch(() => [])).filter((p) => !p.role || p.role === 'student');
   if (existing) {
-    [key, extra, accessCode] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => []), cloud.getAccessCode(cls.id, existing.id).catch(() => '')]);
+    [key, extra, accessCode] = await Promise.all([cloud.getTimedKey(cls.id, existing.id).catch(() => null), cloud.listTimedExtra(cls.id, existing.id).catch(() => []), cloud.getAccessCodes(cls.id, existing.id).catch(() => ({ code: '', sections: {} }))]).then(([k, x, c]) => { secCodes = c.sections; return [k, x, c.code]; });
     attemptsExist = (await cloud.listAttempts(cls.id, existing.id).catch(() => [])).length > 0;
   }
   const t = existing || { title: '', instructions: 'Answer every question. You have one attempt. Stay in this window, in full screen, until you submit: leaving it gives a warning and can end your exam.', requireCode: true, durationMin: 60, shuffleQ: true, shuffleOpts: true, requireSEB: false, allowPhones: false, releaseDetail: true, warnings: 2, awayMaxSec: 15, questions: [], totalPoints: 0, status: 'draft' };
@@ -105,12 +106,29 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
               <td><input type="datetime-local" data-sec-open value="${own(sec, 'opensAt')}" aria-label="Section ${esc(sec)} opens"></td>
               <td><input type="datetime-local" data-sec-close value="${own(sec, 'closesAt')}" aria-label="Section ${esc(sec)} closes"></td></tr>`).join('')}</tbody>
           </table></div>
-          <p class="muted small">Students in other sections don't see this exam and can't open it. The time limit and extra time are the same for every section.</p>
+          <p class="muted small">Students in other sections don't see this exam and can't open it.</p>
+          <details class="sec-rules" ${secs.some((sec) => Object.keys(sectionRules(wins?.[sec])).length || secCodes[sec]) ? 'open' : ''}>
+            <summary><strong>Different rules for a section</strong> <span class="muted small">(optional: for example a longer time for one section, its own access code, or Safe Exam Browser for one room only)</span></summary>
+            <div class="table-wrap"><table class="sec-table sec-rules-table">
+              <thead><tr><th scope="col">Section</th><th scope="col">Time limit (min)</th><th scope="col">Access code</th><th scope="col">Safe Exam Browser</th><th scope="col">Leaving the exam</th><th scope="col">Phones</th></tr></thead>
+              <tbody>${secs.map((sec) => { const r = sectionRules(wins?.[sec]); const codeMode = secCodes[sec] ? 'own' : r.requireCode === false ? 'none' : 'same'; const yn = (k, yes, no) => `<option value="" ${r[k] == null ? 'selected' : ''}>Same</option><option value="yes" ${r[k] === true ? 'selected' : ''}>${yes}</option><option value="no" ${r[k] === false ? 'selected' : ''}>${no}</option>`; return `<tr data-rule-row="${esc(sec)}">
+                <th scope="row">Section ${esc(sec)}</th>
+                <td><input type="number" min="1" max="600" step="1" data-r-dur value="${esc(r.durationMin ?? '')}" placeholder="same" aria-label="Section ${esc(sec)} time limit in minutes"></td>
+                <td><select data-r-codemode aria-label="Section ${esc(sec)} access code"><option value="same" ${codeMode === 'same' ? 'selected' : ''}>Same</option><option value="own" ${codeMode === 'own' ? 'selected' : ''}>Its own code</option><option value="none" ${codeMode === 'none' ? 'selected' : ''}>No code</option></select>
+                  <input data-r-code value="${esc(secCodes[sec] || newAccessCode())}" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Section ${esc(sec)} code" ${codeMode === 'own' ? '' : 'hidden'}></td>
+                <td><select data-r-seb aria-label="Section ${esc(sec)} Safe Exam Browser">${yn('requireSEB', 'Required', 'Not required')}</select></td>
+                <td><select data-r-warn aria-label="Section ${esc(sec)} leaving the exam"><option value="" ${r.warnings == null ? 'selected' : ''}>Same</option>${[[0, 'End at once'], [1, '1 warning'], [2, '2 warnings'], [3, '3 warnings']].map(([v, l]) => `<option value="${v}" ${r.warnings === v ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+                <td><select data-r-phone aria-label="Section ${esc(sec)} phones">${yn('allowPhones', 'Allowed', 'Not allowed')}</select></td></tr>`; }).join('')}</tbody>
+            </table></div>
+            <p class="muted small"><strong>Same</strong> uses the exam's rule (time limit in step 2, the rest in step 5). Only ticked sections take the exam. A section's own time limit and access code are checked by Firebase, like the others. Extra time for a student is added on top of their section's limit.</p>
+          </details>
           ${noSection ? `<p class="ok small">${icon('note')} ${plural(noSection, 'student')} on the roster ${noSection === 1 ? 'has' : 'have'} no section, so ${noSection === 1 ? 'that student' : 'they'} won't get this exam. Set their section on the Class dashboard first.</p>` : ''}
         </div>
       </fieldset>`;
   }
+  let newSecCodes = {};
   function readWho(opensAt, closesAt, problems) {
+    newSecCodes = {};
     if (form.querySelector('input[name=who]:checked')?.value !== 'sections') return null;
     const windows = {};
     for (const row of form.querySelectorAll('[data-sec-row]')) {
@@ -119,6 +137,21 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       const o = fromLocalInput(row.querySelector('[data-sec-open]').value) || opensAt, c = fromLocalInput(row.querySelector('[data-sec-close]').value) || closesAt;
       if (o && c && c <= o) problems.push(`Section ${sec}: Closes must be after Opens.`);
       windows[sec] = { opensAt: o, closesAt: c };
+      const rr = form.querySelector(`[data-rule-row="${CSS.escape(sec)}"]`);
+      if (rr) {
+        const dur = rr.querySelector('[data-r-dur]').value.trim();
+        if (dur) { const n = Math.round(Number(dur)); if (!(n >= 1 && n <= 600)) problems.push(`Section ${sec}: the time limit must be between 1 and 600 minutes.`); else windows[sec].durationMin = n; }
+        const mode = rr.querySelector('[data-r-codemode]').value;
+        if (mode === 'own') {
+          const cd = normCode(rr.querySelector('[data-r-code]').value);
+          if (cd.length < 4) problems.push(`Section ${sec}: its access code needs at least 4 letters or numbers.`);
+          windows[sec].requireCode = true; newSecCodes[sec] = cd;
+        } else if (mode === 'none') windows[sec].requireCode = false;
+        const yn = (sel) => (sel === 'yes' ? true : sel === 'no' ? false : null);
+        const seb = yn(rr.querySelector('[data-r-seb]').value); if (seb != null) windows[sec].requireSEB = seb;
+        const ph = yn(rr.querySelector('[data-r-phone]').value); if (ph != null) windows[sec].allowPhones = ph;
+        const wv = rr.querySelector('[data-r-warn]').value; if (wv !== '') windows[sec].warnings = Number(wv);
+      }
     }
     if (!Object.keys(windows).length) problems.push('Tick at least one section (or choose Everyone in the class).');
     return windows;
@@ -141,6 +174,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
           <label class="field"><span>Time limit (minutes)</span><input type="number" name="durationMin" min="1" max="600" step="1" value="${esc(t.durationMin)}" required></label>
         </div>
         <p class="muted small">Students can start any time between Opens and Closes. Each student's clock starts when they press Start and never runs past Closes. Times use Firebase's clock, not the student's computer.</p>
+        <p class="time-fit small" data-time-fit aria-live="polite"></p>
       </fieldset>
       ${whoFieldset()}
       <fieldset ${attemptsExist ? 'disabled' : ''}><legend>4. Questions</legend>
@@ -187,9 +221,24 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     ${host ? '' : '</section>'}`;
   const form = root.querySelector('[data-editor]');
   form.querySelector('[data-newcode]').addEventListener('click', () => { form.querySelector('[name=accessCode]').value = newAccessCode(); });
+  // say plainly when Closes cuts the time limit short (a student who starts late gets less time)
+  const hmm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  function timeFit() {
+    const el = form.querySelector('[data-time-fit]'); if (!el) return;
+    const o = fromLocalInput(form.elements.opensAt.value), c = fromLocalInput(form.elements.closesAt.value), d = Number(form.elements.durationMin.value) || 0;
+    if (!o || !c || !d || c <= o) { el.textContent = ''; el.className = 'time-fit small'; return; }
+    const lastFull = c - d * 60000, win = Math.round((c - o) / 60000);
+    if (lastFull < o) { el.className = 'time-fit small bad'; el.innerHTML = `<strong>Nobody gets the full ${d} minutes:</strong> the exam is open for only ${win} minutes. Make Closes later, or the time limit shorter.`; return; }
+    el.className = 'time-fit small ' + (lastFull - o < 10 * 60000 ? 'warn' : 'good');
+    el.innerHTML = `Students who press Start by <strong>${hmm(lastFull)}</strong> get the full ${d} minutes. Anyone starting later has only until ${hmm(c)}.${lastFull - o < 10 * 60000 ? ' For an exam in class, close it 10 to 15 minutes later so late starters still get the full time.' : ''}`;
+  }
+  form.addEventListener('input', (ev) => { if (['opensAt', 'closesAt', 'durationMin'].includes(ev.target.name)) timeFit(); });
+  timeFit();
   form.addEventListener('change', (ev) => {
+    if (['opensAt', 'closesAt', 'durationMin'].includes(ev.target.name)) timeFit();
     if (ev.target.name === 'requireCode') form.querySelector('[data-code-set]').hidden = !ev.target.checked;
     if (ev.target.name === 'who') form.querySelector('[data-secs]').hidden = ev.target.value !== 'sections';
+    if (ev.target.matches('[data-r-codemode]')) { const inp = ev.target.parentElement.querySelector('[data-r-code]'); inp.hidden = ev.target.value !== 'own'; if (!inp.hidden) inp.focus(); }
     // typing a section's own time ticks that section
     if (ev.target.matches('[data-sec-open],[data-sec-close]') && ev.target.value) ev.target.closest('tr').querySelector('[data-sec-on]').checked = true;
   });
@@ -338,13 +387,15 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on', aiNotice: f.get('aiNotice') === 'on',
       warnings: Math.max(0, Math.min(3, Number(f.get('warnings')) || 0)), awayMaxSec: [5, 10, 15, 30].includes(Number(f.get('awayMaxSec'))) ? Number(f.get('awayMaxSec')) : 15,
       questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
-      status, released: !!t.released, createdAt: t.createdAt || null, createdBy: t.createdBy || null,
+      status, disabled: !!t.disabled, released: !!t.released, createdAt: t.createdAt || null, createdBy: t.createdBy || null,
     };
     if (!test.createdAt) { delete test.createdAt; delete test.createdBy; }
     const btns = form.querySelectorAll('button[type=submit]'); btns.forEach((b) => (b.disabled = true));
     try {
       const id = await cloud.saveTimed(cls.id, existing?.id || null, test, state.filesChanged || !existing ? { questions: state.key || {} } : null, ex.list);
-      if (test.requireCode && code !== accessCode) await cloud.setAccessCode(cls.id, id, code);
+      const wantCode = test.requireCode ? code : accessCode;
+      const sameCodes = wantCode === accessCode && JSON.stringify(Object.entries(newSecCodes).sort()) === JSON.stringify(Object.entries(secCodes || {}).sort());
+      if (!sameCodes && (test.requireCode || Object.keys(newSecCodes).length || Object.keys(secCodes || {}).length)) await cloud.setAccessCodes(cls.id, id, { code: wantCode, sections: newSecCodes });
       toast(status === 'published' ? (windows ? `${title} is published for ${plural(Object.keys(windows).length, 'section')}.` : `${title} is published. Students can start at ${when(opensAt)}.`) : `${title} saved as a draft`, 'good');
       window.removeEventListener('dragover', stray); window.removeEventListener('drop', stray);
       if (onSaved) onSaved(); else location.hash = `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(id)}`;
@@ -360,10 +411,13 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
 async function examPage(main, cls, tid, query) {
   let test = await cloud.getTimed(cls.id, tid).catch(() => null);
   if (!test) { main.innerHTML = `<section class="page"><h1>Exam not found</h1><p><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">Back to graded work</a></p></section>`; return; }
-  const phaseNow = () => examPhase({ ...test, ...overallWindow(test) });
+  const phaseNow = () => examPhase({ ...test, ...overallWindow(test) }, cloud.trueNow());
   let tab = ['live', 'results', 'settings'].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' ? 'settings' : 'live';
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
-  let accessCode = test.requireCode ? await cloud.getAccessCode(cls.id, tid).catch(() => '') : '';
+  let codes = await cloud.getAccessCodes(cls.id, tid).catch(() => ({ code: '', sections: {} }));
+  let accessCode = codes.code;
+  const codedSections = () => Object.entries(test.windows || {}).filter(([sec, w]) => (w.requireCode ?? test.requireCode) === true).map(([sec]) => sec)
+    .filter((sec) => !mySecs || mySecs.includes(sec)).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
   const mySecs = (() => { const c = cloud.myClasses().find((x) => x.id === cls.id); return c?.role === 'ta' && !cloud.isAdmin() ? (c.sections?.length ? c.sections : String(c.section || '').split(',').map((s) => s.trim()).filter(Boolean)) : null; })();
 
   main.innerHTML = `
@@ -373,8 +427,11 @@ async function examPage(main, cls, tid, query) {
       <p class="muted" data-sub></p>
       <div class="row wrap timed-links">
         <button class="btn" data-copy-link>${icon('link')} Copy the student link</button>
+        <button class="btn" data-seb-file>${icon('download')} Safe Exam Browser file</button>
         <a class="btn" href="#/take/${encodeURIComponent(cls.id)}/${encodeURIComponent(tid)}?preview=1">${icon('eye')} Try it as a student</a>
+        <button class="btn" data-toggle-off hidden></button>
       </div>
+      <p class="off-note" data-off-note hidden>${icon('lock')} <span><strong>Turned off.</strong> Students can't see this ${esc(KINDS[kindOf(test)].label.toLowerCase())} or start it. Anyone who was already working on it can still finish. Turn it on again any time.</span></p>
       <div class="dash-tabs" role="tablist" aria-label="Exam">${[['live', 'Live'], ['results', 'Results & grading'], ['settings', 'Settings']].map(([k, l]) => `<button role="tab" data-xtab="${k}" id="xtab-${k}" aria-controls="xpanel" aria-selected="${tab === k}" tabindex="${tab === k ? 0 : -1}">${l}</button>`).join('')}</div>
       <div id="xpanel" role="tabpanel" data-panel aria-labelledby="xtab-${tab}"></div>
     </section>`;
@@ -382,9 +439,13 @@ async function examPage(main, cls, tid, query) {
   const head = () => {
     const ph = phaseNow();
     main.querySelector('[data-title]').textContent = test.title;
-    main.querySelector('[data-phase]').innerHTML = `<span class="kind-badge kind-${kindOf(test)}">${KINDS[kindOf(test)].label}</span> <span class="phase phase-${ph}">${PHASE_LABEL[ph]}${test.released ? ' · scores released' : ''}</span>`;
+    main.querySelector('[data-phase]').innerHTML = `<span class="kind-badge kind-${kindOf(test)}">${KINDS[kindOf(test)].label}</span> <span class="phase phase-${test.disabled ? 'off' : ph}">${test.disabled ? 'Turned off' : PHASE_LABEL[ph]}${test.released ? ' · scores released' : ''}</span>`;
+    const offBtn = main.querySelector('[data-toggle-off]');
+    if (offBtn) { offBtn.innerHTML = test.disabled ? `${icon('play')} Turn on` : `${icon('lock')} Turn off`; offBtn.classList.toggle('primary', !!test.disabled); offBtn.hidden = test.status !== 'published'; }
+    const offNote = main.querySelector('[data-off-note]');
+    if (offNote) offNote.hidden = !test.disabled;
     const span = overallWindow(test);
-    main.querySelector('[data-sub]').textContent = `${whoText(test) ? whoText(test) + ' · ' : ''}${when(span.opensAt)} → ${when(span.closesAt)} · ${test.durationMin} minutes · ${plural((test.questions || []).length, 'question')} · ${r1(test.totalPoints)} points${test.requireSEB ? ' · Safe Exam Browser required' : ''}`;
+    main.querySelector('[data-sub]').textContent = `${whoText(test) ? whoText(test) + ' · ' : ''}${when(span.opensAt)} → ${when(span.closesAt)} · ${test.durationMin} minutes · ${plural((test.questions || []).length, 'question')} · ${r1(test.totalPoints)} points${test.requireSEB ? ' · Safe Exam Browser required' : ''}${Object.values(test.windows || {}).some((w) => Object.keys(sectionRules(w)).length) ? ' · some sections have their own rules' : ''}`;
   };
   head();
 
@@ -396,7 +457,7 @@ async function examPage(main, cls, tid, query) {
   }
   // one row per roster student (plus anyone with an attempt who isn't on the roster any more)
   function rowsNow() {
-    const now = Date.now();
+    const now = cloud.trueNow();
     const byEmail = new Map(attempts.map((a) => [String(a.email).toLowerCase(), a]));
     const list = students().map((p) => ({ p, a: byEmail.get(String(p.email).toLowerCase()) || null }));
     for (const a of attempts) if (!list.some((r) => r.a === a) && !mySecs) list.push({ p: { email: a.email, name: a.name || a.email, section: '' }, a, offRoster: true });
@@ -405,13 +466,13 @@ async function examPage(main, cls, tid, query) {
   function attemptState(a, now, p = {}) {
     const win = windowFor(test, p.section) || overallWindow(test);
     if (!a) return { st: 'none', label: now < win.opensAt ? `Opens ${when(win.opensAt)}` : now >= win.closesAt ? "Didn't take it" : 'Not started', win };
-    const dl = attemptDeadline({ ...test, closesAt: win.closesAt }, a);
+    const dl = attemptDeadline({ ...test, ...win }, a);
     const exits = (a.events || []).filter((e) => LEAVES.includes(e.type));
     const evs = a.events || [], fromReopen = evs.slice(evs.map((e) => e.type).lastIndexOf('reopened') + 1);
     const warns = fromReopen.filter((e) => e.warning).length;
     const awaySec = Math.round(evs.reduce((n, e) => n + (Number(e.awayMs) || 0), 0) / 1000);
     const answeredN = (test.questions || []).filter((q) => answered(q, a.answers?.[q.id])).length;
-    const base = { deadline: dl, exits, warns, awaySec, answeredN, beat: ms(a.beatAt) };
+    const base = { deadline: dl, exits, warns, awaySec, answeredN, beat: ms(a.beatAt), win };
     if (a.status === 'submitted') return { ...base, st: 'submitted', label: a.endedReason === 'time-up' ? 'Time ran out (submitted)' : 'Submitted' };
     if (a.status === 'ended') return { ...base, st: 'ended', label: 'Ended: ' + (EXIT_LABEL[a.endedReason] || a.endedReason || 'left the exam') };
     if (now > dl + 30000) return { ...base, st: 'timeup', label: 'Time up (last save kept)' };
@@ -422,11 +483,11 @@ async function examPage(main, cls, tid, query) {
   // ------------------------------------------------ Live
   const FILTERS = { all: () => true, none: (r) => r.st === 'none', working: (r) => r.st === 'working', submitted: (r) => r.st === 'submitted' || r.st === 'timeup', ended: (r) => r.st === 'ended', lost: (r) => r.st === 'lost', exits: (r) => (r.exits || []).length > 0 };
   // the code, huge, for the projector (Esc or click to close)
-  function showCodeBig() {
+  function showCodeBig(code = accessCode, label = '') {
     const el = document.createElement('div');
     el.className = 'code-projector';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Access code');
-    el.innerHTML = `<p class="code-proj-title">${esc(test.title)}</p><p class="code-proj-label">Access code</p><p class="code-proj-code">${esc(accessCode)}</p>
+    el.innerHTML = `<p class="code-proj-title">${esc(test.title)}</p><p class="code-proj-label">Access code${label ? ' · ' + esc(label) : ''}</p><p class="code-proj-code">${esc(code)}</p>
       <p class="code-proj-help">Open the exam on your class page, type this code, and press Start.</p><button class="btn" data-close-proj>Close</button>`;
     document.body.appendChild(el);
     const close = () => { el.remove(); document.removeEventListener('keydown', onKey); main.querySelector('[data-showcode]')?.focus(); };
@@ -443,13 +504,20 @@ async function examPage(main, cls, tid, query) {
     const shown = rows.filter(FILTERS[filter]).filter((r) => !q || `${r.p.name} ${r.p.email} ${r.p.redId || ''}`.toLowerCase().includes(q))
       .sort((x, y) => ['lost', 'ended', 'working', 'timeup', 'submitted', 'none'].indexOf(x.st) - ['lost', 'ended', 'working', 'timeup', 'submitted', 'none'].indexOf(y.st) || String(x.p.name || '').localeCompare(String(y.p.name || '')));
     const secs = [...new Set(students().flatMap((p) => String(p.section || '').split(',').map((s) => s.trim()).filter(Boolean)))].sort();
-    const now = Date.now();
+    const now = cloud.trueNow();
     const cards = [['all', 'Everyone', ''], ['none', 'Not started', ''], ['working', 'Working now', 'good'], ['submitted', 'Submitted', 'good'], ['ended', 'Ended by leaving', 'bad'], ['lost', 'No contact 5+ min', 'warn'], ['exits', 'Any exit recorded', 'warn']];
-    const codeBox = test.requireCode ? `
-      <div class="code-box">
-        <div><p class="eyebrow">Access code</p><p class="code-big" data-code-text>${esc(accessCode || '(not set)')}</p>
-          <p class="muted small">Show it in the room when students may start. Students who have already started don't need it again.</p></div>
-        <div class="row wrap"><button class="btn primary" data-showcode>${icon('eye')} Show on projector</button><button class="btn" data-newaccess>${icon('shuffle')} New code</button></div>
+    // one code for the exam, or each section's own code (a section without its own uses the exam's)
+    const secList = test.windows ? codedSections() : [];
+    const codeRows = test.windows
+      ? secList.map((sec) => ({ sec, code: codes.sections[sec] || accessCode, own: !!codes.sections[sec] }))
+      : test.requireCode ? [{ sec: '', code: accessCode, own: false }] : [];
+    const codeBox = codeRows.length ? `
+      <div class="code-box ${codeRows.length > 1 ? 'multi' : ''}">
+        ${codeRows.map((r) => `<div class="code-row">
+          <div><p class="eyebrow">Access code${r.sec ? ` · section ${esc(r.sec)}` : ''}</p><p class="code-big" data-code-text>${esc(r.code || '(not set)')}</p></div>
+          <div class="row wrap"><button class="btn primary" data-showcode="${esc(r.sec)}">${icon('eye')} Show on projector</button><button class="btn" data-newaccess="${esc(r.own ? r.sec : '')}">${icon('shuffle')} New code</button></div>
+        </div>`).join('')}
+        <p class="muted small">Show it in the room when students may start. Students who have already started don't need it again.${codeRows.length > 1 && codeRows.some((r) => !r.own) ? ' Sections without their own code share the exam\'s code, so a new code changes it for all of them.' : ''}</p>
       </div>` : '';
     return `${codeBox}
       <div class="row between wrap live-bar">
@@ -470,7 +538,7 @@ async function examPage(main, cls, tid, query) {
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
             <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
-            <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}</td>
+            <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${new Date(r.win.closesAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
             <td data-label="Answered">${a ? `${r.answeredN} of ${(test.questions || []).length}` : '–'}</td>
             <td data-label="Exits">${r.exits?.length ? `<span class="bad">${Number(test.warnings) > 0 ? `${r.warns} of ${test.warnings} warnings` : r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}${r.awaySec ? ` · away ${r.awaySec}s in all` : ''}</span>` : a ? '0' : '–'}</td>
@@ -481,7 +549,7 @@ async function examPage(main, cls, tid, query) {
       </table></div>`;
   }
   function tickClocks() {
-    const now = Date.now();
+    const now = cloud.trueNow();
     panel.querySelectorAll('[data-left]').forEach((el) => { el.textContent = mmss(Number(el.dataset.left) - now); });
   }
 
@@ -714,10 +782,10 @@ async function examPage(main, cls, tid, query) {
     const m = modal({
       title: `Let ${a.name || a.email} back in?`,
       body: `<p>They can continue their same attempt with the answers they saved. Their clock doesn't stop: it still counts from when they started, so add minutes if they lost time.</p>
-        <label class="field inline"><span>Extra minutes</span><input type="number" min="0" max="300" value="${Math.max(0, Math.ceil((Date.now() - attemptDeadline({ ...test, closesAt: win.closesAt }, a)) / 60000) + 5) || 0}" data-add></label>`,
+        <label class="field inline"><span>Extra minutes</span><input type="number" min="0" max="300" value="${Math.max(0, Math.ceil((cloud.trueNow() - attemptDeadline({ ...test, ...win }, a)) / 60000) + 5) || 0}" data-add></label>`,
       actions: [{ label: 'Cancel' }, { label: 'Let back in', kind: 'primary', onClick: (close) => {
         const add = Math.max(0, Math.round(Number(m.el.querySelector('[data-add]').value) || 0));
-        cloud.staffAttempt(cls.id, aid, { status: 'open', session: '', endedReason: '', submittedAt: null, extraMin: (Number(a.extraMin) || 0) + add, reopened: (a.reopened || 0) + 1, events: [...(a.events || []), { t: Date.now(), type: 'reopened', by: cloud.currentUser()?.email || '', add }] }, { now: true })
+        cloud.staffAttempt(cls.id, aid, { status: 'open', session: '', endedReason: '', submittedAt: null, extraMin: (Number(a.extraMin) || 0) + add, reopened: (a.reopened || 0) + 1, events: [...(a.events || []), { t: cloud.trueNow(), type: 'reopened', by: cloud.currentUser()?.email || '', add }] }, { now: true })
           .then(() => { toast(`${a.name || a.email} can sign in and continue`, 'good'); refresh(); }).catch((e) => toast("Couldn't: " + (e?.message || e), 'bad'));
         close(); return true;
       } }],
@@ -731,7 +799,7 @@ async function examPage(main, cls, tid, query) {
       body: '<label class="field inline"><span>Minutes to add</span><input type="number" min="1" max="300" value="10" data-add></label><p class="muted small">Their exam picks this up within about 2 minutes.</p>',
       actions: [{ label: 'Cancel' }, { label: 'Add time', kind: 'primary', onClick: (close) => {
         const add = Math.max(1, Math.round(Number(m.el.querySelector('[data-add]').value) || 0));
-        cloud.staffAttempt(cls.id, aid, { extraMin: (Number(a.extraMin) || 0) + add, events: [...(a.events || []), { t: Date.now(), type: 'time-added', by: cloud.currentUser()?.email || '', add }] })
+        cloud.staffAttempt(cls.id, aid, { extraMin: (Number(a.extraMin) || 0) + add, events: [...(a.events || []), { t: cloud.trueNow(), type: 'time-added', by: cloud.currentUser()?.email || '', add }] })
           .then(() => { toast(`${add} minutes added`, 'good'); refresh(); }).catch((e) => toast("Couldn't: " + (e?.message || e), 'bad'));
         close(); return true;
       } }],
@@ -740,7 +808,7 @@ async function examPage(main, cls, tid, query) {
   async function endNow(aid) {
     const a = attempts.find((x) => x.id === aid);
     if (!a || !(await confirmDialog({ title: `End ${a.name || a.email}'s exam now?`, body: '<p>Their saved answers are kept and graded. You can let them back in later.</p>', confirm: 'End exam', danger: true }))) return;
-    await cloud.staffAttempt(cls.id, aid, { status: 'ended', endedReason: 'professor-ended', submittedAt: 'now', events: [...(a.events || []), { t: Date.now(), type: 'professor-ended', by: cloud.currentUser()?.email || '' }] }).catch((e) => toast("Couldn't: " + (e?.message || e), 'bad'));
+    await cloud.staffAttempt(cls.id, aid, { status: 'ended', endedReason: 'professor-ended', submittedAt: 'now', events: [...(a.events || []), { t: cloud.trueNow(), type: 'professor-ended', by: cloud.currentUser()?.email || '' }] }).catch((e) => toast("Couldn't: " + (e?.message || e), 'bad'));
     refresh();
   }
 
@@ -777,6 +845,40 @@ async function examPage(main, cls, tid, query) {
   }
   tick = setInterval(tickClocks, 1000);
 
+  // The .seb file: double-clicking it opens this exam in Safe Exam Browser with the right settings
+  function sebFileDialog() {
+    const startURL = `${location.origin}${location.pathname}#/take/${encodeURIComponent(cls.id)}/${encodeURIComponent(tid)}`;
+    const quitURL = `${location.origin}${location.pathname.replace(/[^/]*$/, '')}seb-quit.html`;
+    const pw = newAccessCode();
+    const m = modal({
+      title: 'Safe Exam Browser file',
+      body: `<form data-seb-form novalidate>
+        <p>Students double-click this file. Safe Exam Browser opens, locks the computer (no screenshots, Print Screen, other apps or switching) and goes straight to <strong>${esc(test.title)}</strong>.</p>
+        ${test.requireSEB ? '' : '<p class="bad small"><strong>This exam doesn\'t require Safe Exam Browser yet</strong>, so students could still use a normal browser. Tick <strong>Require Safe Exam Browser</strong> on the Settings tab.</p>'}
+        <label class="field"><span>Quit password (for the proctor)</span><input name="pw" value="${esc(pw)}" maxlength="40" autocomplete="off" spellcheck="false"></label>
+        <p class="muted small">Write it down. It's only needed if a student must leave before submitting (a frozen computer). After submitting, students close Safe Exam Browser with the <strong>Quit Safe Exam Browser</strong> button. Leave it empty for no password (iPads need one).</p>
+        <p class="bad small" data-seb-err role="alert"></p>
+        <div class="row"><button class="btn primary" type="submit">${icon('download')} Download the .seb file</button><button class="btn" type="button" data-seb-cancel>Cancel</button></div>
+        <p class="muted small">Post it on Canvas with the student handout. Make a new file for each exam. Try it yourself with a test student first.</p>
+      </form>`,
+    });
+    const f = m.el.querySelector('form');
+    m.el.querySelector('[data-seb-cancel]').onclick = () => m.close();
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      try {
+        const blob = await makeSebFile({ startURL, quitURL, quitPassword: f.elements.pw.value.trim() });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${(test.title || 'exam').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'exam'}.seb`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        m.close();
+        toast('Downloaded. Students double-click it to open the exam in Safe Exam Browser.', 'good');
+      } catch (err) { f.querySelector('[data-seb-err]').textContent = err?.message || String(err); btn.disabled = false; }
+    });
+  }
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.xtab) { tab = b.dataset.xtab; history.replaceState(null, '', `#/timed/${encodeURIComponent(cls.id)}/${encodeURIComponent(tid)}?tab=${tab}`); showTab(); return; }
@@ -785,14 +887,30 @@ async function examPage(main, cls, tid, query) {
       try { await navigator.clipboard.writeText(url); toast('Link copied. Students also find the exam on their class page.', 'good'); } catch { modal({ title: 'Student link', body: `<p><input class="wide-input" readonly value="${esc(url)}" onfocus="this.select()"></p>` }); }
       return;
     }
+    if ('sebFile' in b.dataset) { sebFileDialog(); return; }
+    if ('toggleOff' in b.dataset) {
+      const off = !test.disabled, what = KINDS[kindOf(test)].label.toLowerCase();
+      if (off) attempts = await cloud.listAttempts(cls.id, tid).catch(() => attempts);
+      const working = attempts.filter((a) => a.status === 'open').length;
+      const ok = await confirmDialog(off
+        ? { title: `Turn off ${test.title}?`, body: `<p>Students won't see this ${what} on their class page and can't start it.${working ? ` <strong>${plural(working, 'student')} ${working === 1 ? 'is' : 'are'} working on it now</strong> and can still finish (use End on the Live tab to stop them).` : ''}</p><p class="muted small">Nothing is deleted. Turn it on again any time.</p>`, confirm: 'Turn off', danger: true }
+        : { title: `Turn on ${test.title}?`, body: `<p>Students see it again on their class page and can start it at its times.</p>`, confirm: 'Turn on' });
+      if (!ok) return;
+      b.disabled = true;
+      try { await cloud.setTimedDisabled(cls.id, tid, off); test = { ...test, disabled: off }; paint(); toast(off ? `${test.title} is turned off` : `${test.title} is on again`, 'good'); }
+      catch (e) { toast("Couldn't change it: " + (e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e), 'bad'); }
+      b.disabled = false;
+      return;
+    }
     if (b.dataset.lf) { filter = filter === b.dataset.lf ? 'all' : b.dataset.lf; paint(); return; }
     if ('refresh' in b.dataset) { b.disabled = true; await refresh(); return; }
-    if ('showcode' in b.dataset) { showCodeBig(); return; }
+    if ('showcode' in b.dataset) { const sec = b.dataset.showcode; showCodeBig(sec ? codes.sections[sec] || accessCode : accessCode, sec ? `section ${sec}` : ''); return; }
     if ('newaccess' in b.dataset) {
       const ok = await confirmDialog({ title: 'Make a new access code?', body: '<p>The old code stops working straight away. Students who have already started keep going; anyone who hasn\'t started yet needs the new code.</p><p class="muted small">Useful if the code may have been shared outside the room.</p>', confirm: 'New code' });
       if (!ok) return;
-      const code = newAccessCode();
-      try { await cloud.setAccessCode(cls.id, tid, code); accessCode = code; paint(); toast(`New access code: ${code}`, 'good'); }
+      const code = newAccessCode(), sec = b.dataset.newaccess;
+      const next = sec ? { code: accessCode, sections: { ...codes.sections, [sec]: code } } : { code, sections: { ...codes.sections } };
+      try { await cloud.setAccessCodes(cls.id, tid, next); codes = next; accessCode = next.code; paint(); toast(`New access code${sec ? ` for section ${sec}` : ''}: ${code}`, 'good'); }
       catch (e) { toast("Couldn't change the code: " + (e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e), 'bad'); }
       return;
     }

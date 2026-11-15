@@ -23,6 +23,7 @@ import config from '../config.js';
 import * as store from './store.js';
 import { getExam, getManifest, setCloudProvider, refreshManifest } from './data.js';
 import { readiness, topicMastery } from './engine.js';
+import { sectionRules } from './timed.js';
 
 const fbc = config.firebase || {};
 export const enabled = !!(fbc.apiKey && fbc.projectId);
@@ -961,8 +962,8 @@ async function runOps(ops) {
 const tdoc = (classId, kind, id) => fb.doc(fb.db, 'classes', classId, kind, id);
 const toTs = (v) => (v == null ? null : fb.Timestamp.fromMillis(typeof v === 'number' ? v : Date.parse(v)));
 const plainMs = (v) => (v == null ? null : typeof v === 'number' ? v : typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v));
-const plainWindows = (w) => (w && Object.keys(w).length ? Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { opensAt: plainMs(v.opensAt), closesAt: plainMs(v.closesAt) }])) : null);
-const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', requireCode: !!t.requireCode, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, released: !!t.released, requireSEB: !!t.requireSEB, points: t.totalPoints || 0 });
+const plainWindows = (w) => (w && Object.keys(w).length ? Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { ...sectionRules(v), opensAt: plainMs(v.opensAt), closesAt: plainMs(v.closesAt) }])) : null);
+const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', requireCode: !!t.requireCode, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, disabled: !!t.disabled, released: !!t.released, requireSEB: !!t.requireSEB, allowPhones: !!t.allowPhones, points: t.totalPoints || 0 });
 
 export async function listTimed(classId) {
   await load();
@@ -992,7 +993,7 @@ export async function saveTimed(classId, tid, test, key, extra = null) {
   const clean = JSON.parse(JSON.stringify({ ...test, opensAt: plainMs(test.opensAt), closesAt: plainMs(test.closesAt), windows: plainWindows(test.windows) })); // Firestore refuses undefined values
   const data = { ...clean, opensAt: toTs(clean.opensAt), closesAt: toTs(clean.closesAt), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() };
   // only some sections: each section's own times (the security rules check these)
-  if (clean.windows) data.windows = Object.fromEntries(Object.entries(clean.windows).map(([k, v]) => [k, { opensAt: toTs(v.opensAt), closesAt: toTs(v.closesAt) }]));
+  if (clean.windows) data.windows = Object.fromEntries(Object.entries(clean.windows).map(([k, v]) => [k, { ...sectionRules(v), opensAt: toTs(v.opensAt), closesAt: toTs(v.closesAt) }]));
   else delete data.windows;
   if (!data.createdAt) { data.createdAt = Date.now(); data.createdBy = user.email.toLowerCase(); }
   const b = fb.writeBatch(fb.db);
@@ -1018,15 +1019,27 @@ export async function setTimedReleased(classId, tid, released) {
   b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary({ ...t, released }) }, updatedAt: Date.now() }, { merge: true });
   await b.commit();
 }
-// The access code students type to start (staff only; the security rules compare it on start)
-export async function getAccessCode(classId, tid) {
+// Turn an exam off (students can't see or start it; anyone already working can finish) or back on
+export async function setTimedDisabled(classId, tid, disabled) {
+  await load();
+  const t = await getTimed(classId, tid);
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'tests', tid), { disabled: !!disabled }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary({ ...t, disabled: !!disabled }) }, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+}
+// The access code students type to start (staff only; the security rules compare it on start).
+// sections: { "<section>": "<code>" } for sections with their own code.
+export async function getAccessCodes(classId, tid) {
   await load();
   const snap = await fb.getDoc(tdoc(classId, 'testCodes', tid));
-  return snap.exists() ? String(snap.data().code || '') : '';
+  const d = snap.exists() ? snap.data() : {};
+  return { code: String(d.code || ''), sections: { ...(d.sections || {}) } };
 }
-export async function setAccessCode(classId, tid, code) {
+export async function getAccessCode(classId, tid) { return (await getAccessCodes(classId, tid)).code; }
+export async function setAccessCodes(classId, tid, { code = '', sections = {} }) {
   await load();
-  await fb.setDoc(tdoc(classId, 'testCodes', tid), { code: String(code), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+  await fb.setDoc(tdoc(classId, 'testCodes', tid), { code: String(code), sections: { ...sections }, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
 }
 export async function deleteTimed(classId, tid) {
   await load();
@@ -1063,6 +1076,28 @@ export async function saveTestGrades(classId, list) {
     await b.commit();
   }
 }
+
+// ---- the real time
+// Timers shown to professors and students use the real time, not the computer's own clock (a Mac whose
+// clock is a few minutes off would otherwise show every student a few minutes short). The website's
+// server stamps each reply with the time; whole seconds, so +500 ms is the middle of that second.
+let clockOffset = 0, clockAt = 0;
+export async function syncClock() {
+  if (clockAt && Date.now() - clockAt < 10 * 60000) return clockOffset;
+  try {
+    const t0 = Date.now();
+    const r = await fetch(`${location.pathname}?clock=${t0}`, { method: 'HEAD', cache: 'no-store' });
+    const t1 = Date.now();
+    const d = Date.parse(r.headers.get('Date') || '');
+    if (!Number.isNaN(d) && t1 - t0 < 5000) {
+      const off = d + 500 - (t0 + t1) / 2;
+      clockOffset = Math.abs(off) < 1500 ? 0 : off;
+      clockAt = t1;
+    }
+  } catch {}
+  return clockOffset;
+}
+export const trueNow = () => Date.now() + clockOffset;
 
 // ---- student side
 // Read the exam (only works once it has opened) and this student's attempt, if any.
