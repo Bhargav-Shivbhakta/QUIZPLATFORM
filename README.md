@@ -352,6 +352,21 @@ units under "Study by unit". A unit opens on its first day: the page is stored i
 carries titles and dates. Instructors and TAs can preview any unit. Units are created when a unit
 is published from Build my course.
 
+## 4f. My study (students) and the instructor's switches
+
+`#/mystudy/<class>` gives each student, from their own practice results: up to three things to do
+today (mistakes first, then what is due, then this week's unit), a mistake notebook, a plan for
+the week (3, 4 or 5 days, with a timed run-through the day before graded work) and a readiness
+estimate. The rules are in `app/js/studyplan.js`; no AI is involved.
+
+**Ask the tutor** copies a set-up for the student to paste into their own AI (for example the
+university's ChatGPT): coach, don't solve; use only this unit's notes. It is off until the
+instructor turns it on, and hidden while a quiz or exam is open for the class. The site cannot
+control what the AI then says.
+
+Instructors (not TAs) open the same page as a preview and can switch **My study** and **Ask the
+tutor** on or off for the whole class (`tools` on the class).
+
 ## 5. Checking and previewing on your computer (optional)
 
 This needs [Node.js](https://nodejs.org) 18 or newer.

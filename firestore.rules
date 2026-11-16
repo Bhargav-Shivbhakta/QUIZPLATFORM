@@ -128,7 +128,7 @@ service cloud.firestore {
       allow update: if teaches(classId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'practice']);
       allow update: if leads(classId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice', 'study']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice', 'study', 'tools']);
       allow update: if leads(classId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentCount', 'updatedAt', 'updatedBy']);
 

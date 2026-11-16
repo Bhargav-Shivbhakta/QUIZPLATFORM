@@ -2,6 +2,7 @@
 // A unit opens on its first day (the database refuses it before then); staff can always preview.
 import * as cloud from '../cloud.js';
 import { esc, icon } from '../ui.js';
+import * as store from '../store.js';
 import { md, highlight } from '../render.js';
 import { studyUnits } from './classes.js';
 
@@ -34,6 +35,7 @@ export async function render(main, { classId, unitId }) {
   catch (e) { page(`<h1>Unit ${meta.n}: ${esc(meta.title)}</h1><p>${e?.code === 'permission-denied' ? `This unit opens on <strong>${when(meta.opensAt)}</strong>.` : 'The notes could not be loaded. Check your connection and try again.'}</p><p><a class="btn" href="${home}">Back to the class</a></p>`); return; }
   if (!unit) { page('<h1>Unit not found</h1><p>The notes for this unit were removed.</p>'); return; }
 
+  if (!teacher) store.set(`read:${classId}:${unitId}`, Date.now());      // My study stops asking them to read it
   const i = units.indexOf(meta), prev = units[i - 1], next = units[i + 1];
   const nextOpen = next && (teacher || next.opensAt <= now);
   const canPractise = unit.examId && (teacher || cloud.canSeeExam(unit.examId));

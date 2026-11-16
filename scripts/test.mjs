@@ -754,5 +754,41 @@ console.log('\nMock exams');
   });
 }
 
+// ---- Student study plan
+{
+  const P = await import('../app/js/studyplan.js');
+  console.log('\nStudent study plan');
+  test('today: mistakes first, then what is due, then this week\'s unit; never more than three things', () => {
+    const sets = [{ id: 'c--unit-1', title: 'Unit 1', mistakes: 2, due: 4, questions: 12, seen: 12 }, { id: 'c--unit-2', title: 'Unit 2', mistakes: 5, due: 0, questions: 13, seen: 6 }];
+    const unit = { id: 'unit-2', n: 2, title: 'Loops', read: false, examId: 'c--unit-2' };
+    const t = P.todayTasks({ classId: 'c', sets, unit });
+    assert.deepEqual(t.map((x) => [x.key, x.href]), [['mistakes', '#/start/c--unit-2/mistakes'], ['due', '#/start/c--unit-1/smart'], ['read', '#/study/c/unit-2']]);
+    assert.match(t[0].title, /^Redo 7 questions/); assert.match(t[0].why, /Most are in Unit 2/);
+    const read = P.todayTasks({ classId: 'c', sets: sets.map((x) => ({ ...x, mistakes: 0, due: 0 })), unit: { ...unit, read: true }, answeredToday: 12 });
+    assert.deepEqual(read.map((x) => [x.key, x.done]), [['practice', true]]);
+    assert.deepEqual(P.todayTasks({ classId: 'c', sets: [], unit: null }), []);
+    assert.equal(P.todayTasks({ classId: 'c', sets: [{ id: 'x', title: 'X', mistakes: 0, due: 0, questions: 5, seen: 2 }], unit: null })[0].key, 'new');
+  });
+  test('the week: short sessions on the days chosen, nothing dropped with fewer days, a run-through before an exam', () => {
+    const now = new Date('2027-02-08T10:00:00').getTime(), unit = { n: 3, title: 'While loops' };
+    const days = (plan) => plan.map((p) => new Date(p.date).getDay());
+    const four = P.weekPlan({ now, daysPerWeek: 4, unit, hasAssignment: true, earlier: 2 });
+    assert.deepEqual(days(four), [1, 2, 4, 6]);
+    assert.deepEqual(four.map((p) => p.minutes), [25, 20, 40, 30]);
+    const three = P.weekPlan({ now, daysPerWeek: 3, unit, hasAssignment: true, earlier: 2 });
+    assert.equal(three.length, 3);
+    assert.equal(three.reduce((n, p) => n + p.minutes, 0), four.reduce((n, p) => n + p.minutes, 0));     // the same work, in fewer sittings
+    const exam = P.weekPlan({ now, daysPerWeek: 4, unit, graded: [{ title: 'Midterm', at: new Date('2027-02-12T09:00:00').getTime() }] });
+    const eve = exam.find((p) => p.graded === 'Midterm');
+    assert.equal(new Date(eve.date).getDate(), 11);
+    assert.match(eve.items[0].text, /Timed practice test/); assert.equal(eve.items.length, 1);
+  });
+  test('the tutor set-up tells the AI to coach, not solve, and carries only this unit\'s notes', () => {
+    const p = P.tutorPrompt({ course: 'CS 150', unit: { n: 3, title: 'While loops' }, notes: 'A while loop repeats. ' + 'x'.repeat(20000) });
+    assert.match(p, /Never write the finished answer/); assert.match(p, /taking a quiz or exam right now, stop/); assert.match(p, /You can be wrong/);
+    assert.match(p, /Unit 3: While loops/); assert.ok(p.length < 13500);
+  });
+}
+
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

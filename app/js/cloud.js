@@ -1199,6 +1199,11 @@ export async function getStudyUnit(classId, id) {
   const snap = await fb.getDoc(tdoc(classId, 'study', id));
   return snap.exists() ? { id, ...snap.data() } : null;
 }
+// Which student tools a class has: { myStudy, tutor }. The instructor can switch each one off.
+export async function setClassTools(classId, tools) {
+  await load();
+  await fb.setDoc(fb.doc(fb.db, 'classes', classId), { tools: { myStudy: tools.myStudy !== false, tutor: !!tools.tutor }, updatedAt: Date.now() }, { merge: true });
+}
 export async function listBuilt(classId) {
   await load();
   const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'built'));

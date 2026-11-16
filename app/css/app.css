@@ -2788,3 +2788,28 @@ textarea.mono { font-family: var(--mono); font-size: .92rem; width: 100%; }
 .study-next h2 { margin: 0 0 .3rem; }
 .study-pager { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1.5rem; align-items: center; }
 .study-head { margin-bottom: 1.2rem; }
+
+/* My study (students) */
+.mystudy-link { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 1rem 1.2rem; margin: 1rem 0; border: 2px solid var(--accent); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink); text-decoration: none; font-size: 1.05rem; }
+.mystudy-link > span:first-child { display: grid; gap: .1rem; }
+.mystudy-link:hover { background: var(--surface-2); }
+.today-list { list-style: none; margin: 1rem 0 1.6rem; padding: 0; display: grid; gap: .6rem; counter-reset: td; }
+.today-list li { display: grid; grid-template-columns: 2rem 1fr auto auto; gap: .9rem; align-items: center; padding: .9rem 1rem; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+.today-list li.done { background: var(--surface-2); }
+.today-mark { width: 1.8rem; height: 1.8rem; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; }
+.today-list li.done .today-mark { background: var(--good, var(--ink)); border-color: transparent; color: var(--paper); }
+.today-mark svg { width: 1.1rem; height: 1.1rem; }
+.today-text { display: grid; gap: .15rem; min-width: 0; }
+@media (max-width: 560px) { .today-list li { grid-template-columns: 2rem 1fr; } .today-list li .today-min { grid-column: 2; } .today-list li .btn { grid-column: 1 / -1; justify-content: center; } }
+.mystudy-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+.ms-card { padding: 1.1rem 1.2rem; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface); display: grid; gap: .6rem; align-content: start; }
+.ms-card h2 { margin: 0; font-size: 1.2rem; } .ms-card h3 { margin: .4rem 0 0; font-size: 1rem; } .ms-card p { margin: 0; }
+.ms-rows, .ms-week, .ms-missed, .ms-rules { margin: 0; padding: 0; list-style: none; display: grid; gap: .5rem; }
+.ms-rows li { display: flex; justify-content: space-between; align-items: center; gap: .8rem; }
+.ms-missed li, .ms-rules li { padding-left: 1rem; position: relative; } .ms-missed li::before, .ms-rules li::before { content: "•"; position: absolute; left: 0; }
+.ms-week > li ul { margin: .2rem 0 0; padding-left: 1.2rem; }
+.mystudy .bar { height: .8rem; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.mystudy .bar span { display: block; height: 100%; background: var(--accent); }
+.tool-switches { margin: 1rem 0; padding: 1rem 1.2rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-2); display: grid; gap: .6rem; }
+.tool-switches h2 { margin: 0; font-size: 1.1rem; }
+.ms-foot { margin-top: 1.2rem; }

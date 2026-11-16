@@ -31,6 +31,7 @@ const routes = [
   { re: /^\/analytics$/, view: () => import('./views/analytics.js'), nav: 'instructor' },
   { re: /^\/timed\/([^/]+)$/, keys: ['classId'], view: () => import('./views/timed-admin.js'), nav: 'instructor' },
   { re: /^\/timed\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/timed-admin.js'), nav: 'instructor' },
+  { re: /^\/mystudy\/([^/]+)$/, keys: ['classId'], view: () => import('./views/mystudy.js'), nav: 'home' },
   { re: /^\/study\/([^/]+)$/, keys: ['classId'], view: () => import('./views/study.js'), nav: 'home' },
   { re: /^\/study\/([^/]+)\/([^/]+)$/, keys: ['classId', 'unitId'], view: () => import('./views/study.js'), nav: 'home' },
   { re: /^\/build\/([^/]+)$/, keys: ['classId'], view: () => import('./views/builder.js'), nav: 'instructor' },

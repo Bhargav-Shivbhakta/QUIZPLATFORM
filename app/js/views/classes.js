@@ -85,6 +85,7 @@ async function classPage(main, cls, byId, several) {
         ${teacher ? `<div class="row"><a class="btn" href="#/content/${encodeURIComponent(cls.id)}">${icon('book')} Practice</a><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">${icon('clock')} Graded work</a><a class="btn" href="#/instructor?class=${encodeURIComponent(cls.id)}&tab=scores">${icon('chart')} Exam scores</a><a class="btn primary" href="#/instructor?class=${encodeURIComponent(cls.id)}">${icon('grid')} Class dashboard</a></div>` : ''}
       </header>
       ${ann}
+      ${(teacher || doc?.tools?.myStudy !== false) && ((cls.exams || []).length || Object.keys(doc?.study || {}).length) ? `<a class="mystudy-link" href="#/mystudy/${encodeURIComponent(cls.id)}"><span><strong>${teacher ? 'Student tools' : 'My study'}</strong><span class="muted">${teacher ? 'Preview what students see, and turn tools on or off for this class.' : 'What to do today, your mistakes to redo, and a plan for the week.'}</span></span><span aria-hidden="true">→</span></a>` : ''}
       ${timed}
       ${studySection(cls, doc?.study || {}, teacher)}
       <section class="practice-section" aria-labelledby="practice-h">
