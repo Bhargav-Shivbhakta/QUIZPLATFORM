@@ -22,4 +22,5 @@ export default {
   schoolName: 'SDSU',
   // Footer text when sign-in is ON
   signedInFooter: 'Signed in with your school account. Your progress and code are saved to your account and shared with your instructor.',
+  connectorUrl: 'https://cramming-connector.bshivbhakta4143.workers.dev',
 };
