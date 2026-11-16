@@ -663,11 +663,11 @@ console.log('\nMock exams');
     assert.match((await call(createHandler(memoryStore({ [CODE]: { st: st3, files } })), 'next_step')).content[0].text, /^STOP\. This part of the course is finished[\s\S]*Build the next part/);
   });
   // ---- the Worker bundle against a stand-in for Google's sign-in and database
-  await atest('the bundled Worker signs in as the service account and builds a course in Firestore', async () => {
+  await atest('the Worker signs in as the service account and builds a course in Firestore', async () => {
     const nodeCrypto = await import('node:crypto');
     const { encodeFields, decodeFields } = await import('../connector/firestore.mjs');
     const { stripOutputs } = await import('../connector/store.mjs');
-    const worker = (await import('../connector/dist/worker.js')).default;
+    const worker = (await import('../connector/worker.mjs')).default;
     const { publicKey, privateKey } = nodeCrypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
     const account = { project_id: 'demo-proj', client_email: 'svc@demo-proj.iam.gserviceaccount.com', private_key: privateKey };
     const docs = new Map(), root = 'https://firestore.googleapis.com/v1/projects/demo-proj/databases/(default)/documents/';
@@ -733,7 +733,7 @@ console.log('\nMock exams');
   });
 
   await atest('the practice run: a sample course in the Worker\'s own storage, with a page to read the results', async () => {
-    const worker = (await import('../connector/dist/worker.js')).default;
+    const worker = (await import('../connector/worker.mjs')).default;
     const mem = new Map(); let puts = 0;
     const env = { BUILDS: { get: async (k) => mem.get(k) ?? null, put: async (k, v) => { puts++; mem.set(k, v); }, delete: async (k) => { mem.delete(k); } } };
     const code = 'demo-' + 'a1B2'.repeat(5);
