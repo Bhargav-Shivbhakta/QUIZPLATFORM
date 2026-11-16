@@ -1116,7 +1116,7 @@ export async function addMaterial(classId, m, chunks) {
     await fb.setDoc(tdoc(classId, 'materials', id), meta);   // last: a file only counts once all its text is saved
     return { id, ...meta };
   } catch (e) {
-    await Promise.all(written.map((i) => fb.deleteDoc(tdoc(classId, 'materialText', `${id}_${i}`)).catch(() => {})));
+    try { const b = fb.writeBatch(fb.db); written.forEach((i) => b.delete(tdoc(classId, 'materialText', `${id}_${i}`))); await b.commit(); } catch { /* nothing to tidy */ }
     throw e;
   }
 }
@@ -1198,6 +1198,15 @@ export async function getStudyUnit(classId, id) {
   await load();
   const snap = await fb.getDoc(tdoc(classId, 'study', id));
   return snap.exists() ? { id, ...snap.data() } : null;
+}
+// A student's own link for the tutor connector. Kept on this device; making a new one retires the old.
+export async function makeTutorLink(classId, section, oldCode) {
+  await load();
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const code = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => abc[b % abc.length]).join('');
+  await fb.setDoc(fb.doc(fb.db, 'tutorLinks', code), { classId, uid: user.uid, section: section || '', createdAt: Date.now() });
+  if (oldCode) { try { const b = fb.writeBatch(fb.db); b.delete(fb.doc(fb.db, 'tutorLinks', oldCode)); await b.commit(); } catch { /* already gone */ } }
+  return code;
 }
 // Which student tools a class has: { myStudy, tutor }. The instructor can switch each one off.
 export async function setClassTools(classId, tools) {

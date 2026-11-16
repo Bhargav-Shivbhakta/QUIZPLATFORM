@@ -43,6 +43,9 @@ export async function render(main, { classId }) {
   const graded = Object.values(doc?.timed || {}).filter((t) => t && t.status === 'published' && !t.disabled).map((t) => { const w = (section && t.windows?.[section]) || t; return { title: t.title, at: Number(w.opensAt) || 0, until: Number(w.closesAt) || 0 }; }).filter((t) => t.at);
   const openNow = graded.find((t) => t.at <= now && now < t.until);
 
+  const TUTOR_SAY = 'Use the Cramming tutor connector to help me study. Start by listing my open units.';
+  const tutorCode = () => store.get(`tutorLink:${classId}`, '');
+  const tutorLink = () => `${cloud.connectorUrl()}/tutor/${tutorCode()}`;
   const planDays = () => Number(store.get(`planDays:${classId}`, 4)) || 4;
   const totals = sets.reduce((a, s) => { const r = readiness(s.exam, s.stats, store.getAttempts(s.id)); a.score += r.score * s.questions; a.q += s.questions; a.seen += s.seen; return a; }, { score: 0, q: 0, seen: 0 });
   const ready = totals.q ? Math.round(totals.score / totals.q) : 0;
@@ -90,10 +93,22 @@ export async function render(main, { classId }) {
 
         ${tools.tutor ? `<section class="ms-card" aria-labelledby="tutor-h"><h2 id="tutor-h">Ask the tutor</h2>
           ${openNow && !teacher ? `<p class="note" role="status"><strong>Off for now.</strong> ${esc(openNow.title)} is open. The tutor comes back when it closes.</p>`
-            : `<p>Sets up an AI to coach you on ${unit ? `Unit ${unit.n}` : 'this course'} from your instructor's notes: hints and explanations, not answers.</p>
-              <div class="row"><button type="button" class="btn primary" data-tutor ${unit ? '' : 'disabled'}>${icon('copy')} Copy the tutor set-up</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a></div>
-              <p class="small" data-tutor-status role="status" aria-live="polite">${unit ? 'Then paste it into a new chat and ask your question.' : 'Available when a unit with notes is open.'}</p>`}
-          <ul class="muted small ms-rules"><li>It can be wrong. If it disagrees with your notes or your instructor, they are right.</li><li>Using AI on quizzes, exams or graded assignments is against the course rules.</li><li>What you type there goes to the AI company, not to Cramming. Use your university account if you have one.</li></ul>
+            : `<p>An AI coach for ${unit ? `Unit ${unit.n}` : 'this course'} that reads only your instructor's notes: hints and explanations, not answers.</p>
+              ${cloud.connectorUrl() ? (tutorCode()
+                ? `<h3>1. Add this link to your AI, once</h3>
+                  <div class="copy-row"><label class="field grow"><span>Your private tutor link</span><input readonly value="${esc(tutorLink())}" data-copy-src="link" onfocus="this.select()"></label><button type="button" class="btn" data-copy="link">${icon('copy')} Copy</button></div>
+                  <details><summary>ChatGPT (your SDSU account)</summary><p>Settings → Apps and connectors → add a custom connector. Name it <strong>Cramming tutor</strong>, paste the link, choose no sign-in. If you do not see that option, your university has not allowed custom connectors: use the set-up further down.</p></details>
+                  <details><summary>Claude</summary><p>Settings → Connectors → Add custom connector. Name it <strong>Cramming tutor</strong> and paste the link.</p></details>
+                  <details><summary>Gemini</summary><p>Custom connectors are not open to every Gemini account yet. If yours has them, add the link the same way; otherwise use the set-up further down.</p></details>
+                  <h3>2. Then start a chat</h3>
+                  <div class="copy-row"><label class="field grow"><span>Message to send</span><input readonly value="${esc(TUTOR_SAY)}" data-copy-src="say" onfocus="this.select()"></label><a class="btn" target="_blank" rel="noopener" href="https://chatgpt.com/?q=${encodeURIComponent(TUTOR_SAY)}">Open in ChatGPT</a><a class="btn" target="_blank" rel="noopener" href="https://claude.ai/new?q=${encodeURIComponent(TUTOR_SAY)}">Open in Claude</a><button type="button" class="btn" data-copy="say">${icon('copy')} Copy</button></div>
+                  <p class="muted small">Keep the link to yourself: it opens your course's notes. <button type="button" class="linklike" data-new-link>Make a new link</button> if you shared it by mistake.</p>`
+                : `<div class="row"><button type="button" class="btn primary" data-new-link>Connect my AI</button></div><p class="muted small">Makes a private link you add to ChatGPT, Claude or Gemini once. After that the AI can read your course's notes, and nothing else from Cramming.</p>`) : ''}
+              <details${cloud.connectorUrl() ? '' : ' open'}><summary>${cloud.connectorUrl() ? 'Cannot add a connector? Use a copied set-up instead' : 'Set up your AI'}</summary>
+                <div class="row"><button type="button" class="btn${cloud.connectorUrl() ? '' : ' primary'}" data-tutor ${unit ? '' : 'disabled'}>${icon('copy')} Copy the tutor set-up</button><a class="btn" href="https://chatgpt.com/" target="_blank" rel="noopener">Open ChatGPT</a></div>
+                <p class="small" data-tutor-status role="status" aria-live="polite">${unit ? 'Then paste it into a new chat and ask your question. It carries the notes for this week\'s unit.' : 'Available when a unit with notes is open.'}</p></details>
+              <p class="small" data-link-status role="status" aria-live="polite"></p>`}
+          <ul class="muted small ms-rules"><li>It can be wrong. If it disagrees with your notes or your instructor, they are right.</li><li>Using AI on quizzes, exams or graded assignments is against the course rules.</li><li>The AI is given only your course's notes for units that are open. It never gets answer keys, tests or anyone's grades.</li><li>What you type there goes to the AI company, not to Cramming. Use your university account if you have one.</li></ul>
         </section>` : ''}
       </div>
       <p class="muted small ms-foot">Your results are kept with your account. The plan and estimates are suggestions worked out by simple rules, not by AI.</p>`);
@@ -102,6 +117,17 @@ export async function render(main, { classId }) {
   main.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.days) { store.set(`planDays:${classId}`, Number(b.dataset.days)); draw(); main.querySelector(`[data-days="${b.dataset.days}"]`)?.focus(); return; }
+    if (b.dataset.copy) {
+      const src = main.querySelector(`[data-copy-src="${b.dataset.copy}"]`);
+      try { await navigator.clipboard.writeText(src.value); toast('Copied'); } catch { src.focus(); src.select(); toast('Press Ctrl+C (or ⌘C) to copy'); }
+      return;
+    }
+    if ('newLink' in b.dataset) {
+      b.disabled = true;
+      try { const code = await cloud.makeTutorLink(classId, cls.section || '', tutorCode()); store.set(`tutorLink:${classId}`, code); draw(); main.querySelector('[data-link-status]').textContent = 'Your tutor link is ready. Add it to your AI, then start a chat.'; main.querySelector('[data-copy="link"]')?.focus(); }
+      catch (e) { b.disabled = false; const o = main.querySelector('[data-link-status]'); if (o) o.textContent = `Couldn't make the link: ${e?.code === 'permission-denied' ? 'ask your instructor to check the site is up to date.' : e?.message || e}`; }
+      return;
+    }
     if ('tutor' in b.dataset && unit) {
       const out = main.querySelector('[data-tutor-status]'); b.disabled = true;
       try {

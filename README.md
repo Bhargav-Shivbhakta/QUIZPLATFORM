@@ -364,6 +364,12 @@ university's ChatGPT): coach, don't solve; use only this unit's notes. It is off
 instructor turns it on, and hidden while a quiz or exam is open for the class. The site cannot
 control what the AI then says.
 
+**Connect my AI** (when `connectorUrl` is set): the student makes a private link (`tutorLinks/{code}`)
+and adds it once to ChatGPT, Claude or Gemini. The tutor connector (`connector/tutor.mjs`, served at
+`/tutor/<code>`) gives the AI three read-only tools, `list_units`, `get_notes` and `find_in_notes`,
+and nothing else: only the notes of units already open to that student. It refuses while a quiz or
+exam is open for the student's section and when the instructor has the tutor switched off.
+
 Instructors (not TAs) open the same page as a preview and can switch **My study** and **Ask the
 tutor** on or off for the whole class (`tools` on the class).
 

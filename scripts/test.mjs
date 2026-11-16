@@ -790,5 +790,57 @@ console.log('\nMock exams');
   });
 }
 
+// ---- The student tutor connector: only the professor's notes, only for open units
+{
+  const T = await import('../connector/tutor.mjs');
+  const CODE = 't'.repeat(32), NOW = 1_800_000_000_000;
+  const docs = {
+    [`tutorLinks/${CODE}`]: { classId: 'c1', uid: 'u1', section: '2', createdAt: NOW - 86400000 },
+    'classes/c1': { name: 'CS150', course: 'CS 150', tools: { tutor: true }, study: { 'unit-1': { n: 1, title: 'Decisions', opensAt: NOW - 1000 }, 'unit-2': { n: 2, title: 'Loops', opensAt: NOW + 86400000 } }, timed: {} },
+    'classes/c1/study/unit-1': { n: 1, opensAt: NOW - 1000, notes: '## The if statement\nAn if statement runs its body only when the condition is true.\n\n## Comparing Strings\nUse equals, not ==, to compare the letters of two Strings.' },
+    'classes/c1/study/unit-2': { n: 2, opensAt: NOW + 86400000, notes: '## The while loop\nSECRET-NOT-OPEN-YET' },
+    'classes/c1/testKeys/q1': { questions: { a: 'ANSWER-KEY' } },
+  };
+  const reads = [];
+  const db = { async get(p) { reads.push(p); return docs[p] ?? null; } };
+  const handle = T.createTutorHandler(T.dbTutorSource(db, { now: () => NOW }));
+  const rpcT = async (body, code = CODE) => (await (await handle(new Request(`https://x.test/tutor/${code}`, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, ...body }) }))).json());
+  const tool = async (name, args = {}, code = CODE) => (await rpcT({ method: 'tools/call', params: { name, arguments: args } }, code)).result;
+  console.log('\nThe student tutor connector');
+  await atest('gives the AI its rules, read-only tools, and only the notes of units that are open', async () => {
+    const init = (await rpcT({ method: 'initialize', params: { protocolVersion: '2025-06-18' } })).result;
+    assert.match(init.instructions, /Coach, do not solve/); assert.match(init.instructions, /ONLY from the course notes/); assert.match(init.instructions, /You can be wrong/);
+    const tools = (await rpcT({ method: 'tools/list' })).result.tools;
+    assert.deepEqual(tools.map((t) => [t.name, t.annotations.readOnlyHint]), [['list_units', true], ['get_notes', true], ['find_in_notes', true]]);
+    const list = (await tool('list_units')).content[0].text;
+    assert.match(list, /1\. Decisions/); assert.doesNotMatch(list, /Loops/);                         // unit 2 has not opened
+    assert.match((await tool('get_notes', { unit: 1 })).content[0].text, /NOTES FOR UNIT 1: Decisions[\s\S]*Use equals, not ==/);
+    const early = await tool('get_notes', { unit: 2 });
+    assert.equal(early.isError, true); assert.match(early.content[0].text, /not open to this student/);
+    const found = (await tool('find_in_notes', { words: 'compare strings' })).content[0].text;
+    assert.match(found, /FROM UNIT 1[\s\S]*## Comparing Strings/); assert.doesNotMatch(found, /The if statement/);
+    assert.match((await tool('find_in_notes', { words: 'while loop' })).content[0].text, /do not mention "while loop"[\s\S]*Do not answer from your own knowledge/);
+    assert.equal(reads.some((p) => /unit-2|testKeys|tests|built|attempts|roster/.test(p)), false);     // never even asks for anything else
+    assert.equal(JSON.stringify(await Promise.all(['list_units', 'get_notes', 'find_in_notes'].map((n) => tool(n, { unit: 2, words: 'SECRET' })))).includes('SECRET-NOT-OPEN-YET'), false);
+  });
+  await atest('is closed while graded work is open, when the instructor turns it off, and for dead or old links', async () => {
+    docs['classes/c1'].timed = { q: { title: 'Quiz 3', status: 'published', opensAt: NOW + 5000, closesAt: NOW + 9000, windows: { 2: { opensAt: NOW - 1000, closesAt: NOW + 60000 } } } };
+    const during = await tool('get_notes', { unit: 1 });
+    assert.equal(during.isError, true); assert.match(during.content[0].text, /closed because "Quiz 3" is open[\s\S]*stop/);     // this student's section window is open
+    docs['classes/c1'].timed.q.status = 'draft';
+    assert.match((await tool('list_units')).content[0].text, /Decisions/);
+    docs['classes/c1'].tools = { tutor: false };
+    assert.match((await tool('list_units')).content[0].text, /instructor has turned the tutor off/);
+    docs['classes/c1'].tools = { tutor: true };
+    assert.match((await tool('list_units', {}, 'z'.repeat(32))).content[0].text, /not active[\s\S]*Do not answer course questions without the notes/);
+    docs[`tutorLinks/${CODE}`].createdAt = NOW - 300 * 86400000;
+    assert.match((await tool('list_units')).content[0].text, /not active/);
+    assert.equal((await handle(new Request('https://x.test/tutor/short', { method: 'POST', body: '{}' }))).status, 404);
+    const worker = (await import('../connector/worker.mjs')).default, demo = 'demo-' + 'q'.repeat(24);
+    const d = await (await worker.fetch(new Request(`https://x.test/tutor/${demo}`, { method: 'POST', body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'find_in_notes', arguments: { words: 'sentinel' } } }) }), {})).json();
+    assert.match(d.result.content[0].text, /FROM UNIT 2: Lecture 06 While loops[\s\S]*Sentinel loops/);
+  });
+}
+
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

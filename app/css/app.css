@@ -2813,3 +2813,10 @@ textarea.mono { font-family: var(--mono); font-size: .92rem; width: 100%; }
 .tool-switches { margin: 1rem 0; padding: 1rem 1.2rem; border: 1px dashed var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-2); display: grid; gap: .6rem; }
 .tool-switches h2 { margin: 0; font-size: 1.1rem; }
 .ms-foot { margin-top: 1.2rem; }
+
+.mystudy .copy-row { display: flex; gap: .5rem; align-items: flex-end; flex-wrap: wrap; }
+.mystudy .copy-row .grow { flex: 1 1 12rem; min-width: 0; }
+.mystudy .copy-row input { width: 100%; }
+.ms-card details { border: 1px solid var(--line); border-radius: var(--radius); padding: .45rem .7rem; background: var(--surface-2); }
+.ms-card details summary { font-weight: 700; cursor: pointer; }
+.ms-card details p, .ms-card details .row { margin-top: .4rem; }

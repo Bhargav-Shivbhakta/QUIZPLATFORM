@@ -285,6 +285,13 @@ service cloud.firestore {
         allow delete: if isAdmin();
       }
     }
+    // A student's private link for the tutor connector → which class's notes it may read.
+    // A student can make one only for themselves, in a class they are in. Nobody can list them.
+    match /tutorLinks/{code} {
+      allow get, delete: if isAdmin() || resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && code.matches('^[A-Za-z0-9]{32}$')
+        && (enrolledIn(request.resource.data.classId) || teaches(request.resource.data.classId));
+    }
     // Build my course: the secret link code a professor gives their AI → which class it builds.
     // Nobody can list these; the connector service reads them with its own service account.
     match /buildLinks/{code} {
