@@ -38,7 +38,10 @@ export async function render(main, { classId, tid }, query = {}) {
     return;
   }
   if (!tid) return listPage(main, cls);
-  if (tid === 'new') return editorPage(main, cls, null);
+  if (tid === 'new') {
+    if (!cloud.leadsClass(classId)) { main.innerHTML = `<section class="page"><h1>New exam, quiz or assignment</h1><p>Graded work is set up by the class's instructor. As a TA you can watch it live, help students back in, and grade it.</p><p><a class="btn" href="#/timed/${encodeURIComponent(classId)}">Back</a></p></section>`; return; }
+    return editorPage(main, cls, null);
+  }
   return examPage(main, cls, tid, query);
 }
 
@@ -57,7 +60,7 @@ export function timedList(cls, list) {
   return `
     <div class="row between wrap timed-head">
       <p class="dash-intro">Exams, quizzes and assignments that count: locked down, with a time limit and one attempt per student. Multiple choice, short and written answers, and Java programming. Students see each type in its own group, separate from practice.</p>
-      <a class="btn primary" href="#/timed/${encodeURIComponent(cls.id)}/new">${icon('plus')} New exam, quiz or assignment</a>
+      ${cloud.leadsClass(cls.id) ? `<a class="btn primary" href="#/timed/${encodeURIComponent(cls.id)}/new">${icon('plus')} New exam, quiz or assignment</a>` : '<p class="muted small">Set up by the class\'s instructor. As a TA you can watch it live, let students back in, add time, and grade.</p>'}
     </div>
     ${list.length ? `<ul class="timed-list">${list.map((t) => {
       const span = overallWindow(t);
@@ -412,7 +415,8 @@ async function examPage(main, cls, tid, query) {
   let test = await cloud.getTimed(cls.id, tid).catch(() => null);
   if (!test) { main.innerHTML = `<section class="page"><h1>Exam not found</h1><p><a class="btn" href="#/timed/${encodeURIComponent(cls.id)}">Back to graded work</a></p></section>`; return; }
   const phaseNow = () => examPhase({ ...test, ...overallWindow(test) }, cloud.trueNow());
-  let tab = ['live', 'results', 'settings'].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' ? 'settings' : 'live';
+  const lead = cloud.leadsClass(cls.id); // TAs: no Settings, turning off, releasing or new attempts
+  let tab = ['live', 'results', ...(lead ? ['settings'] : [])].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' && lead ? 'settings' : 'live';
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
   let codes = await cloud.getAccessCodes(cls.id, tid).catch(() => ({ code: '', sections: {} }));
   let accessCode = codes.code;
@@ -432,7 +436,7 @@ async function examPage(main, cls, tid, query) {
         <button class="btn" data-toggle-off hidden></button>
       </div>
       <p class="off-note" data-off-note hidden>${icon('lock')} <span><strong>Turned off.</strong> Students can't see this ${esc(KINDS[kindOf(test)].label.toLowerCase())} or start it. Anyone who was already working on it can still finish. Turn it on again any time.</span></p>
-      <div class="dash-tabs" role="tablist" aria-label="Exam">${[['live', 'Live'], ['results', 'Results & grading'], ['settings', 'Settings']].map(([k, l]) => `<button role="tab" data-xtab="${k}" id="xtab-${k}" aria-controls="xpanel" aria-selected="${tab === k}" tabindex="${tab === k ? 0 : -1}">${l}</button>`).join('')}</div>
+      <div class="dash-tabs" role="tablist" aria-label="Exam">${[['live', 'Live'], ['results', 'Results & grading'], ...(lead ? [['settings', 'Settings']] : [])].map(([k, l]) => `<button role="tab" data-xtab="${k}" id="xtab-${k}" aria-controls="xpanel" aria-selected="${tab === k}" tabindex="${tab === k ? 0 : -1}">${l}</button>`).join('')}</div>
       <div id="xpanel" role="tabpanel" data-panel aria-labelledby="xtab-${tab}"></div>
     </section>`;
   const panel = main.querySelector('[data-panel]');
@@ -441,7 +445,7 @@ async function examPage(main, cls, tid, query) {
     main.querySelector('[data-title]').textContent = test.title;
     main.querySelector('[data-phase]').innerHTML = `<span class="kind-badge kind-${kindOf(test)}">${KINDS[kindOf(test)].label}</span> <span class="phase phase-${test.disabled ? 'off' : ph}">${test.disabled ? 'Turned off' : PHASE_LABEL[ph]}${test.released ? ' · scores released' : ''}</span>`;
     const offBtn = main.querySelector('[data-toggle-off]');
-    if (offBtn) { offBtn.innerHTML = test.disabled ? `${icon('play')} Turn on` : `${icon('lock')} Turn off`; offBtn.classList.toggle('primary', !!test.disabled); offBtn.hidden = test.status !== 'published'; }
+    if (offBtn) { offBtn.innerHTML = test.disabled ? `${icon('play')} Turn on` : `${icon('lock')} Turn off`; offBtn.classList.toggle('primary', !!test.disabled); offBtn.hidden = test.status !== 'published' || !lead; }
     const offNote = main.querySelector('[data-off-note]');
     if (offNote) offNote.hidden = !test.disabled;
     const span = overallWindow(test);
@@ -450,8 +454,41 @@ async function examPage(main, cls, tid, query) {
   head();
 
   const students = () => roster.filter((p) => (!p.role || p.role === 'student') && windowFor(test, p.section) && (!mySecs || mySecs.some((s) => String(p.section || '').split(',').map((x) => x.trim()).includes(s))));
-  async function loadData(withGrades = false) {
-    [roster, attempts] = await Promise.all([roster.length ? roster : cloud.getRoster(cls.id), cloud.listAttempts(cls.id, tid)]);
+  let earlier = [];
+  const earlierOf = (email) => earlier.filter((x) => String(x.email).toLowerCase() === String(email).toLowerCase());
+  // Reading as little as possible (Firebase's free plan counts every document read):
+  // every minute only the attempts whose state changed (started, warned, submitted, ended…), usually a
+  // few documents or none; the whole class every FULL_EVERY (for "last saved" and "answered") and
+  // whenever you press Refresh.
+  const FULL_EVERY = 5 * 60000;
+  let fullAt = 0, deltaAt = 0;
+  async function loadData(withGrades = false, full = true) {
+    if (full || !fullAt) {
+      const t = cloud.trueNow();
+      [roster, attempts, earlier] = await Promise.all([roster.length ? roster : cloud.getRoster(cls.id), cloud.listAttempts(cls.id, tid), cloud.listEarlierAttempts(cls.id, tid).catch(() => [])]);
+      fullAt = deltaAt = t;
+    } else if (cloud.trueNow() - fullAt >= FULL_EVERY) {
+      // students still working only (finished ones don't change; any change to them comes with a stateKey)
+      const t = cloud.trueNow();
+      const [open, changed] = await Promise.all([cloud.listOpenAttempts(cls.id, tid), cloud.listAttemptsChanged(cls.id, tid, deltaAt - 30000)]);
+      const seen = new Set([...open, ...changed].map((a) => a.id));
+      // shown as working here but no longer open in Firebase, and its change was missed: read those again
+      const stale = attempts.filter((a) => a.status === 'open' && !seen.has(a.id));
+      const fixed = stale.length ? (await cloud.listAttempts(cls.id, tid)).filter((a) => stale.some((x) => x.id === a.id) || !attempts.some((x) => x.id === a.id)) : [];
+      const byId = new Map(attempts.filter((a) => !stale.some((x) => x.id === a.id)).map((a) => [a.id, a]));
+      for (const a of [...open, ...changed, ...fixed]) byId.set(a.id, a);
+      attempts = [...byId.values()];
+      fullAt = deltaAt = t;
+    } else {
+      const t = cloud.trueNow();
+      const changed = await cloud.listAttemptsChanged(cls.id, tid, deltaAt - 30000); // 30 s overlap: clocks (all on the real time) differ by a second or two
+      deltaAt = t;
+      if (changed.length) {
+        const byId = new Map(attempts.map((a) => [a.id, a]));
+        for (const a of changed) byId.set(a.id, a);
+        attempts = [...byId.values()];
+      }
+    }
     if (withGrades) grades = await cloud.listTestGrades(cls.id, tid).catch(() => []);
     loadedAt = Date.now();
   }
@@ -521,7 +558,7 @@ async function examPage(main, cls, tid, query) {
       </div>` : '';
     return `${codeBox}
       <div class="row between wrap live-bar">
-        <p class="muted small" aria-live="polite">Updated ${clock(loadedAt)}${auto ? ' · refreshes every minute' : ''}</p>
+        <p class="muted small" aria-live="polite">Updated ${clock(loadedAt)}${auto ? ' · status every minute, last saved and answered every 5 minutes (Refresh for now)' : ''}</p>
         <span class="row"><label class="check"><input type="checkbox" data-auto ${auto ? 'checked' : ''}><span>Auto-refresh</span></label><button class="btn" data-refresh>${icon('shuffle')} Refresh</button></span>
       </div>
       <div class="who-cards" role="group" aria-label="Show students">${cards.map(([k, l, tone]) => `<button class="who-card ${tone}" data-lf="${k}" aria-pressed="${filter === k}"><strong>${n(k)}</strong><span>${l}</span></button>`).join('')}</div>
@@ -536,14 +573,14 @@ async function examPage(main, cls, tid, query) {
           const left = a && a.status === 'open' ? r.deadline - now : null;
           return `<tr class="st-row row-${r.st}">
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
-            <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}</td>
+            <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
             <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${new Date(r.win.closesAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
             <td data-label="Answered">${a ? `${r.answeredN} of ${(test.questions || []).length}` : '–'}</td>
             <td data-label="Exits">${r.exits?.length ? `<span class="bad">${Number(test.warnings) > 0 ? `${r.warns} of ${test.warnings} warnings` : r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}${r.awaySec ? ` · away ${r.awaySec}s in all` : ''}</span>` : a ? '0' : '–'}</td>
             <td data-label="Device">${a?.device ? `${esc(a.device.browser)} · ${esc(a.device.os)}${a.device.seb ? ' ✓' : ''}` : '–'}</td>
-            <td class="row-actions">${a ? `${['ended', 'lost', 'timeup', 'submitted'].includes(r.st) ? `<button class="btn small" data-reopen="${esc(a.id)}">Let back in</button>` : ''}${r.st === 'working' || r.st === 'lost' ? `<button class="btn small" data-addtime="${esc(a.id)}">+ Time</button><button class="btn small danger-outline" data-endnow="${esc(a.id)}">End</button>` : ''}` : ''}</td>
+            <td class="row-actions">${a ? `${['ended', 'lost', 'timeup'].includes(r.st) ? `<button class="btn small" data-reopen="${esc(a.id)}">Let back in</button>` : ''}${r.st === 'submitted' && lead ? `<button class="btn small" data-newattempt="${esc(a.id)}">New attempt</button>` : ''}${r.st === 'working' || r.st === 'lost' ? `<button class="btn small" data-addtime="${esc(a.id)}">+ Time</button><button class="btn small danger-outline" data-endnow="${esc(a.id)}">End</button>` : ''}` : ''}</td>
           </tr>`;
         }).join('') || `<tr><td colspan="9" class="muted">No students match.</td></tr>`}</tbody>
       </table></div>`;
@@ -573,7 +610,7 @@ async function examPage(main, cls, tid, query) {
         ${phase === 'open' ? `<p class="note">${icon('note')} The exam is still open. You can grade now, but students still working will be graded again when you press Grade after it closes.</p>` : ''}
         <div class="row wrap">
           <button class="btn primary" data-grade ${grading ? 'disabled' : ''}>${icon('check')} ${grades.length ? 'Grade again' : 'Grade all attempts'}</button>
-          ${grades.length ? `<button class="btn ${test.released ? '' : 'primary'}" data-release="${test.released ? 'hide' : 'show'}">${test.released ? 'Hide scores from students' : 'Release scores to students'}</button>
+          ${grades.length && lead ? `<button class="btn ${test.released ? '' : 'primary'}" data-release="${test.released ? 'hide' : 'show'}">${test.released ? 'Hide scores from students' : 'Release scores to students'}</button>`: ''}${grades.length ? `
           <button class="btn" data-canvas>${icon('upload')} Send to Canvas</button>
           <button class="btn" data-rcsv>${icon('download')} Download CSV</button>
           <button class="btn" data-toscores>${icon('chart')} Add to Exam scores</button>` : ''}
@@ -765,14 +802,33 @@ async function examPage(main, cls, tid, query) {
     const qs = test.questions || [];
     modal({
       title: r.p.name || r.p.email, wide: true,
-      body: !a ? `<p>${esc(r.p.email)} hasn't started this exam.</p>` : `
+      body: (earlierOf(r.p.email).length ? `<div class="earlier"><h3>Earlier ${earlierOf(r.p.email).length === 1 ? 'attempt' : 'attempts'}</h3><ul>${earlierOf(r.p.email).map((x, k) => `<li><strong>Attempt ${k + 1}</strong>: ${x.submittedAt ? `submitted ${when(ms(x.submittedAt))}` : 'finished'} · ${r1((test.questions || []).filter((q) => answered(q, x.answers?.[q.id])).length)} of ${(test.questions || []).length} answered${x.grade?.total != null ? ` · score ${r1(x.grade.total)} of ${r1(test.totalPoints)}` : ''} <span class="muted small">(new attempt given by ${esc(x.archivedBy || 'staff')} ${when(x.archivedAt)})</span>
+          <details><summary>See attempt ${k + 1}'s answers</summary><ol class="saved-answers">${(test.questions || []).map((q) => { const v = x.answers?.[q.id]; return `<li><strong>${esc(q.label)}</strong><div>${!answered(q, v) ? '<span class="muted">No answer</span>' : q.options ? esc((Array.isArray(v) ? v : [v]).map((i) => q.options[i]).join(' · ')) : q.type === 'code' ? `<pre class="code-view small" tabindex="0"><code>${esc(v)}</code></pre>` : esc(v)}</div></li>`; }).join('')}</ol></details></li>`).join('')}</ul><p class="muted small">Only the latest attempt is graded. Earlier answers are kept here for your records.</p></div>` : '') + (!a ? `<p>${esc(r.p.email)} hasn't started ${earlierOf(r.p.email).length ? 'the new attempt yet' : 'this exam'}.</p>` : `
         <p class="muted small">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''} · <span class="st-pill st-${r.st}">${esc(r.label)}</span></p>
         <dl class="kv"><dt>Started</dt><dd>${when(ms(a.startedAt))}</dd><dt>Must finish by</dt><dd>${when(r.deadline)}${a.extraMin ? ` (includes ${a.extraMin} extra min)` : ''}</dd><dt>Last saved</dt><dd>${when(r.beat)} · ${plural(a.saves || 0, 'save')}</dd>${a.submittedAt ? `<dt>Finished</dt><dd>${when(ms(a.submittedAt))}</dd>` : ''}<dt>Device</dt><dd>${a.device ? `${esc(a.device.browser)} on ${esc(a.device.os)}${a.device.seb ? ' (Safe Exam Browser)' : ''}${a.device.screen ? ` · screen ${esc(a.device.screen)}` : ''}` : '–'}</dd><dt>Answered</dt><dd>${r.answeredN} of ${qs.length}</dd></dl>
         <h3>What happened</h3>
         <ol class="timeline">${[{ t: ms(a.startedAt), type: 'started' }, ...(a.events || [])].map((e) => `<li class="${LEAVES.includes(e.type) || e.type === 'professor-ended' ? 'bad' : ''}"><span class="muted small">${clock(e.t)}</span> ${esc(e.type === 'started' ? 'Started the exam' : e.type === 'reopened' ? `Let back in by ${e.by || 'the professor'}${e.add ? ` (+${e.add} min)` : ''}` : e.type === 'time-added' ? `${e.add} minutes added by ${e.by || 'the professor'}` : EXIT_LABEL[e.type] || e.type)}${e.warning ? ` <strong>(warning ${e.warning} of ${test.warnings || e.warning})</strong>` : ''}${e.awayMs ? ` <span class="muted small">after ${Math.round(e.awayMs / 1000)} s</span>` : ''}${e.detail ? ` <span class="muted small">${esc(e.detail)}</span>` : ''}</li>`).join('')}</ol>
         <h3>Saved answers</h3>
-        <ol class="saved-answers">${qs.map((q) => { const v = a.answers?.[q.id]; return `<li><strong>${esc(q.label)}</strong> <span class="muted small">${QTYPE_LABEL[q.type]}</span><div>${!answered(q, v) ? '<span class="muted">No answer</span>' : q.options ? esc((Array.isArray(v) ? v : [v]).map((i) => q.options[i]).join(' · ')) : q.type === 'code' ? `<pre class="code-view small"><code>${esc(v)}</code></pre>` : esc(v)}</div></li>`; }).join('')}</ol>`,
+        <ol class="saved-answers">${qs.map((q) => { const v = a.answers?.[q.id]; return `<li><strong>${esc(q.label)}</strong> <span class="muted small">${QTYPE_LABEL[q.type]}</span><div>${!answered(q, v) ? '<span class="muted">No answer</span>' : q.options ? esc((Array.isArray(v) ? v : [v]).map((i) => q.options[i]).join(' · ')) : q.type === 'code' ? `<pre class="code-view small" tabindex="0"><code>${esc(v)}</code></pre>` : esc(v)}</div></li>`; }).join('')}</ol>`),
     });
+  }
+  async function newAttemptFor(aid) {
+    const a = attempts.find((x) => x.id === aid);
+    if (!a) return;
+    const sec = roster.find((p) => String(p.email).toLowerCase() === String(a.email).toLowerCase())?.section;
+    const win = windowFor(test, sec) || overallWindow(test);
+    const closed = cloud.trueNow() >= win.closesAt;
+    const ok = await confirmDialog({
+      title: `Give ${a.name || a.email} a new attempt?`,
+      body: `<p>They start again <strong>from a blank exam</strong>, with the full time limit${test.requireCode || Object.values(test.windows || {}).some((w) => w.requireCode) ? ' and the access code' : ''}. Only the new attempt is graded.</p>
+        <p>Their submitted answers (and score, if you have graded it) are kept as an earlier attempt: open their name to see them.</p>
+        ${closed ? `<p class="bad small"><strong>The exam is closed${sec ? ` for section ${esc(sec)}` : ''}</strong>, so they can't start until you move its closing time later (Settings).</p>` : ''}
+        <p class="muted small">This is different from Let back in, which continues an attempt that was cut off.</p>`,
+      confirm: 'Give a new attempt',
+    });
+    if (!ok) return;
+    try { await cloud.newAttempt(cls.id, aid); toast(`${a.name || a.email} can start a new attempt`, 'good'); refresh(); }
+    catch (e) { toast("Couldn't: " + (e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e), 'bad'); }
   }
   async function reopen(aid) {
     const a = attempts.find((x) => x.id === aid);
@@ -813,8 +869,8 @@ async function examPage(main, cls, tid, query) {
   }
 
   // ------------------------------------------------ painting
-  async function refresh() {
-    try { await loadData(tab === 'results'); } catch (e) { toast("Couldn't refresh: " + (e?.message || e), 'bad'); }
+  async function refresh(full = true) {
+    try { await loadData(tab === 'results', full); } catch (e) { toast("Couldn't refresh: " + (e?.message || e), 'bad'); }
     paint();
   }
   function paint() {
@@ -841,7 +897,7 @@ async function examPage(main, cls, tid, query) {
     panel.innerHTML = '<p class="muted loading-line">Loading…</p>';
     await refresh();
     if (tab === 'results' && !key) { key = await cloud.getTimedKey(cls.id, tid).catch(() => null); paint(); }
-    if (tab === 'live') timer = setInterval(() => { if (auto && document.visibilityState === 'visible' && !document.querySelector('.modal-back') && phaseNow() === 'open') refresh(); }, 60000);
+    if (tab === 'live') timer = setInterval(() => { if (auto && document.visibilityState === 'visible' && !document.querySelector('.modal-back') && phaseNow() === 'open') refresh(false); }, 60000);
   }
   tick = setInterval(tickClocks, 1000);
 
@@ -916,6 +972,7 @@ async function examPage(main, cls, tid, query) {
     }
     if (b.dataset.detail) { attemptDetail(b.dataset.detail); return; }
     if (b.dataset.reopen) { reopen(b.dataset.reopen); return; }
+    if (b.dataset.newattempt) { newAttemptFor(b.dataset.newattempt); return; }
     if (b.dataset.addtime) { addTime(b.dataset.addtime); return; }
     if (b.dataset.endnow) { endNow(b.dataset.endnow); return; }
     if ('grade' in b.dataset) { gradeAll(); return; }

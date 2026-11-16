@@ -141,7 +141,8 @@ export function mountBell() {
   if (!timer) {
     // time alone changes things (an exam opening): recheck every minute; reload the data every 10
     timer = setInterval(() => {
-      if (document.hidden) return;
+      // not during an exam or while staff watch one: those pages read what they need themselves
+      if (document.hidden || /^#\/(take|timed)\//.test(location.hash)) return;
       if (Date.now() - lastData > 10 * 60000) cloud.reloadClassContent().then(() => loadData(true)).then(recompute).catch(() => {});
       else recompute();
     }, 60000);

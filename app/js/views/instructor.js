@@ -76,6 +76,7 @@ export async function render(main, params = {}, query = {}) {
           <label class="field"><span>Class</span><select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           <label class="field"><span>Practice exam</span><select data-exam></select></label>
           <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('book')} Practice</a>
+          ${cloud.isAdmin() ? `<a class="btn" data-build-link href="#/build/${encodeURIComponent(classId)}">${icon('sparkle')} Build my course <span class="tag">Preview</span></a>` : ''}
         </div>
       </header>
       <div data-body><p class="muted loading-line">Loading student data…</p></div>
@@ -786,6 +787,7 @@ export async function render(main, params = {}, query = {}) {
     remember('class', classId);
     grades = null; if (open) closeDrawer();
     main.querySelector('[data-content-link]').href = `#/content/${encodeURIComponent(classId)}`;
+    const bl = main.querySelector('[data-build-link]'); if (bl) bl.href = `#/build/${encodeURIComponent(classId)}`;
     main.querySelector('[data-class-name]').textContent = cls().name;
     section = '';
     pickExam(); fillExams();

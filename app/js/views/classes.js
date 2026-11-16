@@ -86,6 +86,7 @@ async function classPage(main, cls, byId, several) {
       </header>
       ${ann}
       ${timed}
+      ${studySection(cls, doc?.study || {}, teacher)}
       <section class="practice-section" aria-labelledby="practice-h">
       <h2 class="section-title" id="practice-h">${icon('book')} Practice <span class="kind-badge kind-practice">Not graded</span></h2>
       <p class="muted section-sub">Practise as often as you like. Nothing here counts toward your grade.</p>
@@ -99,6 +100,22 @@ async function classPage(main, cls, byId, several) {
     </section>`;
   bindDiscard(main, () => classPage(main, cls, byId, several));
   bindAnnouncements(main);
+}
+
+// Study by unit: the notes for each unit, open from the day the unit starts
+export function studyUnits(study) { return Object.entries(study || {}).map(([id, u]) => ({ id, ...u })).filter((u) => u && u.title).sort((a, b) => (a.n || 0) - (b.n || 0)); }
+function studySection(cls, study, teacher) {
+  const units = studyUnits(study), now = cloud.trueNow();
+  if (!units.length) return '';
+  const open = units.filter((u) => teacher || u.opensAt <= now), next = units.find((u) => u.opensAt > now);
+  const when = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const latest = open[open.length - 1];
+  return `<section class="study-section" aria-labelledby="study-h">
+    <h2 class="section-title" id="study-h">${icon('book')} Study by unit</h2>
+    <p class="muted section-sub">${teacher ? 'What your students read for each unit. Each one opens for them on its first day.' : 'Read the notes for each unit, then practise it.'}</p>
+    ${open.length ? `<ol class="study-list">${open.map((u) => `<li${u === latest && !teacher ? ' class="current"' : ''}><a href="#/study/${encodeURIComponent(cls.id)}/${encodeURIComponent(u.id)}"><span class="study-n" aria-hidden="true">${u.n}</span><span><strong>Unit ${u.n}: ${esc(u.title)}</strong>${u === latest && !teacher ? ' <span class="tag">This week</span>' : ''}${teacher && u.opensAt > now ? ` <span class="muted small">opens ${when(u.opensAt)}</span>` : ''}</span></a></li>`).join('')}</ol>` : '<p class="muted">Nothing is open yet.</p>'}
+    ${!teacher && next ? `<p class="muted small">Next: Unit ${next.n}, ${esc(next.title)}, opens ${when(next.opensAt)}.</p>` : ''}
+  </section>`;
 }
 
 // Graded work on the class page (exams, quizzes, assignments), each type in its own group:

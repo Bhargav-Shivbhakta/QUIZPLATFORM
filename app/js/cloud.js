@@ -74,17 +74,19 @@ export const isEnrolled = () => admin || myClasses().length > 0;
 export const canSeeExam = (examId) => !enabled || admin || myClasses().some((c) => (c.exams || []).includes(examId) && (isStaffRole(c.role) || !practiceState(c, examId).closed));
 
 // Practice settings for one exam in one class (the instructor can turn practice off, set a due date,
-// and close it after the due date). { off, dueAt, closeAfterDue, pastDue, closed }
+// and close it after the due date). { off, opensAt, notYet, dueAt, closeAfterDue, pastDue, closed }
+// opensAt: Build my course sets this so a unit's practice appears on the day the unit starts.
 export function practiceState(c, examId, now = Date.now()) {
   const p = c?.practice?.[examId] || {};
   const dueAt = Number(p.dueAt) || null;
   const pastDue = !!dueAt && now > dueAt;
-  return { off: !!p.off, dueAt, closeAfterDue: !!p.closeAfterDue, pastDue, closed: !!p.off || (!!p.closeAfterDue && pastDue) };
+  const opensAt = Number(p.opensAt) || null, notYet = !!opensAt && now < opensAt;
+  return { off: !!p.off, opensAt, notYet, dueAt, closeAfterDue: !!p.closeAfterDue, pastDue, closed: !!p.off || notYet || (!!p.closeAfterDue && pastDue) };
 }
 // Instructors: change one exam's practice settings (merged into the class's settings)
 export async function setPractice(classId, examId, cfg) {
   await load();
-  const clean = { off: !!cfg.off, dueAt: Number(cfg.dueAt) || null, closeAfterDue: !!cfg.closeAfterDue && !!Number(cfg.dueAt) };
+  const clean = { off: !!cfg.off, opensAt: Number(cfg.opensAt) || null, dueAt: Number(cfg.dueAt) || null, closeAfterDue: !!cfg.closeAfterDue && !!Number(cfg.dueAt) };
   await fb.setDoc(fb.doc(fb.db, 'classes', classId), { practice: { [examId]: clean }, updatedAt: Date.now() }, { merge: true });
   if (enrollment[classId]) enrollment[classId] = { ...enrollment[classId], practice: { ...(enrollment[classId].practice || {}), [examId]: clean } };
   return clean;
@@ -879,6 +881,8 @@ export async function saveClass({ id, name, course, term, exams, staff, students
 
 // The class's instructor (or an admin) can add, edit and remove students; TAs only look
 export const canEditRoster = (classId) => !!enabled && (admin || myClasses().some((c) => c.id === classId && c.role === 'instructor'));
+// The class's instructor (or an admin): sets up graded work. TAs proctor and grade it.
+export const leadsClass = canEditRoster;
 
 // Admin or the class's instructor: put one person on a class roster as a student (e.g. someone who signed in with an
 // email the roster didn't have). Same records as saving the class, for just this person.
@@ -1043,22 +1047,197 @@ export async function setAccessCodes(classId, tid, { code = '', sections = {} })
 }
 export async function deleteTimed(classId, tid) {
   await load();
-  const [atts, grades, extra] = await Promise.all([listAttempts(classId, tid), listTestGrades(classId, tid), listTimedExtra(classId, tid)]);
-  const refs = [tdoc(classId, 'tests', tid), tdoc(classId, 'testKeys', tid), tdoc(classId, 'testCodes', tid), ...atts.map((a) => tdoc(classId, 'attempts', a.id)), ...grades.map((g) => tdoc(classId, 'testGrades', g.id)), ...extra.map((x) => tdoc(classId, 'testExtra', `${tid}_${x.email}`))];
+  const [atts, grades, extra, earlier] = await Promise.all([listAttempts(classId, tid), listTestGrades(classId, tid), listTimedExtra(classId, tid), listEarlierAttempts(classId, tid).catch(() => [])]);
+  const refs = [tdoc(classId, 'tests', tid), tdoc(classId, 'testKeys', tid), tdoc(classId, 'testCodes', tid), ...atts.map((a) => tdoc(classId, 'attempts', a.id)), ...grades.map((g) => tdoc(classId, 'testGrades', g.id)), ...extra.map((x) => tdoc(classId, 'testExtra', `${tid}_${x.email}`)), ...earlier.map((x) => tdoc(classId, 'attemptArchive', x.id))];
   for (let i = 0; i < refs.length; i += 400) { const b = fb.writeBatch(fb.db); refs.slice(i, i + 400).forEach((r) => b.delete(r)); await b.commit(); }
   const b = fb.writeBatch(fb.db);
   b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: fb.deleteField() }, updatedAt: Date.now() }, { merge: true });
   await b.commit();
+}
+// Only the attempts whose state changed after `since` (ms). An empty answer costs one read.
+export async function listAttemptsChanged(classId, tid, since) {
+  await load();
+  const from = `${tid}|${String(Math.max(0, Math.round(since))).padStart(15, '0')}`;
+  try {
+    const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'attempts'), fb.where('stateKey', '>', from), fb.where('stateKey', '<=', `${tid}|~`)));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    if (e?.code === 'permission-denied') throw e;
+    return listAttempts(classId, tid);
+  }
+}
+// Only the attempts still in progress (for "last saved" and "answered" on the Live tab)
+export async function listOpenAttempts(classId, tid) {
+  await load();
+  try {
+    const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'attempts'), fb.where('tid', '==', tid), fb.where('status', '==', 'open')));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    if (e?.code === 'permission-denied') throw e;
+    return (await listAttempts(classId, tid)).filter((a) => a.status === 'open'); // if Firebase ever wants an index for it
+  }
 }
 export async function listAttempts(classId, tid) {
   await load();
   const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'attempts'), fb.where('tid', '==', tid)));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
+// ---- Build my course (staff only): the course setup and the TEXT read from the professor's files.
+// Files themselves are never uploaded; materials.js reads their words in the browser.
+//   classes/{C}/builder/setup           kind of course, term and exam dates, what to make
+//   classes/{C}/materials/{M}           one per file: name, kind, words, how many chunks
+//   classes/{C}/materialText/{M}_{i}    the text, in chunks of labelled parts ("slide 4", "page 2")
+export async function getBuilderSetup(classId) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'builder', 'setup'));
+  return snap.exists() ? snap.data() : null;
+}
+export async function saveBuilderSetup(classId, data) {
+  await load();
+  await fb.setDoc(tdoc(classId, 'builder', 'setup'), { ...data, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+}
+export async function listMaterials(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'materials'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+}
+// m: what materials.readMaterial() returned; chunks: materials.packChunks(m.parts)
+export async function addMaterial(classId, m, chunks) {
+  await load();
+  const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const written = [];
+  try {
+    for (let i = 0; i < chunks.length; i += 6) {           // a few chunks per request (each can be ~0.5 MB)
+      const b = fb.writeBatch(fb.db);
+      chunks.slice(i, i + 6).forEach((parts, k) => { b.set(tdoc(classId, 'materialText', `${id}_${i + k}`), { mid: id, i: i + k, parts }); written.push(i + k); });
+      await b.commit();
+    }
+    const meta = { name: m.name, kind: m.kind, unit: m.unit, size: m.size, words: m.words, chars: m.chars, parts: m.parts.length, emptyParts: m.emptyParts, chunks: chunks.length, addedAt: Date.now(), addedBy: user.email.toLowerCase() };
+    await fb.setDoc(tdoc(classId, 'materials', id), meta);   // last: a file only counts once all its text is saved
+    return { id, ...meta };
+  } catch (e) {
+    await Promise.all(written.map((i) => fb.deleteDoc(tdoc(classId, 'materialText', `${id}_${i}`)).catch(() => {})));
+    throw e;
+  }
+}
+export async function deleteMaterial(classId, m) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.delete(tdoc(classId, 'materials', m.id));
+  for (let i = 0; i < (m.chunks || 0); i++) b.delete(tdoc(classId, 'materialText', `${m.id}_${i}`));
+  await b.commit();
+}
+export async function getMaterialText(classId, m) {
+  await load();
+  const snaps = await Promise.all(Array.from({ length: m.chunks || 0 }, (_, i) => fb.getDoc(tdoc(classId, 'materialText', `${m.id}_${i}`))));
+  return snaps.flatMap((s) => (s.exists() ? s.data().parts || [] : []));
+}
+
+// ---- Build my course: the build itself. The professor's AI does the work through the connector
+// service; this page starts it, shows it and approves the course map.
+//   classes/{C}/builder/build   { json (the engine's state), code (the secret link code), phase, total, done, stuck }
+//   buildLinks/{code}           { classId }   what the connector looks up
+//   classes/{C}/built/{stepId}  what each finished job made
+export const connectorUrl = () => String(config.connectorUrl || '').replace(/\/+$/, '');
+export async function getBuild(classId) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'builder', 'build'));
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return { ...d, st: JSON.parse(d.json) };
+}
+// st: engine.createBuild(setup, files). Starting again throws away the old build and kills its link.
+export async function startBuild(classId, st) {
+  await load();
+  const old = await getBuild(classId).catch(() => null);
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const code = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => abc[b % abc.length]).join('');
+  if (old) await clearBuilt(classId, old.st);
+  const b = fb.writeBatch(fb.db);
+  if (old?.code) b.delete(fb.doc(fb.db, 'buildLinks', old.code));
+  b.set(fb.doc(fb.db, 'buildLinks', code), { classId, createdAt: Date.now(), by: user.email.toLowerCase() });
+  const steps = Object.values(st.steps);
+  b.set(tdoc(classId, 'builder', 'build'), { json: JSON.stringify(st), code, phase: st.phase, total: steps.length, done: 0, stuck: 0, startedAt: Date.now(), updatedAt: Date.now(), startedBy: user.email.toLowerCase() });
+  await b.commit();
+  return code;
+}
+async function clearBuilt(classId, st) {
+  const ids = Object.keys(st?.steps || {});
+  for (let i = 0; i < ids.length; i += 200) {
+    const b = fb.writeBatch(fb.db);
+    ids.slice(i, i + 200).forEach((id) => b.delete(tdoc(classId, 'built', id)));
+    await b.commit();
+  }
+}
+export async function cancelBuild(classId) {
+  await load();
+  const old = await getBuild(classId);
+  if (!old) return;
+  await clearBuilt(classId, old.st);
+  const b = fb.writeBatch(fb.db);
+  if (old.code) b.delete(fb.doc(fb.db, 'buildLinks', old.code));
+  b.delete(tdoc(classId, 'builder', 'build'));
+  await b.commit();
+}
+// the professor approved (and maybe renamed or reordered) the course map
+export async function saveBuildState(classId, st, extra = {}) {
+  await load();
+  const steps = Object.values(st.steps);
+  await fb.setDoc(tdoc(classId, 'builder', 'build'), { json: JSON.stringify(st), phase: st.phase, total: steps.length, done: steps.filter((s) => s.status === 'done').length, stuck: steps.filter((s) => s.status === 'stuck').length, ...extra, updatedAt: Date.now() }, { merge: true });
+}
+// ---- Study pages: one per unit, for students. { n, title, start, end, opensAt, notes, examId, hasAssignment }
+// The class keeps a small list (titles and dates) so the class page can show what is open and what is coming.
+export async function saveStudyUnit(classId, id, unit) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'study', id), { ...unit, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+  b.set(fb.doc(fb.db, 'classes', classId), { study: { [id]: { n: unit.n, title: unit.title, opensAt: unit.opensAt, start: unit.start || null, end: unit.end || null } }, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+}
+export async function getStudyUnit(classId, id) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'study', id));
+  return snap.exists() ? { id, ...snap.data() } : null;
+}
+export async function listBuilt(classId) {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'built'));
+  return Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]));
+}
+// the professor edited what was made, or published it (patch: { text } | { published: { at, as } })
+export async function patchBuilt(classId, stepId, patch) {
+  await load();
+  const { keepOnly, ...data } = patch;
+  await fb.setDoc(tdoc(classId, 'built', stepId), 'text' in data ? { ...data, editedAt: Date.now(), editedBy: user.email.toLowerCase() } : data, { merge: true });
+}
+export async function getBuilt(classId, stepId) {
+  await load();
+  const snap = await fb.getDoc(tdoc(classId, 'built', stepId));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Staff: give a student who submitted a NEW attempt. Their submitted attempt (and its score, if graded)
+// is kept as an earlier attempt (attemptArchive, staff only); they start again from blank, with the
+// access code, while the exam is open for their section. The new attempt is the one that's graded.
+export async function newAttempt(classId, aid) {
+  await load();
+  const [a, g] = await Promise.all([fb.getDoc(tdoc(classId, 'attempts', aid)), fb.getDoc(tdoc(classId, 'testGrades', aid))]);
+  if (!a.exists()) throw new Error('This attempt is no longer there. Refresh the page.');
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'attemptArchive', `${aid}_${Date.now()}`), { ...a.data(), attemptId: aid, grade: g.exists() ? g.data() : null, archivedAt: Date.now(), archivedBy: user.email.toLowerCase() });
+  b.delete(tdoc(classId, 'attempts', aid));
+  if (g.exists()) b.delete(tdoc(classId, 'testGrades', aid));
+  await b.commit();
+}
+export async function listEarlierAttempts(classId, tid) {
+  await load();
+  const snap = await fb.getDocs(fb.query(fb.collection(fb.db, 'classes', classId, 'attemptArchive'), fb.where('tid', '==', tid)));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((x, y) => x.archivedAt - y.archivedAt);
+}
 // Staff changes to one attempt: let back in, add time, end. patch fields are merged.
 export async function staffAttempt(classId, aid, patch, { now = false } = {}) {
   await load();
-  const data = { ...patch };
+  const data = { ...patch, stateKey: stateKey(aid.slice(0, aid.indexOf('_'))) };
   if (now) data.beatAt = fb.serverTimestamp();
   if (patch.submittedAt === 'now') data.submittedAt = fb.serverTimestamp();
   await fb.setDoc(tdoc(classId, 'attempts', aid), data, { merge: true });
@@ -1098,6 +1277,11 @@ export async function syncClock() {
   return clockOffset;
 }
 export const trueNow = () => Date.now() + clockOffset;
+// "<testId>|<time>": changes whenever an attempt's state changes (started, a warning or exit, submitted,
+// ended, let back in, time added), but not on ordinary answer saves. The Live tab asks Firebase only
+// for attempts whose stateKey moved since it last looked, so it reads a handful of documents a minute
+// instead of the whole class.
+export const stateKey = (tid) => `${tid}|${String(Math.max(0, Math.round(trueNow()))).padStart(15, '0')}`;
 
 // ---- student side
 // Read the exam (only works once it has opened) and this student's attempt, if any.
@@ -1121,7 +1305,7 @@ export async function startAttempt(classId, tid, { session, device, extraMin = 0
   const t0 = Date.now();
   await fb.setDoc(tdoc(classId, 'attempts', `${tid}_${user.uid}`), {
     tid, uid: user.uid, email: user.email.toLowerCase(), name: user.displayName || '', status: 'open', session,
-    startedAt: fb.serverTimestamp(), beatAt: fb.serverTimestamp(), answers: {}, events: [], saves: 0, extraMin, device, reopened: 0, submittedAt: null, endedReason: '',
+    startedAt: fb.serverTimestamp(), beatAt: fb.serverTimestamp(), answers: {}, events: [], saves: 0, extraMin, device, reopened: 0, submittedAt: null, endedReason: '', stateKey: stateKey(tid),
     ...(code ? { code } : {}),
   });
   const t1 = Date.now();
@@ -1133,7 +1317,7 @@ export async function saveAttempt(classId, base, changes) {
   await load();
   const data = { ...base, ...changes, beatAt: fb.serverTimestamp() };
   delete data.id;
-  if (changes.status && changes.status !== 'open') data.submittedAt = fb.serverTimestamp();
+  if (changes.status && changes.status !== 'open') { data.submittedAt = fb.serverTimestamp(); data.stateKey = stateKey(base.tid); }
   await fb.setDoc(tdoc(classId, 'attempts', base.id), data);
 }
 // Extra minutes the professor gave this student for this exam (0 if none)

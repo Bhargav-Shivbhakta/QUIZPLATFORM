@@ -101,6 +101,7 @@ export async function render(main, { classId }) {
   function practiceStatus(id) {
     const p = cloud.practiceState({ practice }, id);
     if (p.off) return { tone: 'bad', text: 'Off: students can’t see or open it' };
+    if (p.notYet) return { tone: 'ok', text: `Opens ${when(p.opensAt)}: students can’t see it until then` };
     if (p.closed) return { tone: 'bad', text: `Closed: the due date (${when(p.dueAt)}) has passed` };
     if (p.dueAt) return { tone: p.pastDue ? 'ok' : 'good', text: p.pastDue ? `Past due (${when(p.dueAt)}), still open` : `Open · due ${when(p.dueAt)}` };
     return { tone: 'good', text: 'Open · no due date' };
@@ -114,6 +115,7 @@ export async function render(main, { classId }) {
         <span class="pr-due"><label class="field inline"><span>Due</span><input type="datetime-local" data-pr-due value="${toLocalInput(p.dueAt)}" aria-label="Due date for ${t}"></label>
         <button type="button" class="btn small" data-pr-setdue disabled>Save due date</button>
         ${p.dueAt ? `<button type="button" class="link-btn small" data-pr-nodue>Remove due date</button>` : ''}</span>
+        ${p.notYet ? `<button type="button" class="link-btn small" data-pr-opennow>Open it for students now</button>` : ''}
         <label class="check"><input type="checkbox" data-pr-close ${p.closeAfterDue ? 'checked' : ''} ${p.dueAt ? '' : 'disabled'}><span>Close it after the due date</span></label>
         <p class="pr-status small ${st.tone}" data-pr-status aria-live="polite">${esc(st.text)}</p>
       </div>`;
@@ -123,6 +125,7 @@ export async function render(main, { classId }) {
     const cfg = {
       off: !box.querySelector('[data-pr-on]').checked,
       dueAt: practice[id]?.dueAt || null,
+      opensAt: practice[id]?.opensAt || null,
       closeAfterDue: box.querySelector('[data-pr-close]').checked,
       ...patch,
     };
@@ -325,6 +328,7 @@ export async function render(main, { classId }) {
       if (!fromLocalInput(v)) { toast('Pick a date and time first (or use Remove due date)', 'bad'); return; }
       return savePractice(box, { dueAt: fromLocalInput(v) }, '[data-pr-due]');
     }
+    if (b?.matches('[data-pr-opennow]')) return savePractice(b.closest('[data-pr]'), { opensAt: null });
     if (b?.matches('[data-pr-nodue]')) return savePractice(b.closest('[data-pr]'), { dueAt: null, closeAfterDue: false }, '[data-pr-due]');
     if (!b) return;
     if ('newExam' in b.dataset) { mode = { kind: 'exam' }; parsed = null; fileName = ''; return draw(); }

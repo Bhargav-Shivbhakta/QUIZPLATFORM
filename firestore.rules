@@ -79,7 +79,8 @@ service cloud.firestore {
       let t = testOf(classId, d.tid);
       let ex = /databases/$(database)/documents/classes/$(classId)/testExtra/$(d.tid + '_' + myEmail());
       return attemptId == d.tid + '_' + request.auth.uid
-        && d.keys().hasOnly(['tid', 'uid', 'email', 'name', 'status', 'session', 'startedAt', 'beatAt', 'answers', 'events', 'saves', 'extraMin', 'device', 'reopened', 'submittedAt', 'endedReason', 'code'])
+        && d.keys().hasOnly(['tid', 'uid', 'email', 'name', 'status', 'session', 'startedAt', 'beatAt', 'answers', 'events', 'saves', 'extraMin', 'device', 'reopened', 'submittedAt', 'endedReason', 'code', 'stateKey'])
+        && (!('stateKey' in d) || d.stateKey.matches(d.tid + '[|][0-9]{15}'))
         && d.uid == request.auth.uid
         && d.email == myEmail()
         && d.status == 'open'
@@ -100,7 +101,8 @@ service cloud.firestore {
     function saveOk(classId, old, d) {
       let t = testOf(classId, old.tid);
       return old.status == 'open'
-        && d.diff(old).affectedKeys().hasOnly(['answers', 'events', 'status', 'endedReason', 'submittedAt', 'beatAt', 'saves', 'session', 'device'])
+        && d.diff(old).affectedKeys().hasOnly(['answers', 'events', 'status', 'endedReason', 'submittedAt', 'beatAt', 'saves', 'session', 'device', 'stateKey'])
+        && (!('stateKey' in d) || d.stateKey.matches(old.tid + '[|][0-9]{15}'))
         && (d.session == old.session || (old.session == '' && d.session is string && d.session.size() >= 16))
         && d.beatAt == request.time
         && request.time <= old.beatAt + duration.value(300, 's')
@@ -122,13 +124,23 @@ service cloud.firestore {
       allow write: if isAdmin();
       // a class's instructors can add or remove the exams they upload, turn practice on/off and set
       // due dates, and list their timed exams; its instructor also keeps the student count up to date
+      // (TAs: practice only. Graded work, the 'timed' list, is set up by the class's instructor.)
       allow update: if teaches(classId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'practice']);
+      allow update: if leads(classId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['exams', 'updatedAt', 'timed', 'practice', 'study']);
       allow update: if leads(classId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentCount', 'updatedAt', 'updatedBy']);
 
       // Exams and assignments uploaded on the site: everyone in the class reads them,
       // the class's instructors (and admins) upload, replace and delete them.
+      // Study pages: one per unit (the notes, and what to practise). Students can open a unit from
+      // the day it starts; the list of units (titles and dates only) is on the class itself.
+      match /study/{unitId} {
+        allow get: if isAdmin() || teaches(classId) || (enrolledIn(classId) && request.time.toMillis() >= resource.data.opensAt);
+        allow list: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
+      }
       match /exams/{examId} {
         allow read: if isAdmin() || teaches(classId) || enrolledIn(classId);
         allow write: if isAdmin() || teaches(classId);
@@ -186,14 +198,17 @@ service cloud.firestore {
       // ---------------- Timed exams ----------------
       // The exam itself: questions and choices only (no answers). Students can open it only once it
       // is published and its start time (for their section) has passed, by Firebase's clock.
+      // Graded work: the class's instructor creates, changes, releases and deletes it; TAs can see it,
+      // proctor (Live tab: let back in, add time, end, new access code) and grade.
       match /tests/{testId} {
         allow read: if isAdmin() || teaches(classId)
           || (enrolledIn(classId) && resource.data.status == 'published' && examOpened(classId, resource.data));
-        allow write: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
       }
       // Answer keys and hidden tests: the class's staff only, never students.
       match /testKeys/{testId} {
-        allow read, write: if isAdmin() || teaches(classId);
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
       }
       // The access code students type to start (shown by the professor in the room). Staff only:
       // students never read it; the start rule above compares what they typed with it.
@@ -204,7 +219,8 @@ service cloud.firestore {
       // own (or find that there is none); the start rule checks the minutes they claim.
       match /testExtra/{extraId} {
         allow get: if enrolledIn(classId) && (resource == null || resource.data.email == myEmail());
-        allow read, write: if isAdmin() || teaches(classId);
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
       }
       // One attempt per student per exam. Id: "<testId>_<uid>" (checked by id, so a student can also
       // look for an attempt that doesn't exist yet).
@@ -215,7 +231,32 @@ service cloud.firestore {
         // saving and submitting: only from the same device, only while the attempt is open and in time
         allow update: if enrolledIn(classId) && resource.data.uid == request.auth.uid && saveOk(classId, resource.data, request.resource.data);
         // the professor: let a student back in, add time, end an attempt
-        allow update, delete: if isAdmin() || teaches(classId);
+        allow update: if isAdmin() || teaches(classId);
+        allow delete: if isAdmin() || leads(classId);
+      }
+      // Build my course: the setup and the text read from the professor's own files. The class's
+      // instructor writes; TAs can look; students never see any of it.
+      // (builder also holds the connector link code, so only the instructor reads it)
+      match /builder/{docId} {
+        allow read, write: if isAdmin() || leads(classId);
+      }
+      // What the build made (notes, question sets, assignments with solutions): staff only
+      match /built/{stepId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
+      }
+      match /materials/{materialId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
+      }
+      match /materialText/{chunkId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
+      }
+      // A submitted attempt kept when the professor gives a student a new attempt (staff only)
+      match /attemptArchive/{archiveId} {
+        allow read: if isAdmin() || teaches(classId);
+        allow write: if isAdmin() || leads(classId);
       }
       // Scores: students see their own only after the professor releases them.
       match /testGrades/{gradeId} {
@@ -243,6 +284,12 @@ service cloud.firestore {
           && docId == request.auth.uid + '_' + request.resource.data.examId;
         allow delete: if isAdmin();
       }
+    }
+    // Build my course: the secret link code a professor gives their AI → which class it builds.
+    // Nobody can list these; the connector service reads them with its own service account.
+    match /buildLinks/{code} {
+      allow get, delete: if isAdmin() || leads(resource.data.classId);
+      allow create: if (isAdmin() || leads(request.resource.data.classId)) && code.matches('^[A-Za-z0-9]{32}$');
     }
     match /rosters/{classId} {
       allow read: if isAdmin() || teaches(classId);

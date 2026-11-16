@@ -270,6 +270,12 @@ For work that counts, taken on the site. Needs student sign-in (section 7). On t
 4. **Questions:** drop a question file (same format as practice exams) and/or a programming-problems zip or folder (same format as assignments). Points: `## Q3 · 2pts` in a question heading, `points: 15` in assignment.md (default 10). Written answers graded by hand: `## Q9 · written · 5pts`, with an optional `= model answer` line for the grader. In programming problems, the tests in `sample_tests` are shown to students; the others stay hidden and are used for grading. Reference solutions are run against the tests before publishing and are never uploaded.
 **Different rules for a section:** in step 3, with **Only the sections I choose**, open **Different rules for a section**. Each section can have its own time limit, its own access code (or none), Safe Exam Browser required or not, how many warnings, and phones allowed or not. Anything left at *Same as step 5* uses the exam's rule. Firebase checks each section's own time limit and code. On the Live tab each section's code has its own **Show on projector** and **New code**.
 
+**How the Live tab saves Firebase reads:** every minute it asks only for students whose *state* changed (started, a warning or exit, submitted, ended, let back in, time added). A quiet minute costs 1 read. Every 5 minutes it re-reads only the students still working (for "last saved" and "answered"). **Refresh** reads everyone. Ordinary answer saves are never re-read. The notification bell doesn't reload during an exam. Roughly, for 150 students and one staff member watching a 1-hour exam: about 1,500 reads, where it used to be about 9,000.
+
+**Who can do what:** the class's **instructor** (and site admins) creates, edits, turns off, releases and deletes graded work, sets section rules and extra-time accommodations, and gives new attempts. **TAs** see it, proctor on the Live tab (let back in, + Time, End, new access code, show on projector) and grade (Results: grade, Send to Canvas, Download CSV). Firebase enforces this. TAs can still manage practice sets.
+
+**A second attempt:** *Let back in* is for an attempt that was cut off (warnings, time up, lost connection): the student continues the same attempt. For a student who **submitted**, the Live tab shows **New attempt** instead: they start again from a blank exam with the full time limit (and the access code), and only the new attempt is graded. The submitted answers and any score are kept as an earlier attempt, shown when you click the student's name. The exam must still be open for their section.
+
 **Turning it off:** on the exam's page, **Turn off** hides it from students and stops anyone new from starting (Firebase checks this too). Students already working can still finish (use **End** on the Live tab to stop them). Nothing is deleted; **Turn on** brings it back.
 
 5. **Rules:** **require an access code to start** (on by default; see below); shuffle questions and choices per student; require Safe Exam Browser; allow phones (off by default); show which questions were right when scores are released.
@@ -290,6 +296,61 @@ For work that counts, taken on the site. Needs student sign-in (section 7). On t
 **Getting the scores into Canvas (Send to Canvas):** in Canvas open **Grades → Export → Export Entire Gradebook**, then on the Results tab click **Send to Canvas** and drop that file in (it's read on your computer only, never uploaded). Choose the Canvas column: an existing assignment (scores are scaled if its points differ, e.g. 36 here → 50 in Canvas) or a new one. Students are matched by RedID (Canvas's *SIS User ID*), then email, then name; anyone who couldn't be matched is listed. Choose whether students with no score are left out (Canvas keeps what they have) or get 0, download the file, and in Canvas use **Grades → Import**, check the preview and click **Upload**. Notes: Canvas publishes a new assignment as soon as it's imported; if your course uses grading periods, create the assignment in Canvas first, export again and pick it. No export at hand? **Make the file from the roster instead** uses each student's RedID as the SIS User ID.
 
 **Free-plan cost:** about one write every 2 minutes per student (a 90-minute exam for 200 students is about 9,500 writes and 20,000 reads, plus 200 reads a minute while the Live tab is open). Turn off Auto-refresh if several staff watch at once.
+
+## 4d. Build my course with AI (preview, step 1 of 5)
+
+Instructors (not TAs) can open `#/build/<class>` from the class page. All five steps are built; the connector is not online yet. Step 1:
+
+- **Kind of course**: concepts and facts, Java programming, math and numbers.
+- **Materials**: drop in PDF, PowerPoint (.pptx), Word (.docx) or text files. The words are read in
+  the browser and only the text is saved (staff only), labelled by slide, page or section. Pictures,
+  scans and handwriting are not read; old .ppt/.doc files must be saved as .pptx/.docx/PDF first.
+- **Term and exam dates**, what to make, and any wishes.
+
+The **build engine** (`app/js/build/engine.js`, not yet wired to a page) gives an AI one job at a
+time (read a file, order the topics, then notes, practice, quiz, assignment and exams per unit) and
+checks every answer: nothing skipped, right format, right counts, no repeated questions, and Java
+solutions are run against their tests. A job that fails 4 times is set aside for the professor.
+
+**Steps 2 to 4** (`#/build/<class>/go`): the professor copies a private link into their AI (Claude,
+ChatGPT or Gemini) and sends one sentence. The AI talks to the **connector** (`connector/`, an MCP
+service with two tools, `next_step` and `submit_step`), which runs the build engine and saves each
+result under `classes/{class}/built`. The page shows progress, lets the professor approve, rename
+and reorder the course map, and can start over (which kills the old link). `connectorUrl` in
+`app/config.js` is the connector's address; without it the page says the connector is not online.
+
+**Step 5** (`#/build/<class>/review`): the professor opens anything to read it, can change the text
+(question files are checked before saving) and run a programming solution against its tests, then
+publishes. A unit's practice set and programming assignment become a normal class exam that opens
+on the unit's first day (`practice.<exam>.opensAt`). Quizzes and exams are only ever added to Graded
+work as **drafts** with the date filled in; the professor finishes and publishes them there. Study
+notes stay in `built` until the student study pages exist.
+
+**Three chats (optional, "team" build).** With the box ticked on step 1, the work is split into
+roles the AI passes on every `next_step` call: `build` writes, `check` answers every question set
+without its key and solves every assignment from the instructions alone, and `fresh` does the same
+once more on the agreed version. Where they disagree the builder gets the feedback and fixes it
+(two rounds at most, then one more after fresh eyes). Whatever still disagrees at the end is held
+back at review. Each chat waits while the others work; one AI in three chats or two different AIs
+both work.
+
+**In parts (optional).** Step 1 can build 2, 3 or 5 units at a time. The build then stops after
+each part (`partInfo`, `releaseNext` in the engine) until the professor presses Build the next part,
+so they can look at the first units before the rest is made and a long course stays inside a
+day's free limits. If the daily database limit is reached anyway, the AI is told to stop and
+carry on tomorrow; nothing is lost.
+
+Saved under `classes/{class}/builder`, `materials` and `materialText`. Students can never read these.
+The PDF reader is pdf.js (Apache-2.0) in `app/vendor/pdfjs/`.
+
+## 4e. Study pages (students)
+
+Each unit has a study page (`#/study/<class>/<unit>`): the notes with a short table of contents,
+then links to that unit's practice questions and programming assignment. The class page lists the
+units under "Study by unit". A unit opens on its first day: the page is stored in
+`classes/{class}/study/{unit}` and the rules refuse students before `opensAt`; the class itself only
+carries titles and dates. Instructors and TAs can preview any unit. Units are created when a unit
+is published from Build my course.
 
 ## 5. Checking and previewing on your computer (optional)
 

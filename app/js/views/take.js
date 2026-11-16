@@ -198,6 +198,7 @@ export async function render(main, { classId, tid }, query = {}) {
         } else {
           const extraMin = await cloud.myExtraTime(classId, tid);
           ({ attempt, offset } = await cloud.startAttempt(classId, tid, { session, device, extraMin, code }));
+          lsSet('ans:' + attempt.id, null); lsSet('flags:' + attempt.id, null); // nothing left over from an earlier attempt
         }
         lsSet('sess:' + attempt.id, session);
       } catch (e) {
@@ -341,6 +342,8 @@ export async function render(main, { classId, tid }, query = {}) {
       if (preview || saving) return true;
       saving = true; saveLabel();
       const changes = { answers: { ...answers }, events: events.slice(-200), saves: (attempt.saves || 0) + 1, ...extra };
+      // a warning, exit or return since the last save: tell the professor's Live tab (see cloud.stateKey)
+      if (events.length !== (attempt.events || []).length || (extra.status && extra.status !== 'open')) changes.stateKey = cloud.stateKey(tid);
       try {
         await cloud.saveAttempt(classId, attempt, changes);
         attempt = { ...attempt, ...changes, beatAt: serverNow() };
