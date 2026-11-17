@@ -30,16 +30,16 @@ const task = ([t, m]) => `<div class="lp-task"><span class="mark">${CHECK}</span
 function markup() {
   return `<div class="lp js-anim">
   ${header(true)}
-  <section class="wrap center lp-hero" aria-labelledby="lp-h1">
+  <section class="wrap lp-center lp-hero" aria-labelledby="lp-h1">
     <p class="kicker">For computer science, mathematics and statistics courses</p>
     <h1 id="lp-h1">Cram the right way.<sup class="tm" aria-hidden="true">™</sup></h1>
-    <p class="lead">A little every day, ready on exam day. Cramming turns your course materials into daily practice and a plan for every student. You approve every word.</p>
+    <p class="lp-lead">A little every day, ready on exam day. Cramming turns your course materials into daily practice and a plan for every student. You approve every word.</p>
     <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="how">See how it works ›</a></div>
     <div class="lp-stage">
       <div class="lp-tilt">
         <div class="lp-glow" aria-hidden="true"></div>
         <div class="lp-window" role="img" aria-label="Example: a student's Today screen for a calculus class. Three tasks are checked off one by one while the readiness bar for the chain rule grows.">
-          <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
+          <div class="lp-winbar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
           <div class="lp-today" aria-hidden="true">
             <div class="main">
               <div><p class="meta">Tuesday · MATH 150 · Midterm in 12 days</p><p class="title" data-today-title>Today, about 23 minutes</p></div>
@@ -56,15 +56,15 @@ function markup() {
           </div>
         </div>
       </div>
-      <div class="lp-phone" data-par="-0.08" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 23 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
+      <div class="lp-phone" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 23 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
     </div>
   </section>
 
   <section id="students" class="wrap sec" aria-labelledby="st-h">
-    <div class="center stack reveal">
-      <p class="eyebrow">For students</p>
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">For students</p>
       <h2 id="st-h" class="h2">Every student knows what to do tonight.</h2>
-      <p class="lead">Each student gets a short plan built from their own mistakes, the questions due for review and this week's unit. Small sessions, most days: the way people remember best.</p>
+      <p class="lp-lead">Each student gets a short plan built from their own mistakes, the questions due for review and this week's unit. Small sessions, most days: the way people remember best.</p>
     </div>
     <div class="points">${points([
       ['Built from your course', 'Questions and notes come from your own material, so practice matches what you teach and what you test.'],
@@ -75,10 +75,10 @@ function markup() {
 
   <section class="lp-dark" aria-labelledby="pr-h">
     <div class="wrap">
-      <div class="center stack reveal">
-        <p class="eyebrow">Practice · try it</p>
+      <div class="lp-center stack reveal">
+        <p class="lp-eyebrow">Practice · try it</p>
         <h2 id="pr-h" class="h2">Practice that teaches.</h2>
-        <p class="lead">Every answer is explained the moment it's given, right or wrong. In computer science, mathematics and statistics, with equations set properly and code that runs in the browser.</p>
+        <p class="lp-lead">Every answer is explained the moment it's given, right or wrong. In computer science, mathematics and statistics, with equations set properly and code that runs in the browser.</p>
       </div>
       <div class="lp-q reveal" data-q>
         <div class="top"><span>STAT 119 · Sampling</span><span>Question 3 of 10</span></div>
@@ -90,10 +90,10 @@ function markup() {
   </section>
 
   <section class="wrap sec" aria-labelledby="sr-h">
-    <div class="center stack reveal">
-      <p class="eyebrow">Spaced review</p>
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">Spaced review</p>
       <h2 id="sr-h" class="h2">Learn it once. Keep it for the exam.</h2>
-      <p class="lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for you: a day, then three, then a week, then sixteen days. Miss one, and it starts again.</p>
+      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for you: a day, then three, then a week, then sixteen days. Miss one, and it starts again.</p>
     </div>
     <figure class="card lp-curve reveal" style="margin-left:0;margin-right:0">
       <p class="axis">How much you remember</p>
@@ -101,7 +101,7 @@ function markup() {
         <line class="base" x1="0" y1="250" x2="800" y2="250" stroke-width="1.5"/>
         <path class="without" d="M0 20 C120 170 300 222 800 238" fill="none" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round"/>
         <path class="with" d="M0 20 C10 50 20 64 27 72 L27 24 C60 56 90 70 107 78 L107 24 C170 56 240 72 293 80 L293 24 C450 48 620 60 720 66 L720 22 C750 25 780 28 800 30" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-        ${[[27, 24], [107, 24], [293, 24], [720, 22]].map(([x, y]) => `<circle class="ring" cx="${x}" cy="${y}" r="7"/><circle class="dot" cx="${x}" cy="${y}" r="6"/>`).join('')}
+        ${[[27, 24], [107, 24], [293, 24], [720, 22]].map(([x, y]) => `<circle class="lp-ring" cx="${x}" cy="${y}" r="7"/><circle class="lp-dot" cx="${x}" cy="${y}" r="6"/>`).join('')}
       </svg></div>
       <figcaption class="legend"><span style="display:flex;flex-wrap:wrap;gap:10px 28px"><span><i class="sw"></i>With Cramming's reviews on day 1, 4, 11 and 27</span><span><i class="sw dash"></i>Without review</span></span><span>Day 1 → Day 30. An illustration, not measured data.</span></figcaption>
       <p class="research">The research: the forgetting curve, first measured by Ebbinghaus in 1885 and replicated by <a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0120644" target="_blank" rel="noopener">Murre and Dros (2015)</a>. Spaced practice beats massed practice across hundreds of experiments (Cepeda and colleagues, 2006, <em>Psychological Bulletin</em>). A review of study methods by Dunlosky and colleagues (2013) rated spaced practice and practice testing the two most useful techniques.</p>
@@ -110,11 +110,11 @@ function markup() {
 
   <section class="wrap sec split" aria-labelledby="tu-h">
     <div class="stack reveal">
-      <p class="eyebrow">AI tutor</p>
+      <p class="lp-eyebrow">AI tutor</p>
       <h2 id="tu-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">AI that stays inside your course.</h2>
-      <p class="lead" style="text-wrap:pretty">Students connect the AI they already use to your course. It reads only the units you've opened, and it switches off while a quiz or exam is running. One switch turns it off for the whole class.</p>
+      <p class="lp-lead" style="text-wrap:pretty">Students connect the AI they already use to your course. It reads only the units you've opened, and it switches off while a quiz or exam is running. One switch turns it off for the whole class.</p>
     </div>
-    <div class="card lp-chat lp-lift reveal" data-par="0.05" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
+    <div class="card lp-chat lp-lift reveal" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
       <small>MATH 150 tutor · Quiz 3 is open</small>
       <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
       <div class="ai">Quiz 3 is open right now, so I can't help with it. When it closes, I can walk you through the chain rule using your Unit 4 notes.</div>
@@ -124,9 +124,9 @@ function markup() {
   <section id="professors" class="wrap sec" aria-labelledby="pf-h">
     <div class="lp-panel split reveal">
       <div class="stack">
-        <p class="eyebrow">For professors</p>
+        <p class="lp-eyebrow">For professors</p>
         <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
-        <p class="lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
+        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
         <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
       </div>
       <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
@@ -139,26 +139,26 @@ function markup() {
 
   <section class="wrap sec split" aria-labelledby="da-h">
     <div class="stack reveal">
-      <p class="eyebrow">Class dashboard</p>
+      <p class="lp-eyebrow">Class dashboard</p>
       <h2 id="da-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">See who's struggling before the exam does.</h2>
-      <p class="lead" style="text-wrap:pretty">The questions most of your class gets wrong, and the students who haven't started. Fix a misunderstanding in Tuesday's lecture, not after the midterm.</p>
+      <p class="lp-lead" style="text-wrap:pretty">The questions most of your class gets wrong, and the students who haven't started. Fix a misunderstanding in Tuesday's lecture, not after the midterm.</p>
     </div>
-    <div class="card lp-dash lp-lift reveal" data-par="0.05" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
+    <div class="card lp-dash lp-lift reveal" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
       <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
       <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
         <small style="font-size:13px;color:var(--ink-3)">Most missed</small>
-        <div class="row"><span>Q7 · The chain rule, nested functions</span><b>64% wrong</b></div><div class="lp-track"><b style="--w:64%"></b></div>
-        <div class="row"><span>Q3 · Limits at infinity</span><b>41% wrong</b></div><div class="lp-track"><b style="--w:41%;opacity:.55"></b></div>
+        <div class="lp-row"><span>Q7 · The chain rule, nested functions</span><b>64% wrong</b></div><div class="lp-track"><b style="--w:64%"></b></div>
+        <div class="lp-row"><span>Q3 · Limits at infinity</span><b>41% wrong</b></div><div class="lp-track"><b style="--w:41%;opacity:.55"></b></div>
         <div class="alert">9 students signed in but haven't started Quiz 3.</div>
       </div>
     </div>
   </section>
 
   <section class="wrap sec" aria-labelledby="ex-h">
-    <div class="center stack reveal">
-      <p class="eyebrow">Graded exams</p>
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">Graded exams</p>
       <h2 id="ex-h" class="h2">Exams you can trust.</h2>
-      <p class="lead">Run quizzes and exams in Cramming, in the room or online, with the controls a fair exam needs.</p>
+      <p class="lp-lead">Run quizzes and exams in Cramming, in the room or online, with the controls a fair exam needs.</p>
     </div>
     <div class="points">${points([
       ['Access codes', 'Students start only when you give the code, shown on the projector.'],
@@ -169,17 +169,17 @@ function markup() {
   </section>
 
   <section id="how" class="wrap sec" aria-labelledby="hw-h">
-    <div class="center stack reveal"><p class="eyebrow">How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
+    <div class="lp-center stack reveal"><p class="lp-eyebrow">How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
     <ol class="lp-steps">${[
       ['Request access', 'Tell us your course and roughly how many students. It takes a minute.'],
       ['We build it with you', 'Upload your materials and approve the course map. We help you through your first build and review.'],
       ['Students start that week', 'Share the class link. Each student gets a plan for the units you have opened.'],
-    ].map(([h, p], i) => `<li class="card lp-lift reveal" style="--d:${i * 0.1}s"><span class="n">${i + 1}</span><h3>${h}</h3><p>${p}</p></li>`).join('')}</ol>
+    ].map(([h, p], i) => `<li class="card lp-lift reveal" style="--d:${i * 0.08}s"><span class="n">${i + 1}</span><h3>${h}</h3><p>${p}</p></li>`).join('')}</ol>
   </section>
 
   <section class="lp-band" aria-labelledby="tr-h">
     <div class="wrap">
-      <div class="center stack reveal"><p class="eyebrow">Privacy and access</p><h2 id="tr-h" class="h2">Safe for students. Ready for your school.</h2></div>
+      <div class="lp-center stack reveal"><p class="lp-eyebrow">Privacy and access</p><h2 id="tr-h" class="h2">Safe for students. Ready for your school.</h2></div>
       <div class="points">${points([
         ['School accounts only', "Sign-in is limited to your school's accounts and your class roster."],
         ['No student work in AI', "Students' answers and scores are never sent to an AI. The AI only sees your course materials."],
@@ -194,11 +194,11 @@ function markup() {
     <div class="list">${FAQ.map(([q, a]) => `<details class="reveal"><summary><span>${q}</span>${PLUS}</summary><p>${a}</p></details>`).join('')}</div>
   </section>
 
-  <section class="wrap center lp-end" aria-labelledby="en-h">
+  <section class="wrap lp-center lp-end" aria-labelledby="en-h">
     <h2 id="en-h" class="h2 reveal">Bring Cramming to your class.</h2>
-    <p class="lead reveal">We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
+    <p class="lp-lead reveal">We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
     <button type="button" class="lp-btn big reveal" data-request>Request access</button>
-    <p class="small">Free during early access. Student? <a href="#/signin">Sign in with your school account ›</a></p>
+    <p class="lp-small">Free during early access. Student? <a href="#/signin">Sign in with your school account ›</a></p>
   </section>
   ${footer()}
   <button type="button" class="lp-pause" data-pause aria-pressed="false"><svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true" data-pause-icon><rect x="2" y="1.5" width="2.6" height="9" rx=".8"/><rect x="7.4" y="1.5" width="2.6" height="9" rx=".8"/></svg><span>Pause motion</span></button>
@@ -227,23 +227,21 @@ export async function render(main, params = {}, query = {}) {
   const offs = [mountSheet(lp)];
 
   // reveals
-  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
   lp.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   offs.push(() => io.disconnect());
 
-  // scroll-linked: hero tilt, parallax, progress line
-  const tilt = lp.querySelector('.lp-tilt'), bar = lp.querySelector('.lp-progress'), par = [...lp.querySelectorAll('[data-par]')];
-  let ticking = false;
+  // scroll-linked: the hero product tilts upright over the first screen; the progress line follows
+  const tilt = lp.querySelector('.lp-tilt'), bar = lp.querySelector('.lp-progress');
+  let ticking = false, lastT = -1;
   const frame = () => {
     ticking = false;
     const vh = innerHeight, max = document.documentElement.scrollHeight - vh;
-    bar.style.setProperty('--progress', max > 0 ? (scrollY / max).toFixed(4) : 0);
-    if (paused) return;
-    tilt.style.setProperty('--tilt', Math.max(0, 1 - scrollY / (vh * 0.45)).toFixed(3));
-    for (const el of par) {
-      const r = el.getBoundingClientRect(), off = r.top + r.height / 2 - vh / 2;
-      el.style.setProperty('--py', (off * Number(el.dataset.par)).toFixed(1));
-    }
+    bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max).toFixed(4) : 0})`;
+    const t = paused ? 0 : Math.max(0, 1 - scrollY / (vh * 0.55));
+    if (Math.abs(t - lastT) < 0.002) return;
+    lastT = t;
+    tilt.style.transform = t > 0 ? `perspective(1800px) rotateX(${(t * 12).toFixed(2)}deg) scale(${(1 - t * 0.06).toFixed(4)})` : 'none';
   };
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener('scroll', onScroll, { passive: true });
@@ -307,7 +305,7 @@ export async function render(main, params = {}, query = {}) {
       p.setAttribute('aria-pressed', String(paused));
       p.querySelector('span').textContent = paused ? 'Play motion' : 'Pause motion';
       p.querySelector('[data-pause-icon]').innerHTML = paused ? '<path d="M3 1.5v9l7.5-4.5z"/>' : '<rect x="2" y="1.5" width="2.6" height="9" rx=".8"/><rect x="7.4" y="1.5" width="2.6" height="9" rx=".8"/>';
-      if (paused) { tilt.style.setProperty('--tilt', 0); par.forEach((el) => el.style.setProperty('--py', 0)); } else frame();
+      lastT = -1; frame();
     }
   };
   lp.addEventListener('click', onClick);

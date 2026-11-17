@@ -36,4 +36,14 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Fixed
 
-Nothing yet.
+### I-3. Landing page on large screens: capital-letter labels, jerky scrolling, phone covering a card
+
+- **Reported:** 17 November 2026, by the founder, from the live site on a large screen in dark mode.
+- **Causes:**
+  - Landing class names (`eyebrow`, `lead`, `row`, `bar`, `dot`, `ring`, `small`, `center`) were also used by the app's own styles, so app rules (such as capital letters) leaked in.
+  - Two motions fought over the same cards: a scroll drift and the reveal.
+  - A large blurred glow was redrawn on every scroll frame.
+  - The phone was placed over the window's edge.
+- **Fix:** every landing class now starts with `lp-`. The scroll drift is removed; there's one reveal (shorter and lighter), and the hero tilt is applied directly to the element. The glow is static, with no blur filter. The phone sits outside the window and shows only on screens 1640px or wider. On wide screens the page grows to 1200px.
+- **Tested:** 1280, 1366, 1440 (dark), 1920 and 2548 wide, plus a phone. Nothing scrolls sideways, all 37 reveals run, axe is clean, the phone never overlaps the window, and the frame times stayed smooth while scrolling.
+

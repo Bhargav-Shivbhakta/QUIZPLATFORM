@@ -27,7 +27,7 @@ export function header(onLanding) {
         <a class="link hide-sm" href="${to('professors')}" data-jump="professors">Professors</a>
         <a class="link hide-sm" href="${to('faq')}" data-jump="faq">Questions</a>
         <a class="link" href="#/signin">Sign in</a>
-        <button type="button" class="lp-btn small" data-request>Request access</button>
+        <button type="button" class="lp-btn lp-small" data-request>Request access</button>
       </nav>
     </div>
     <div class="lp-progress" aria-hidden="true"></div>
