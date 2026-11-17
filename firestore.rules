@@ -292,6 +292,18 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && code.matches('^[A-Za-z0-9]{32}$')
         && (enrolledIn(request.resource.data.classId) || teaches(request.resource.data.classId));
     }
+    // "Request access" on the landing page: anyone may send one request; only admins read them
+    match /accessRequests/{id} {
+      allow create: if id.matches('^[A-Za-z0-9]{20}$')
+        && request.resource.data.keys().hasOnly(['name', 'email', 'school', 'course', 'size', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100
+        && request.resource.data.email is string && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') && request.resource.data.email.size() <= 200
+        && request.resource.data.school is string && request.resource.data.school.size() > 0 && request.resource.data.school.size() <= 150
+        && request.resource.data.course is string && request.resource.data.course.size() > 0 && request.resource.data.course.size() <= 100
+        && request.resource.data.size in ['Under 50', '50 to 150', '150 to 400', 'More than 400']
+        && request.resource.data.createdAt is int && math.abs(request.resource.data.createdAt - request.time.toMillis()) < 600000;
+      allow read, delete: if isAdmin();
+    }
     // Build my course: the secret link code a professor gives their AI → which class it builds.
     // Nobody can list these; the connector service reads them with its own service account.
     match /buildLinks/{code} {

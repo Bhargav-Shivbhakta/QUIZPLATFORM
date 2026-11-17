@@ -6,6 +6,32 @@ import { fmtDate } from '../engine.js';
 import { parseRoster, classIdFrom } from '../roster.js';
 import { CLASS_COLORS } from '../colors.js';
 
+// Requests sent from "Request access" on the landing page: one read per request, once per visit.
+async function showRequests(main) {
+  const box = main.querySelector('[data-requests]');
+  if (!box) return;
+  const draw = (list) => {
+    box.removeAttribute('aria-busy');
+    box.innerHTML = `<h2 id="ar-h">Access requests <span class="muted">(${list.length})</span></h2>
+      ${list.length ? `<ul class="content-list">${list.map((r) => `
+        <li class="content-item"><div class="content-main"><h3>${esc(r.name)} · ${esc(r.course)}</h3>
+          <p class="small">${esc(r.school)} · ${esc(r.size)} students · sent ${esc(new Date(r.createdAt).toLocaleString())}</p>
+          <p class="small"><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></p></div>
+          <div class="content-actions"><button class="btn small" data-handled="${esc(r.id)}">${icon('check')} Handled</button></div></li>`).join('')}</ul>`
+        : '<p class="muted">No requests waiting. New ones from the landing page appear here.</p>'}`;
+  };
+  let list = [];
+  try { list = await cloud.listAccessRequests(); draw(list); }
+  catch (e) { box.removeAttribute('aria-busy'); box.innerHTML = `<h2 id="ar-h">Access requests</h2><p class="bad">Couldn't load requests: ${esc(e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e)}</p>`; return; }
+  box.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-handled]');
+    if (!b) return;
+    b.disabled = true;
+    try { await cloud.deleteAccessRequest(b.dataset.handled); list = list.filter((r) => r.id !== b.dataset.handled); draw(list); toast('Request marked as handled', 'good'); box.querySelector('h2').focus?.(); }
+    catch (err) { b.disabled = false; toast("Couldn't update: " + (err?.message || err), 'bad'); }
+  });
+}
+
 export async function render(main, params = {}, query = {}) {
   if (!cloud.enabled || !cloud.isAdmin()) {
     main.innerHTML = `<section class="page narrow empty-state"><h1>Admins only</h1><p>Only site admins can manage classes. Admins are listed in <code>firestore.rules</code> (see the README).</p><a class="btn primary" href="#/">Go home</a></section>`;
@@ -33,6 +59,7 @@ export async function render(main, params = {}, query = {}) {
         </div>
         <div class="row"><a class="btn" href="#/overview">${icon('chart')} Platform overview</a><a class="btn primary" href="#/admin?edit=new">${icon('note')} New class</a></div>
       </header>
+      <section class="access-requests" data-requests aria-labelledby="ar-h" aria-busy="true"><h2 id="ar-h">Access requests</h2><p class="muted">Loading…</p></section>
       ${classes.length ? `<div class="class-admin-list">
         ${classes.map((c) => `
           <article class="class-admin">
@@ -51,6 +78,7 @@ export async function render(main, params = {}, query = {}) {
           </article>`).join('')}
       </div>` : `<div class="empty-state"><h2>No classes yet</h2><p>Create a class, pick its exams and upload the Canvas roster. Students on the roster can then sign in.</p></div>`}
     </section>`;
+  showRequests(main);
   main.querySelectorAll('[data-delete]').forEach((b) => (b.onclick = async () => {
     const ok = await confirmDialog({ title: `Delete ${b.dataset.name}?`, body: '<p>Students on this roster lose access to the class right away. Their own saved progress is kept, and you can re-create the class later.</p>', confirm: 'Delete class', danger: true });
     if (!ok) return;

@@ -112,6 +112,32 @@ async function load() {
   return fb;
 }
 
+// ---------------------------------------------------------------- access requests
+// "Request access" on the landing page. Anyone may send one (no sign-in); only admins read them.
+// One write per request; the admin page reads them all once (one read per request).
+export const ACCESS_SIZES = ['Under 50', '50 to 150', '150 to 400', 'More than 400'];
+export async function requestAccess({ name, email, school, course, size }) {
+  await load();
+  const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const id = Array.from(crypto.getRandomValues(new Uint8Array(20)), (n) => abc[n % abc.length]).join('');
+  const clean = (s, max) => String(s || '').trim().replace(/\s+/g, ' ').slice(0, max);
+  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), {
+    name: clean(name, 100), email: clean(email, 200).toLowerCase(), school: clean(school, 150), course: clean(course, 100),
+    size: ACCESS_SIZES.includes(size) ? size : ACCESS_SIZES[0], createdAt: Date.now(),
+  });
+}
+export async function listAccessRequests() {
+  await load();
+  const snap = await fb.getDocs(fb.collection(fb.db, 'accessRequests'));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
+}
+export async function deleteAccessRequest(id) {
+  await load();
+  const b = fb.writeBatch(fb.db);
+  b.delete(fb.doc(fb.db, 'accessRequests', id));
+  await b.commit();
+}
+
 // ---------------------------------------------------------------- auth
 export async function init() {
   if (!enabled) { readyResolve(); return; }

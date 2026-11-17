@@ -40,6 +40,8 @@ const routes = [
   { re: /^\/take\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/take.js'), nav: 'home', focus: true, exam: true },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
+  { re: /^\/signin$/, view: () => import('./views/signin.js'), nav: '' },
+  { re: /^\/(privacy|terms|ai|accessibility)$/, keys: ['page'], view: () => import('./views/policy.js'), nav: '' },
 ];
 
 let cleanup = null;
@@ -56,6 +58,9 @@ export function go(hash) {
   if (location.hash === hash) route();
   else location.hash = hash;
 }
+
+const POLICY = /^\/(privacy|terms|ai|accessibility)$/;
+const LANDING = { re: /^\/?$/, view: () => import('./views/landing.js'), nav: '' };
 
 function parseHash() {
   const raw = location.hash.replace(/^#/, '') || '/';
@@ -78,12 +83,14 @@ async function route() {
   if (cloud.enabled) {
     await cloud.whenReady();
     if (token !== renderToken) return;
-    // everything except the instructors' file checker needs a signed-in student
-    if (!cloud.currentUser() && path !== '/author') r = { re: /.*/, view: () => import('./views/signin.js'), nav: '' };
-    else if (cloud.currentUser()) {
-      if (path === '/subjects') { location.replace('#/'); return; }
-      // not on any roster: only the home page (which explains), settings and the file checker
-      if (!cloud.isEnrolled() && !['/', '/settings', '/author'].includes(path)) { location.replace('#/'); return; }
+    // signed out: the landing page, sign-in, the policy pages and the file checker are open;
+    // everything else asks for sign-in
+    const open = path === '/author' || path === '/signin' || POLICY.test(path);
+    if (!cloud.currentUser()) { if (path === '/' || path === '') r = LANDING; else if (!open) r = routes.find((x) => x.re.test('/signin')); }
+    else {
+      if (path === '/subjects' || path === '/signin') { location.replace('#/'); return; }
+      // not on any roster: only the home page (which explains), settings, policies and the file checker
+      if (!cloud.isEnrolled() && !['/', '/settings', '/author'].includes(path) && !POLICY.test(path)) { location.replace('#/'); return; }
     }
   }
   document.body.classList.toggle('focus-mode', !!r?.focus);
