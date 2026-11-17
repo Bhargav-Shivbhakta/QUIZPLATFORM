@@ -137,7 +137,6 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-opt.right em { color: #9DB1FF; }
 .lp-opt.wrong em { color: #F0B08C; }
 .lp-explain { padding-top: 10px; border-top: 1px solid var(--dark-line); display: flex; flex-direction: column; gap: 10px; animation: lp-in .6s var(--ease) both; }
-.lp-explain .formula { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: clamp(17px, 2.4vh, 20px); }
 .lp-explain p { color: #DCDDE2; }
 .lp-explain button { align-self: flex-start; min-height: 44px; border: 0; background: none; color: #9DB1FF; font: inherit; font-size: 15px; cursor: pointer; padding: 0 2px; }
 .lp-hint { font-size: 14px; color: var(--dark-ink-2); }
@@ -296,3 +295,23 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-chips { list-style: none; margin: 36px auto 0; padding: 0; max-width: 820px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .lp-chips li { padding: 9px 18px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); font-size: 15px; color: var(--ink-2); }
 .lp-chips li.lp-strong { border-color: var(--accent); color: var(--accent); font-weight: 500; }
+
+/* worked solution in the practice demo */
+.lp-explain { gap: 14px; }
+.lp-verdict { font-size: 17px; font-weight: 600; color: var(--dark-ink) !important; }
+.lp-verdict.ok::before { content: "✓ "; color: #9DB1FF; }
+.lp-verdict.no::before { content: "↺ "; color: #F0B08C; }
+.lp-slip { padding: 6px 16px; border-radius: 12px; background: rgba(224, 137, 90, .1); border: 1px solid rgba(224, 137, 90, .35); color: var(--dark-ink); overflow-x: auto; }
+.lp-sub { font-size: 14px; color: var(--dark-ink-2) !important; }
+.lp-work { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lp-work li { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--dark-line); animation: lp-in .55s var(--ease) both; animation-delay: calc(var(--i) * .22s); }
+.lp-work li:first-child { border-top: 0; }
+.lp-work-n { width: 26px; height: 26px; flex: none; border-radius: 50%; background: rgba(110, 139, 255, .16); color: #B5C3FF; font-size: 13px; font-weight: 600; display: grid; place-items: center; margin-top: 2px; }
+.lp-work li > div { min-width: 0; flex: 1; overflow-x: auto; }
+.lp-work p { font-size: 14px; color: var(--dark-ink-2) !important; }
+.lp-explain .katex-display { margin: 6px 0 0; text-align: left; }
+.lp-explain .katex-display > .katex { text-align: left; }
+.lp-explain .katex { font-size: 1.3em; color: var(--dark-ink); }
+.lp-math-plain { display: block; margin-top: 6px; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 18px; color: var(--dark-ink); white-space: pre-wrap; }
+.lp-why { font-size: 15px; line-height: 1.6; }
+.lp-why strong { color: var(--dark-ink); font-weight: 600; }

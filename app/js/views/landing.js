@@ -11,12 +11,23 @@ const PLUS = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"
 const MARK = (size) => `<svg class="lp-mark" width="${size}" height="${size}" viewBox="0 0 28 28" aria-hidden="true"><circle class="m1" cx="9" cy="9" r="5.5"/><circle class="m2" cx="19" cy="9" r="5.5"/><circle class="m3" cx="19" cy="19" r="5.5"/><circle class="m4" cx="9" cy="19" r="5.5"/></svg>`;
 const TASKS = [['Redo 4 questions you got wrong', 4], ['Review 6 questions that are due', 4], ['Read Unit 4: The chain rule', 15]];
 const BUILD = ['Read your materials', 'Draft the course map', 'You approve the map', 'Write notes and practice', 'Check every answer key twice', 'Ready for your review'];
+// The worked solution for the practice question. Maths is typeset with KaTeX (loaded by the page).
 const OPTIONS = [
-  ['0.4', 'Not quite. That divides by n, not by its square root.'],
-  ['2', 'Correct.'],
-  ['10', 'Not quite. 10 is the standard deviation itself.'],
-  ['50', 'Not quite. That multiplies instead of divides.'],
+  ['0.4', 'Not quite. 0.4 divides by n instead of its square root:', String.raw`\dfrac{10}{25} = 0.4`],
+  ['2', 'Correct. Here is the working:', ''],
+  ['10', 'Not quite. 10 is the standard deviation itself; it still needs dividing by the square root of n.', String.raw`s = 10`],
+  ['50', 'Not quite. 50 multiplies by the square root of n instead of dividing:', String.raw`10 \times \sqrt{25} = 50`],
 ];
+const WORK = [
+  ['Write down what you know', String.raw`s = 10, \qquad n = 25`],
+  ['Use the formula for the standard error of the mean', String.raw`SE = \dfrac{s}{\sqrt{n}}`],
+  ['Put in the numbers', String.raw`SE = \dfrac{10}{\sqrt{25}}`],
+  ['Simplify', String.raw`\sqrt{25} = 5 \quad\Longrightarrow\quad SE = \dfrac{10}{5} = 2`],
+];
+const tex = (src) => {
+  try { if (window.katex) return window.katex.renderToString(src, { displayMode: true, throwOnError: false, output: 'html' }); } catch (e) { /* fall through */ }
+  return `<span class="lp-math-plain">${src.replace(/\\(dfrac|frac)\{([^}]*)\}\{([^}]*)\}/g, '($2) / ($3)').replace(/\\sqrt\{([^}]*)\}/g, '√$1').replace(/\\(qquad|quad)/g, '  ').replace(/\\times/g, '×').replace(/\\Longrightarrow/g, '⇒').replace(/[{}\\]/g, '')}</span>`;
+};
 const FAQ = [
   ['Do I have to pay for the AI?', 'No. Build my course runs on your own Claude, ChatGPT or Gemini account. A large course can be built in parts to stay within free plan limits.'],
   ['How much of my time does it take?', 'You upload your materials and approve the course map, and the AI drafts the rest. Your time goes into reviewing, which you can do one unit at a time.'],
@@ -303,7 +314,13 @@ export async function render(main, params = {}, query = {}) {
       b.classList.toggle('wrong', pick === v && !right);
       b.querySelector('em').textContent = pick !== null && right ? 'Correct' : pick === v ? 'Not this one' : '';
     });
-    out.innerHTML = pick === null ? '<p class="lp-hint">Choose an answer.</p>' : `<div class="lp-explain" role="status"><p style="color:var(--dark-ink);font-weight:600">${OPTIONS.find((o) => o[0] === pick)[1]}</p><p class="formula" style="color:var(--dark-ink)">SE = s / √n = 10 / √25 = 2</p><p>Divide the standard deviation by the square root of the sample size. Bigger samples give smaller errors, which is why larger studies are more precise.</p><button type="button" data-q-again>Try again</button></div>`;
+    const [, verdict, slip] = OPTIONS.find((o) => o[0] === pick) || [];
+    out.innerHTML = pick === null ? '<p class="lp-hint">Choose an answer.</p>' : `<div class="lp-explain" role="status">
+      <p class="lp-verdict ${pick === '2' ? 'ok' : 'no'}">${verdict}</p>
+      ${slip ? `<div class="lp-slip">${tex(slip)}</div><p class="lp-sub">The working:</p>` : ''}
+      <ol class="lp-work">${WORK.map(([label, m], i) => `<li style="--i:${i}"><span class="lp-work-n" aria-hidden="true">${i + 1}</span><div><p>${label}</p>${tex(m)}</div></li>`).join('')}</ol>
+      <p class="lp-why"><strong>Why it matters:</strong> the error shrinks with the square root of the sample size, so four times as many students only halves it. That's why larger studies are more precise, but each extra student helps a little less.</p>
+      <button type="button" data-q-again>Try again</button></div>`;
     if (pick === null) q.querySelector('[data-opt]').focus(); else out.querySelector('[data-q-again]').focus();
   };
   q.addEventListener('click', (e) => {
