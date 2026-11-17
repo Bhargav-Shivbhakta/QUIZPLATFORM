@@ -8,6 +8,7 @@ const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
 const PLUS = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--accent)"/></svg>';
 
+const MARK = (size) => `<svg class="lp-mark" width="${size}" height="${size}" viewBox="0 0 28 28" aria-hidden="true"><circle class="m1" cx="9" cy="9" r="5.5"/><circle class="m2" cx="19" cy="9" r="5.5"/><circle class="m3" cx="19" cy="19" r="5.5"/><circle class="m4" cx="9" cy="19" r="5.5"/></svg>`;
 const TASKS = [['Redo 4 questions you got wrong', 4], ['Review 6 questions that are due', 4], ['Read Unit 4: The chain rule', 15]];
 const BUILD = ['Read your materials', 'Draft the course map', 'You approve the map', 'Write notes and practice', 'Check every answer key twice', 'Ready for your review'];
 const OPTIONS = [
@@ -22,7 +23,7 @@ const FAQ = [
   ['Can I use questions I already have?', 'Yes. Upload a question file and Cramming checks it, shows you any problems, and publishes only when you say so.'],
   ['Does it work with Canvas?', 'Rosters come from a Canvas export, and scores export in the file Canvas imports. A direct Canvas connection is on our roadmap.'],
   ['Where does student data go?', "Into Cramming's database on Google Firebase, readable only by the student and the staff of their class. Student work is never sent to an AI."],
-  ['Which courses does it suit?', 'Computer science, mathematics and statistics courses, today with multiple-choice questions and Java programming assignments.'],
+  ['Which courses does it suit?', 'Any course where students learn by answering questions: multiple choice, true or false, numbers, short and written answers. Computer science, mathematics and statistics get extra tools: equations, number answers and Java programming with automatic tests.'],
 ];
 const points = (list) => list.map(([h, p], i) => `<div class="reveal" style="--d:${i * 0.08}s"><h3>${h}</h3><p>${p}</p></div>`).join('');
 const task = ([t, m]) => `<div class="lp-task"><span class="mark">${CHECK}</span><span class="text">${t}</span><span class="mins">${m} min</span><span class="go" aria-hidden="true">Start</span></div>`;
@@ -31,7 +32,8 @@ function markup() {
   return `<div class="lp js-anim">
   ${header(true)}
   <section class="wrap lp-center lp-hero" aria-labelledby="lp-h1">
-    <p class="kicker">For computer science, mathematics and statistics courses</p>
+    ${MARK(52)}
+    <p class="kicker">Practice, plans and exams for any course</p>
     <h1 id="lp-h1">Cram the right way.<sup class="tm" aria-hidden="true">™</sup></h1>
     <p class="lp-lead">A little every day, ready on exam day. Cramming turns your course materials into daily practice and a plan for every student. You approve every word.</p>
     <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="how">See how it works ›</a></div>
@@ -70,6 +72,22 @@ function markup() {
       ['Built from your course', 'Questions and notes come from your own material, so practice matches what you teach and what you test.'],
       ['Planned for each student', "Mistakes come first, then what's due for review, then this week's unit. Nobody has to guess where to start."],
       ['Short enough to happen', 'Three tasks at most, each with its time. Students finish, and come back tomorrow.'],
+    ])}</div>
+  </section>
+
+
+  <section id="subjects" class="wrap sec" aria-labelledby="sb-h">
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">Subjects</p>
+      <h2 id="sb-h" class="h2">Made for your subject.</h2>
+      <p class="lp-lead">If it can be asked as a question, it works on Cramming. Computer science, mathematics and statistics get extra tools: equations set properly, number answers checked automatically, and code that runs in the browser.</p>
+    </div>
+    <ul class="lp-chips reveal" aria-label="Subjects">${['Computer science', 'Mathematics', 'Statistics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Psychology', 'Engineering', 'Business', 'And more'].map((s, i) => `<li${i < 3 ? ' class="lp-strong"' : ''}>${s}</li>`).join('')}</ul>
+    <div class="points">${points([
+      ['Notes and flashcards', 'Study notes for each unit, and flashcards for terms, formulas and definitions.'],
+      ['Every kind of question', 'Multiple choice, select all that apply, true or false, number answers and short answers, all checked automatically.'],
+      ['Written answers', 'Longer answers in exams, graded by you and your TAs.'],
+      ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
     ])}</div>
   </section>
 
@@ -195,6 +213,7 @@ function markup() {
   </section>
 
   <section class="wrap lp-center lp-end" aria-labelledby="en-h">
+    <span class="reveal">${MARK(44)}</span>
     <h2 id="en-h" class="h2 reveal">Bring Cramming to your class.</h2>
     <p class="lp-lead reveal">We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
     <button type="button" class="lp-btn big reveal" data-request>Request access</button>
