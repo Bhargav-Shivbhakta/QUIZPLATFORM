@@ -315,3 +315,4 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-math-plain { display: block; margin-top: 6px; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 18px; color: var(--dark-ink); white-space: pre-wrap; }
 .lp-why { font-size: 15px; line-height: 1.6; }
 .lp-why strong { color: var(--dark-ink); font-weight: 600; }
+.lp-sheet .lp-sheet-student { margin-top: 8px; font-size: 14px; color: var(--ink-3); }

@@ -45,7 +45,8 @@ const SHEET = `<dialog class="lp-sheet" aria-labelledby="ra-h">
   <div class="in">
     <div class="top"><h2 id="ra-h">Request access</h2><button type="button" class="x" data-close aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>
     <div data-body>
-      <p>We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
+      <p>For professors and instructors. We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
+      <p class="lp-sheet-student">Are you a student? <a href="#/signin">Sign in with your school account</a> instead.</p>
       <form class="lp-form" novalidate style="margin-top:18px">
         <label>Your name<input name="name" required maxlength="100" autocomplete="name"></label>
         <label>School email<input name="email" type="email" required maxlength="200" autocomplete="email"></label>

@@ -46,7 +46,7 @@ function markup() {
     ${MARK(52)}
     <p class="kicker">Practice, plans and exams for any course</p>
     <h1 id="lp-h1">Cram the right way.<sup class="tm" aria-hidden="true">™</sup></h1>
-    <p class="lp-lead">A little every day, ready on exam day. Cramming turns your course materials into daily practice and a plan for every student. You approve every word.</p>
+    <p class="lp-lead">A little every day, ready on exam day. Cramming turns a professor's course materials into daily practice and a study plan for every student.</p>
     <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="how">See how it works ›</a></div>
     <div class="lp-stage">
       <div class="lp-tilt">
@@ -80,7 +80,7 @@ function markup() {
       <p class="lp-lead">Each student gets a short plan built from their own mistakes, the questions due for review and this week's unit. Small sessions, most days: the way people remember best.</p>
     </div>
     <div class="points">${points([
-      ['Built from your course', 'Questions and notes come from your own material, so practice matches what you teach and what you test.'],
+      ['Built from the course', "Notes and questions come from the professor's own materials, so practice matches what's taught and what's tested."],
       ['Planned for each student', "Mistakes come first, then what's due for review, then this week's unit. Nobody has to guess where to start."],
       ['Short enough to happen', 'Three tasks at most, each with its time. Students finish, and come back tomorrow.'],
     ])}</div>
@@ -97,7 +97,7 @@ function markup() {
     <div class="points">${points([
       ['Notes and flashcards', 'Study notes for each unit, and flashcards for terms, formulas and definitions.'],
       ['Every kind of question', 'Multiple choice, select all that apply, true or false, number answers and short answers, all checked automatically.'],
-      ['Written answers', 'Longer answers in exams, graded by you and your TAs.'],
+      ['Written answers', 'Longer answers in exams, graded by the professor and TAs.'],
       ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
     ])}</div>
   </section>
@@ -107,7 +107,7 @@ function markup() {
       <div class="lp-center stack reveal">
         <p class="lp-eyebrow">Practice · try it</p>
         <h2 id="pr-h" class="h2">Practice that teaches.</h2>
-        <p class="lp-lead">Every answer is explained the moment it's given, right or wrong. In computer science, mathematics and statistics, with equations set properly and code that runs in the browser.</p>
+        <p class="lp-lead">Every answer is explained the moment it's given, right or wrong, so a mistake becomes the next thing learned. Try this one.</p>
       </div>
       <div class="lp-q reveal" data-q>
         <div class="top"><span>STAT 119 · Sampling</span><span>Question 3 of 10</span></div>
@@ -122,7 +122,7 @@ function markup() {
     <div class="lp-center stack reveal">
       <p class="lp-eyebrow">Spaced review</p>
       <h2 id="sr-h" class="h2">Learn it once. Keep it for the exam.</h2>
-      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for you: a day, then three, then a week, then sixteen days. Miss one, and it starts again.</p>
+      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. Get a question wrong, and its gaps start again.</p>
     </div>
     <figure class="card lp-curve reveal" style="margin-left:0;margin-right:0">
       <p class="axis">How much you remember</p>
@@ -140,8 +140,8 @@ function markup() {
   <section class="wrap sec split" aria-labelledby="tu-h">
     <div class="stack reveal">
       <p class="lp-eyebrow">AI tutor</p>
-      <h2 id="tu-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">AI that stays inside your course.</h2>
-      <p class="lp-lead" style="text-wrap:pretty">Students connect the AI they already use to your course. It reads only the units you've opened, and it switches off while a quiz or exam is running. One switch turns it off for the whole class.</p>
+      <h2 id="tu-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">AI that stays inside the course.</h2>
+      <p class="lp-lead" style="text-wrap:pretty">Students can connect the AI they already use to their course. It reads only the units the professor has opened, and it switches off while a quiz or exam is running. The professor can turn it off for the whole class with one switch.</p>
     </div>
     <div class="card lp-chat lp-lift reveal" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
       <small>MATH 150 tutor · Quiz 3 is open</small>
@@ -168,9 +168,9 @@ function markup() {
 
   <section class="wrap sec split" aria-labelledby="da-h">
     <div class="stack reveal">
-      <p class="lp-eyebrow">Class dashboard</p>
-      <h2 id="da-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">See who's struggling before the exam does.</h2>
-      <p class="lp-lead" style="text-wrap:pretty">The questions most of your class gets wrong, and the students who haven't started. Fix a misunderstanding in Tuesday's lecture, not after the midterm.</p>
+      <p class="lp-eyebrow">For professors · Class dashboard</p>
+      <h2 id="da-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Spot who's struggling before the exam.</h2>
+      <p class="lp-lead" style="text-wrap:pretty">See the questions most of your class gets wrong and the students who haven't started, so you can fix a misunderstanding in Tuesday's lecture instead of after the midterm.</p>
     </div>
     <div class="card lp-dash lp-lift reveal" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
       <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
@@ -187,18 +187,18 @@ function markup() {
     <div class="lp-center stack reveal">
       <p class="lp-eyebrow">Graded exams</p>
       <h2 id="ex-h" class="h2">Exams you can trust.</h2>
-      <p class="lp-lead">Run quizzes and exams in Cramming, in the room or online, with the controls a fair exam needs.</p>
+      <p class="lp-lead">Professors can run quizzes and exams in Cramming, in the room or online, with the controls a fair exam needs.</p>
     </div>
     <div class="points">${points([
-      ['Access codes', 'Students start only when you give the code, shown on the projector.'],
+      ['Access codes', 'Students start only when the professor gives the code, shown on the projector.'],
       ['Lockdown', 'Safe Exam Browser support, and warnings when a student leaves the exam.'],
-      ['Fair timing', 'Timed by the server, not the laptop, with extra time per student.'],
+      ['Fair timing', "Timed by the server, not the student's laptop, with extra time for students who have accommodations."],
       ['Straight to Canvas', 'Scores export in the file format Canvas imports.'],
     ])}</div>
   </section>
 
   <section id="how" class="wrap sec" aria-labelledby="hw-h">
-    <div class="lp-center stack reveal"><p class="lp-eyebrow">How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
+    <div class="lp-center stack reveal"><p class="lp-eyebrow">For professors · How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
     <ol class="lp-steps">${[
       ['Request access', 'Tell us your course and roughly how many students. It takes a minute.'],
       ['We build it with you', 'Upload your materials and approve the course map. We help you through your first build and review.'],
@@ -210,9 +210,9 @@ function markup() {
     <div class="wrap">
       <div class="lp-center stack reveal"><p class="lp-eyebrow">Privacy and access</p><h2 id="tr-h" class="h2">Safe for students. Ready for your school.</h2></div>
       <div class="points">${points([
-        ['School accounts only', "Sign-in is limited to your school's accounts and your class roster."],
-        ['No student work in AI', "Students' answers and scores are never sent to an AI. The AI only sees your course materials."],
-        ['Scores stay with staff', 'Exam scores are visible to you and your TAs, and to each student only after you release them.'],
+        ['School accounts only', "Only students on a class roster can sign in, with their school account."],
+        ['No student work in AI', "Students' answers and scores are never sent to an AI. The AI only sees the professor's course materials."],
+        ['Scores stay with staff', 'Exam scores are visible to the professor and TAs, and to each student only after the professor releases them.'],
         ['Accessible', 'Keyboard and screen reader support, light and dark mode, and extra time built into the timer.'],
       ])}</div>
     </div>
