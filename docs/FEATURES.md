@@ -15,10 +15,10 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 | Feature | State | Files | Tests |
 |---|---|---|---|
-| Landing page (written for professors; product demo, try-it question, FAQ) | Built, not uploaded | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
-| Request access (sheet, saved to Firestore) and Admin › Access requests | Built, not uploaded | `views/lp-shell.js`, `cloud.js`, `views/admin.js`, `firestore.rules` | Browser checks; rules on the local copy |
-| Privacy, Terms, How we use AI, Accessibility pages (drafts) | Built, not uploaded | `views/policy.js` | Browser checks, axe clean |
-| Sign-in page at its own address (#/signin) | Built, not uploaded | `views/signin.js`, `main.js` | Browser checks |
+| Landing page (written for professors; product demo, try-it question, FAQ) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
+| Request access (sheet, saved to Firestore) and Admin › Access requests | Live, unpolished | `views/lp-shell.js`, `cloud.js`, `views/admin.js`, `firestore.rules` | Browser checks; rules on the local copy |
+| Privacy, Terms, How we use AI, Accessibility pages (drafts) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |
+| Sign-in page at its own address (#/signin) | Live, unpolished | `views/signin.js`, `main.js` | Browser checks |
 
 ## Students
 

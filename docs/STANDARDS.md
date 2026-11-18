@@ -54,7 +54,7 @@ One piece at a time, in this order: the landing page, then students, then profes
 3. **Test:** run `npm test` (logic and the architecture check), the browser checks (screens), and axe (accessibility). All must pass.
 4. **Independent review** for anything high-stakes (security rules, grading, a whole student or professor flow): a separate agent that didn't write the code reviews and tests it before release.
 5. **Record:** update `FEATURES.md`, and add a `CHANGELOG.md` entry.
-6. **Release:** the founder uploads, waits for the green build, and checks the live site.
+6. **Release:** Claude pushes the tested changes straight to `main` (on top of whatever is there, never the private `exams/` folder or the founder's `app/config.js`). GitHub builds, checks and publishes; the founder checks the live site.
 
 ## Rules for code
 
