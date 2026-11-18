@@ -5,6 +5,7 @@ import { applyTheme } from '../nav.js';
 import { listCourses, chosenCourses, courseOptions, saveChoice } from './subjects.js';
 import * as cloud from '../cloud.js';
 import { fmtDate } from '../engine.js';
+import { dayKey } from '../format.js';
 
 export async function render(main) {
   const s = store.getSettings();
@@ -132,7 +133,7 @@ export async function render(main) {
     const blob = new Blob([JSON.stringify(store.exportAll())], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `exam-practice-progress-${new Date().toLocaleDateString('en-CA')}.json`;
+    a.download = `exam-practice-progress-${dayKey()}.json`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     toast('Progress exported');

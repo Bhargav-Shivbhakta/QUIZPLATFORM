@@ -112,5 +112,5 @@ Fixed on 17 November 2026: screens imported helpers from the router (a loop). Th
 
 ## The look
 
-Every colour, font, size, space, corner and motion value is a token in `app/css/tokens.css`, loaded first on every page. Stylesheets use only `var(--cr-…)`. The architecture check (section 7) fails if a stylesheet writes a colour of its own or uses a token that doesn't exist; `app/css/app.css` is recorded as debt (`design.debt` in `architecture.json`) and may only lose colours until the design kit moves it onto the tokens. The rules for using the tokens are in `docs/DESIGN.md`.
+Every colour, font, size, space, corner and motion value is a token in `app/css/tokens.css`, loaded first on every page. Stylesheets use only `var(--cr-…)`. The architecture check (section 7) fails if a stylesheet writes a colour of its own or uses a token that doesn't exist; `app/css/app.css` is recorded as debt (`design.debt` in `architecture.json`) and may only lose colours until the design kit moves it onto the tokens. The rules for using the tokens are in `docs/DESIGN.md`. The same check counts four things in the code that should go through one place: inline styles, colours written in JavaScript, dates formatted outside `app/js/format.js`, and SVG drawn outside the icon set (`design.code` in `architecture.json`). Each count may only go down.
 

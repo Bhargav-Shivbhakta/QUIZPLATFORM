@@ -5,8 +5,8 @@ import { esc, icon } from '../ui.js';
 import * as store from '../store.js';
 import { md, highlight } from '../render.js';
 import { studyUnits } from './classes.js';
+import { longDay as when, day } from '../format.js';
 
-const when = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
 export async function render(main, { classId, unitId }) {
   const cls = cloud.myClasses().find((c) => c.id === classId);
@@ -41,7 +41,7 @@ export async function render(main, { classId, unitId }) {
   const canPractise = unit.examId && (teacher || cloud.canSeeExam(unit.examId));
   page(`
     <header class="study-head">
-      <p class="eyebrow">Unit ${unit.n}${unit.start ? ` · ${new Date(unit.start + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} to ${new Date(unit.end + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` : ''}</p>
+      <p class="eyebrow">Unit ${unit.n}${unit.start ? ` · ${day(unit.start)} to ${day(unit.end)}` : ''}</p>
       <h1>${esc(unit.title)}</h1>
       ${teacher && unit.opensAt > now ? `<p class="note">Preview. Students can open this from ${when(unit.opensAt)}.</p>` : ''}
     </header>

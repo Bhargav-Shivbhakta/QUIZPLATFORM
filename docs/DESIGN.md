@@ -86,6 +86,41 @@ Rules:
 - The page never jumps on its own. Move focus with `{ preventScroll: true }` and keep what the reader was looking at in place.
 - Everything respects "reduce motion": it still works, with no movement.
 
+## Icons
+
+One set, drawn one way, in `app/js/ui.js`: call `icon('name')`. Screens don't draw their own.
+
+- **Drawing:** a 24px grid, 1.8px line in `currentColor`, round ends and corners, no fill. The icon takes the colour of the text beside it.
+- **Sizes:** 16px beside small text, 20px (the default) beside body text and in buttons, 24px on its own.
+- **Meaning:** an icon goes with a word, except a few universal ones on their own (close, search, menu, back). An icon-only button has an `aria-label` ("Close"); a decorative icon has `aria-hidden="true"`.
+- **The set today (41):** flag, plus, mail, edit, bell, link, eye, lock, star, calc, clock, pause, play, left, right, grid, x, copy, up, down, check, bulb, keyboard, settings, home, strike, note, upload, download, search, shuffle, trash, chart, users, book, code, target, flame, sparkle, megaphone, report.
+- **One icon, one meaning.** For example, `flag` is "flag for review" in an exam; "report a problem" uses `report`, never a second flag.
+- **Adding one:** draw it on the same grid and line, add it to the set in `ui.js`, list it here and in the design system, then use it.
+- **Not icons, so drawn on their own:** the Cramming logo, the Google sign-in mark (its maker's rules), charts, and the exam watermark.
+- **To move into the set:** the hand-drawn icons on the landing page, the sign-in doors and the Request access close button (17 drawings in screens today), as those screens move to the kit.
+
+## Page templates
+
+Every screen uses one of four templates. A screen doesn't invent its own width, header or spacing.
+
+| Template | Width | Has | Use for |
+|---|---|---|---|
+| **Reading** | `--cr-width-read` (720px) | Page header, one column | Notes, settings, forms, results, sign-in, empty and error pages |
+| **Work** | `--cr-width-work` (1120px) | Page header, cards in a grid of 1 to 3 columns | Class home, Today, a list of sets, Build my course |
+| **Wide** | `--cr-width-wide` (1320px) | Page header, optional side menu (`flex-wrap`, it stacks on a phone), tables | Professor dashboard, analytics, graded work setup, the admin console |
+| **Focus** | Full screen, content at reading width | No site menu: a slim top bar with Exit, the set or exam name, and progress | Practice sets, practice tests, exams, flashcards, the code editor |
+
+**The page header**, the same on every template except Focus:
+1. Optional back link ("‹ MATH 150") in `cr-ink-2`.
+2. A context line in `cr-ink-2`, 13px: "MATH 150 · Fall 2026".
+3. The title, `--cr-text-2xl` (32px), one per page, as `<h1>`.
+4. Optional one-line description in `cr-ink-2`.
+5. Actions on the right on a laptop, under the title on a phone; at most one primary.
+
+**Spacing:** side gutter `--cr-gutter`; header to content `--cr-space-8`; between sections `--cr-space-10`; between cards `--cr-space-6`.
+
+**Breakpoints**, the only four: phone below 640px, tablet 640 to 1023px, laptop 1024px and up, large 1440px and up. Navigation is the top bar on a laptop and the tab bar on a phone. Today the app uses six different breakpoints; they collapse to these as screens move to the templates.
+
 ## Parts
 
 Build every screen from these. Before making a new part, check this list. A new part is added here and to the Design System artifact before it ships.
@@ -106,6 +141,53 @@ Build every screen from these. Before making a new part, check this list. A new 
 | Toast | Small, bottom, disappears after a few seconds | Says what happened in past tense: "Saved" |
 | Empty state | A sentence saying what will appear and one button to start | Never zeros or a blank box |
 
+## The kit: the parts in code
+
+The parts above are built once, in code, and screens only put them together. This is what stops screens drifting apart. The kit is built with the first student screens (Today, practice, results) and grows one part at a time; nothing here exists until a screen needs it.
+
+- **Where:** `app/js/kit.js` (the shell layer, beside `ui.js`, whose toast, dialog and icon helpers move in) and `app/css/kit.css`, which uses only `--cr-` tokens. Class names start with `k-`.
+- **Shape:** each part is a function that takes plain values and returns HTML, the way screens are written today. Text is escaped inside the part, so a screen can't forget to.
+- **Tests:** each part has unit tests for its markup: a label on every control, `aria-` attributes, escaped text, the right element (`<button>`, `<a href>`).
+- **Each part is shown** in the design system with a live preview, and listed here.
+
+| Function | Makes | Notes |
+|---|---|---|
+| `page({ template, back, context, title, description, actions, body })` | A whole page in one of the four templates, with the standard header | `template`: `read`, `work`, `wide`, `focus` |
+| `button({ label, kind, href, icon, attrs })` | A button or a link styled as one | `kind`: `primary`, `secondary`, `quiet`, `danger` |
+| `card({ context, title, body, actions })` | A card | |
+| `empty({ title, body, action })` | An empty state | |
+| `pill({ label, tone })` | A status pill | `tone`: `new`, `done`, `attention`, `neutral` |
+| `progress({ value, max, label })` | A labelled progress bar | |
+| `field({ label, name, type, value, hint, error })`, `choices({ legend, name, options, multiple })` | Form fields and choice chips | Error text tied to its field |
+| `answer({ text, state })` | An answer option | `state`: `waiting`, `right`, `wrong` |
+| `table({ columns, rows })` | A table that becomes labelled rows on a phone | |
+| `toast(msg, { tone, undo })`, `confirm({ title, body, action, danger })` | Toasts and confirmations (moved from `ui.js`) | |
+| `reason(error)` (in `cloud.js`) | One plain sentence for any database error | Replaces the 34 checks in screens |
+
+**Moving a screen onto the kit:** rebuild it from kit parts and a template, delete its old styles from `app/css/app.css` (the colour count in `architecture.json` goes down), check it in light, dark and phone with axe, and mark it on the screen inventory.
+
+## Behaviour
+
+One way to do each common thing. The helpers live in `app/js/ui.js` today and move into the kit.
+
+| Situation | What happens | How |
+|---|---|---|
+| **Saving** | The button says what it does ("Save changes"), shows "Saving…" and can't be pressed twice, then a toast in the past tense: "Saved" | `toast('Saved', 'good')` |
+| **Something went wrong** | A plain sentence saying what failed and what to do, next to where it happened; a toast only when there's no better place. Nothing already typed is lost | `toast(msg, 'bad')`, or an inline error under the field |
+| **Deleting** | Always asks first, naming the thing and what goes with it ("Delete MATH 150? Its 3 practice sets and 120 attempts go too."). The confirm button is the danger button and says the action: "Delete class" | `confirmDialog({ danger: true, confirm: 'Delete class' })` |
+| **Undo instead of asking** | For small, common actions that are easy to reverse (archive, mark done), act at once and offer "Undo" in the toast for 6 seconds | Toast with an Undo button (in the kit) |
+| **Loading** | Under 0.4 s: show nothing. Longer: a quiet "Loading…" line where the content will appear, with `aria-busy="true"` on the area. Never a full-page spinner | The page shell |
+| **Empty** | Says what will appear and how to make the first one, with one button | Empty state part |
+| **Leaving with unsaved work** | Asks before leaving; graded work warns and keeps the answers | The nav guard in `nav.js` |
+| **Sheets and dialogs** | Open over a dimmed page; Escape and the close button close them; Tab stays inside; focus starts on the first field and returns to what opened it | `modal()`, the request sheet |
+| **Focus** | Every control shows a 2px accent ring with the keyboard. When a page opens, focus goes to its heading. Focus moves with `{ preventScroll: true }` so the page never jumps | |
+| **Forms** | Check a field when the person leaves it or presses Send, not while typing. Put the first error's message under its field and move focus there | |
+| **Keyboard** | Enter sends a form; Escape closes; in practice 1 to 4 pick an answer and Enter goes on; shortcuts are shown next to the button they press | |
+| **Live numbers** | Clocks and counts update in place without moving anything; screen readers hear only changes that matter (time almost up) | `aria-live="polite"` |
+| **Copy** | "Copy" changes to "Copied" for 2 seconds | |
+
+Database errors become plain reasons in one place (`cloud.js`), not in each screen. Today screens check "permission-denied" 34 times; that goes when the kit arrives.
+
 ## Words
 
 - Plain, kind, specific. Say what happens: the button says "Send request"; the toast says "Request sent".
@@ -115,9 +197,102 @@ Build every screen from these. Before making a new part, check this list. A new 
 - US spelling: practice, color (in text), center.
 - Numbers as digits: "4 min", "12 days".
 
+### The word list
+
+One name for each thing, on every screen, in every email and in help text. Code may keep older names (`instructor`, `timed`) where data depends on them; the words people see follow this list. Today the app mixes "instructor" (100 times), "professor" (88) and "teacher" (51); each screen is brought in line when it moves to the new look.
+
+**People**
+
+| Say | Means | Don't say |
+|---|---|---|
+| professor | The person who runs a course. A school set up as a high school says **teacher** instead, everywhere | instructor, faculty, lecturer (except on the Request access role list) |
+| TA | A teaching assistant, limited to their sections. Spell out "teaching assistant" once on a form | assistant, grader |
+| course staff | Professors and TAs together | instructors, team |
+| student | Anyone taking the class | learner, user, pupil |
+| admin | Runs Cramming for a school or the platform | administrator, superuser |
+
+**Courses**
+
+| Say | Means | Don't say |
+|---|---|---|
+| course | The subject, like MATH 150 | |
+| class | One term of a course, with its own list of students: "MATH 150, Fall 2026" | course offering, cohort |
+| section | A group inside a class: "Section 02" | group, lab (unless it is one) |
+| roster | The list of students in a class | class list, enrollment |
+| unit | A week or chapter of material: "Unit 4: The chain rule" | module, chapter, week |
+| topic | A skill that questions are tagged with: "Limits" | tag, category, concept |
+
+**Studying**
+
+| Say | Means | Don't say |
+|---|---|---|
+| Today | The short plan for today | daily plan, my study |
+| practice | Anything ungraded. A "set" is one short run of questions: "a 10-question set" | drill, exercise |
+| question bank | All the practice questions for a class or exam | question set, pool |
+| review | Questions coming back before you forget them | spaced review, smart review, SRS (except once, to explain it) |
+| mistakes | Questions you got wrong, waiting to be redone | mistake notebook, wrong answers |
+| practice test | Timed and ungraded, like the real exam | mock exam, timed test, random practice test |
+| flashcards | Question on the front, answer on the back | cards, deck |
+| notes | Study notes for a unit | study pages, lesson, reading |
+| readiness | How ready you are for a topic or exam, in words: Solid, Getting there, Not started | score, level, mastery percentage |
+| the tutor | The AI that answers only from the course | chatbot, assistant, AI helper |
+
+**Graded work**
+
+| Say | Means | Don't say |
+|---|---|---|
+| graded work | Anything that counts toward a grade | assessments, timed work |
+| quiz / exam | Graded, timed, usually one attempt | test (for graded work), assessment |
+| coding assignment | A graded program with tests | programming assignment, lab, project |
+| attempt | One go at graded work | submission, try |
+| access code | The code a professor reads out to start an exam | password, PIN |
+
+**Actions**
+
+| Say | Means | Don't say |
+|---|---|---|
+| sign in / sign out | | log in, log out, login |
+| release | Make practice or notes open to students on a date | unlock, open up |
+| publish | Make something the professor built visible | post, push, go live |
+| request access | Ask to use Cramming | sign up, register, apply |
+| save | Keep a change | submit (except graded work), apply |
+| delete | Remove for good, after asking | remove (unless it can be undone), erase |
+
+## Dates, times and numbers
+
+Every date, time and number on screen goes through `app/js/format.js`. Screens never call `toLocaleString` or build a date by hand. Dates show in the viewer's own language and time zone, and the year appears only when it isn't this year.
+
+| Function | Shows | Use for |
+|---|---|---|
+| `day(x)` | Nov 17 | Short dates in lists and charts, ranges ("Nov 17 to Nov 23") |
+| `weekday(x)` | Tue, Nov 17 | A due date or a day in a plan |
+| `longDay(x)` | Tuesday, Nov 17 | A page's heading date ("Today, Tuesday, Nov 17") |
+| `dateTime(x)` | Tue, Nov 17, 5:02 PM | When something opens, closes or was sent |
+| `time(x)` | 5:02 PM | A time on the same day |
+| `clock(x)` | 5:02:07 PM | A live clock during an exam |
+| `dayKey(x)` | 2026-11-17 | Keys and file names only, never for reading |
+| `number(n)` | 1,234 | Counts; shows "–" when there is nothing |
+
+Rules:
+- A date-only value ("2026-11-17") is read as noon that day, so it never slips a day in another time zone.
+- Durations are short and plain: "4 min", "1 h 20 min", "12 days". Relative days: "today", "tomorrow", "in 3 days", "yesterday".
+- Percentages are whole numbers ("80%"); show a fraction instead when it's clearer ("7 of 10").
+- Exam windows and deadlines that must match a school's clock name the time zone once on the page ("Times are Pacific").
+
+## Beyond the screen
+
+Everything that carries the Cramming name follows this file, not only the app.
+
+- **Emails** (when an email service is added): plain layout on `cr-bg`, one column at most 600px wide, Inter with a system fallback, one accent button, the word list, and a footer saying why the person got it and how to stop. Plain-text version always.
+- **Files people download** (Canvas grades, rosters, backups): named `cramming-<what>-<class>-<dayKey>.csv`, columns in sentence case, dates as `dayKey`. Today two downloads use older names (`exam-practice-progress-…`, `<class>-<exam>-students-…`); they change when their screens move.
+- **Printed and PDF pages** (exam keys, Safe Exam Browser instructions): black text on white, Inter, the logo once at the top.
+- **The browser tab:** the title is "<Page> · Cramming"; the icon is the Cramming mark on `cr-accent`.
+- **Social and link previews:** the landing headline and the logo on `cr-band-bg`.
+- **The screen inventory** on the whiteboard ("Cramming System Map") lists every screen, its template, and whether it's on the new look. Update it whenever a screen moves.
+
 ## Checklist for a new screen
 
-1. Uses only `--cr-` tokens and the parts above (`npm test` checks the colours).
+1. Uses only `--cr-` tokens, kit parts, `format.js` for dates and numbers, and the icon set. `npm test` fails on a new colour, inline style, hand-formatted date or hand-drawn icon.
 2. One primary button. Clear title. A real empty, loading and error state.
 3. Works by keyboard, with visible focus and labels on every control.
 4. Checked on a phone and a laptop, in light and dark mode, and axe shows nothing.

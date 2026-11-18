@@ -6,11 +6,10 @@ import * as store from './store.js';
 import { getManifest } from './data.js';
 import { esc, icon } from './ui.js';
 import { forSection, overallWindow, kindOf, KINDS } from './timed.js';
+import { dateTime as when, time as hm } from './format.js';
 
 const DAY = 864e5;
 const SEEN = 'notif-seen', KNOWN = 'notif-known';
-const when = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-const hm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
 // Pure: the list of notifications for these classes at this time.
 // classes: myClasses() entries; titles: Map examId -> title; anns: Map classId -> announcements;

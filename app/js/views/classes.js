@@ -10,6 +10,7 @@ import { studyPanel } from './nextup.js';
 import { announcementBanners, bindAnnouncements } from './announce.js';
 import { CLASS_COLORS } from '../colors.js';
 import { forSection, overallWindow, assignedSections, KINDS, kindOf } from '../timed.js';
+import { weekday, dateTime, time } from '../format.js';
 
 const swatch = (c) => (CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch;
 const withDate = (e, cls) => (e && cls.examDates?.[e.id] ? { ...e, examDate: cls.examDates[e.id] } : e);
@@ -109,7 +110,7 @@ function studySection(cls, study, teacher) {
   const units = studyUnits(study), now = cloud.trueNow();
   if (!units.length) return '';
   const open = units.filter((u) => teacher || u.opensAt <= now), next = units.find((u) => u.opensAt > now);
-  const when = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const when = weekday;
   const latest = open[open.length - 1];
   return `<section class="study-section" aria-labelledby="study-h">
     <h2 class="section-title" id="study-h">${icon('book')} Study by unit</h2>
@@ -128,8 +129,8 @@ function timedCards(cls, timed, teacher) {
     .filter((t) => t && t.status === 'published' && (teacher || !t.disabled) && (teacher || t.closesAt > now - 60 * 86400000))
     .sort((a, b) => a.opensAt - b.opensAt);
   if (!list.length) return '';
-  const fmt = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const hm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const fmt = dateTime;
+  const hm = time;
   const card = (t) => {
     const open = now >= t.opensAt && now < t.closesAt, upcoming = now < t.opensAt;
     const k = kindOf(t), K = KINDS[k];

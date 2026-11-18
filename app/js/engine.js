@@ -1,5 +1,6 @@
 import { gradeQuestion, isAnswered } from './parser.js';
 import * as store from './store.js';
+import { dayKey, day, time } from './format.js';
 
 export const MODES = {
   topic:   { label: 'Topic practice',      feedback: 'instant', timer: false },
@@ -293,7 +294,7 @@ export function missedRanking(exam, stats, limit = 10) {
 export function streakDays(activity) {
   let n = 0;
   const d = new Date();
-  const key = (x) => x.toLocaleDateString('en-CA');
+  const key = dayKey;
   if (!activity[key(d)]) d.setDate(d.getDate() - 1); // today not studied yet: count from yesterday
   while (activity[key(d)]) { n++; d.setDate(d.getDate() - 1); }
   return n;
@@ -312,8 +313,8 @@ export function fmtDate(ts) {
   const today = new Date();
   const sameDay = d.toDateString() === today.toDateString();
   const y = new Date(today); y.setDate(today.getDate() - 1);
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  if (sameDay) return `Today, ${time}`;
-  if (d.toDateString() === y.toDateString()) return `Yesterday, ${time}`;
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + `, ${time}`;
+  const at = time(d);
+  if (sameDay) return `Today, ${at}`;
+  if (d.toDateString() === y.toDateString()) return `Yesterday, ${at}`;
+  return `${day(d)}, ${at}`;
 }

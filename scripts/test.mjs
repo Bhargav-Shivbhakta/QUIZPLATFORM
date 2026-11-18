@@ -944,5 +944,35 @@ console.log('\nMock exams');
     assert.equal(A.networkOf('1.2.3.4'), '1.2.3.4');
   });
 }
+{
+  const F = await import('../app/js/format.js');
+  console.log('\nDates, times and numbers');
+  const now = new Date('2026-11-18T12:00:00');
+  test('a date-only value is read as noon that day, so it never slips a day', () => {
+    assert.equal(F.dayKey('2026-11-17'), '2026-11-17');
+    assert.match(F.day('2026-11-17', now), /17/);
+  });
+  test('the year shows only when it is not this year', () => {
+    assert.doesNotMatch(F.day('2026-03-02', now), /2026/);
+    assert.match(F.day('2025-03-02', now), /2025/);
+    assert.match(F.dateTime(new Date('2027-01-05T09:30:00').getTime(), now), /2027/);
+  });
+  test('every format has its parts', () => {
+    const t = new Date('2026-11-17T17:02:07').getTime();
+    assert.match(F.weekday(t, now), /Tue/);
+    assert.match(F.longDay(t, now), /Tuesday/);
+    assert.match(F.dateTime(t, now), /5:02/);
+    assert.match(F.time(t), /5:02/);
+    assert.match(F.clock(t), /5:02:07/);
+    assert.equal(F.dayKey(t), '2026-11-17');
+  });
+  test('missing or broken values show nothing, numbers show a dash', () => {
+    for (const fn of [F.day, F.weekday, F.longDay, F.dateTime, F.time, F.clock]) {
+      assert.equal(fn(null), ''); assert.equal(fn(undefined), ''); assert.equal(fn('not a date'), '');
+    }
+    assert.equal(F.number(null), '–'); assert.equal(F.number('x'), '–');
+    assert.equal(F.number(1234), (1234).toLocaleString());
+  });
+}
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

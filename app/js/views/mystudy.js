@@ -8,10 +8,10 @@ import { esc, icon, toast, plural } from '../ui.js';
 import { mistakeIds, dueIds, readiness, topicMastery, missedRanking } from '../engine.js';
 import { todayTasks, weekPlan, tutorPrompt } from '../studyplan.js';
 import { studyUnits } from './classes.js';
+import { longDay as dayName, dayKey } from '../format.js';
 
 const TOOLS = { myStudy: true, tutor: false };       // what a class has until its instructor changes it
 export const toolsOf = (doc) => ({ ...TOOLS, ...(doc?.tools || {}) });
-const dayName = (t) => new Date(t).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 const first = (text) => String(text || '').replace(/```[\s\S]*?```/g, ' (code) ').replace(/[#*_`>]/g, '').split('\n').find((l) => l.trim())?.trim().slice(0, 110) || '';
 
 export async function render(main, { classId }) {
@@ -36,7 +36,7 @@ export async function render(main, { classId }) {
   const cur = openUnits[openUnits.length - 1] || null;
   const curExam = cur ? `${classId}--unit-${cur.n}` : null;
   const unit = cur ? { id: cur.id, n: cur.n, title: cur.title, read: !!store.get(`read:${classId}:${cur.id}`, 0), examId: sets.some((s) => s.id === curExam) ? curExam : null } : null;
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = dayKey();
   const tasks = todayTasks({ classId, sets, unit, answeredToday: store.getActivity()[today]?.answered || 0 });
   const hasAssignment = unit?.examId ? ((await getAssignments(unit.examId).catch(() => null))?.assignments?.length || 0) > 0 : false;
   const section = cls.section || '';

@@ -14,7 +14,8 @@
         "app/js/build/engine.js",
         "app/js/roster.js",
         "app/js/seb.js",
-        "app/js/requests.js"
+        "app/js/requests.js",
+        "app/js/format.js"
       ],
       "mayImport": [
         "core"
@@ -323,6 +324,23 @@
       "app/css/app.css": {
         "max": 293,
         "fix": "Move the signed-in app onto the tokens when the design kit is built (Inter, the Clear palette)."
+      }
+    },
+    "code": {
+      "about": "Things DESIGN.md says go through one place, counted across app/js. Each count may only go down.",
+      "inlineStyles": {
+        "max": 36
+      },
+      "jsColours": {
+        "max": 18
+      },
+      "dateCalls": {
+        "max": 1,
+        "note": "The one left is cloud.js reading the school clock in Pacific time for exam windows; that is a calculation, not a display."
+      },
+      "drawnIcons": {
+        "max": 17,
+        "note": "Includes the logo, Google mark, charts and the watermark, which stay."
       }
     }
   }

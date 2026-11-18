@@ -5,14 +5,13 @@
 import * as cloud from '../cloud.js';
 import { esc, icon, plural, toast } from '../ui.js';
 import { CLASS_COLORS } from '../colors.js';
+import { day, weekday, dateTime, time, dayKey, number as num } from '../format.js';
 
 const DAY = 86400000;
 const CACHE_MS = 10 * 60 * 1000;
 let cache = null; // { at, data }
 
-const dayKey = (t) => new Date(t).toLocaleDateString('en-CA'); // YYYY-MM-DD in the viewer's time zone
 const pct = (n, d) => (d ? Math.round((n / d) * 100) + '%' : '–');
-const num = (n) => (n == null ? '–' : Number(n).toLocaleString());
 const swatch = (c) => (CLASS_COLORS.find((x) => x.id === c.color) || CLASS_COLORS[0]).swatch;
 function daysTo(d) { if (!d) return null; const t = new Date(d + 'T00:00:00'); if (isNaN(t)) return null; const n = Math.ceil((t - new Date(new Date().toDateString())) / DAY); return n >= 0 ? n : null; }
 
@@ -123,8 +122,8 @@ function chart(series, width = 720) {
   const y = (v) => padT + ih - (v / top) * ih;
   const ticks = [];
   for (let v = 0; v <= top; v += step) ticks.push(v);
-  const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const label = (d) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const fmt = day;
+  const label = weekday;
   return `
     <svg class="ov-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Students active each day for the last 30 days. Highest: ${max} on ${esc(label(series.reduce((a, b) => (b.count > a.count ? b : a)).day))}.">
       ${ticks.map((v) => `<line class="ov-grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/><text class="ov-tick" x="${padL - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
@@ -175,7 +174,7 @@ export async function render(main, params = {}, query = {}) {
     }
     if (!main.isConnected) return;
     const { totals: t, series, rows, unrostered } = compute(data);
-    main.querySelector('[data-updated]').textContent = `Every class, all in one place. Numbers as of ${new Date(data.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}; they fill in as students finish studying.`;
+    main.querySelector('[data-updated]').textContent = `Every class, all in one place. Numbers as of ${time(data.at)}; they fill in as students finish studying.`;
     if (!rows.length) {
       body.innerHTML = `<div class="empty-state"><h2>No classes yet</h2><p>Create a class and upload its roster to start seeing numbers here.</p><a class="btn primary" href="#/admin?edit=new">New class</a></div>`;
       return;
@@ -199,7 +198,7 @@ export async function render(main, params = {}, query = {}) {
         <div class="ov-chart-wrap">${chart(series, body.clientWidth - (innerWidth <= 640 ? 34 : 46))}</div>
         <details class="ov-table-toggle"><summary>Show as a table</summary>
           <div class="table-wrap" tabindex="0" role="region" aria-label="Students active each day, as a table"><table class="inst-table compact"><thead><tr><th>Day</th><th>Active students</th></tr></thead>
-          <tbody>${[...series].reverse().map((s) => `<tr><td>${esc(new Date(s.day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }))}</td><td>${s.count}</td></tr>`).join('')}</tbody></table></div>
+          <tbody>${[...series].reverse().map((s) => `<tr><td>${esc(weekday(s.day))}</td><td>${s.count}</td></tr>`).join('')}</tbody></table></div>
         </details>
       </section>
 
@@ -207,7 +206,7 @@ export async function render(main, params = {}, query = {}) {
         <h2>Signed in but not on any roster (${unrostered.length})</h2>
         <p class="muted small">These SDSU accounts tried to sign in, but their email isn't on any class roster, so they can't use the site. Usually it's a student whose roster email is different (for example an alias). If you recognise them, choose their class and click <strong>Add</strong>: they can sign in straight away.</p>
         <ul class="ov-locked-list">${unrostered.map((u) => `<li>
-          <span class="ov-who"><strong>${esc(u.name || 'Unknown name')}</strong><span class="muted small">${esc(u.email)}${u.at ? ' · tried ' + esc(new Date(u.at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) : ''}</span></span>
+          <span class="ov-who"><strong>${esc(u.name || 'Unknown name')}</strong><span class="muted small">${esc(u.email)}${u.at ? ' · tried ' + esc(dateTime(u.at)) : ''}</span></span>
           <span class="ov-add"><label class="sr-only" for="add-${esc(u.email)}">Class for ${esc(u.email)}</label><select id="add-${esc(u.email)}" data-add-class>${rows.map((r) => `<option value="${esc(r.cls.id)}">${esc(r.cls.name)}</option>`).join('')}</select><button class="btn small" data-add-student="${esc(u.email)}" data-name="${esc(u.name || '')}">Add</button></span>
         </li>`).join('')}</ul>
       </section>` : ''}

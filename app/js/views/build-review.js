@@ -12,9 +12,9 @@ import { thinTopics } from '../build/engine.js';
 import { readAssignments, solutionProblems, publicAssignments } from '../assignments-core.js';
 import { splitExam } from '../timed.js';
 import { testJava } from '../java/client.js';
+import { weekday as day } from '../format.js';
 
 const KIND = { notes: 'Study notes', practice: 'Practice questions', quiz: 'Quiz', assign: 'Programming assignment', exam: 'Exam questions' };
-const day = (s) => (s ? new Date(s + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '');
 const at = (date, h, m = 0) => new Date(`${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`).getTime();
 const slug = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'item';
 const TEST_DEFAULTS = { instructions: '', shuffleQ: true, shuffleOpts: true, requireSEB: false, requireCode: false, allowPhones: false, releaseDetail: false, aiNotice: true, warnings: 2, awayMaxSec: 15, status: 'draft', disabled: false, released: false };

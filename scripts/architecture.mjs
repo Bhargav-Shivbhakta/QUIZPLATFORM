@@ -128,6 +128,22 @@ for (const n of notes) console.log(`  note  ${n}`);
     else notes.push(`Debt: ${f} writes ${n} colours of its own. Fix: ${debt.fix}`);
   }
   for (const f of Object.keys(d.debt)) if (!sheets.includes(f)) problems.push(`docs/architecture.json lists design debt for ${f}, which doesn't exist. Remove it.`);
+
+  // The same idea in the code: things DESIGN.md says go through one place. Each may only go down.
+  const RULES = {
+    inlineStyles: { re: /\bstyle="/g, skip: [], what: 'inline styles', fix: 'use kit parts and classes in app/css (DESIGN.md, The kit)' },
+    jsColours: { re: /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![\w-])|\brgba?\(/g, skip: [], what: 'colours written in code', fix: 'use a class or a --cr- token' },
+    dateCalls: { re: /\.toLocale(?:Date|Time)?String\(|Intl\.DateTimeFormat/g, skip: ['app/js/format.js'], what: 'dates formatted outside format.js', fix: 'use app/js/format.js (DESIGN.md, Dates, times and numbers)' },
+    drawnIcons: { re: /<svg\b/g, skip: ['app/js/ui.js'], what: 'SVG drawings outside the icon set', fix: "use icon('name'); logos, charts and the watermark are allowed" },
+  };
+  for (const [key, r] of Object.entries(RULES)) {
+    const n = files.filter((f) => !r.skip.includes(f)).reduce((sum, f) => sum + (read(f).match(r.re) || []).length, 0);
+    const lim = d.code?.[key];
+    if (!lim) { problems.push(`docs/architecture.json has no design.code.${key}. Add {"max": ${n}}.`); continue; }
+    if (n > lim.max) problems.push(`The code has ${n} ${r.what} (limit ${lim.max}). Don't add more: ${r.fix}.`);
+    else if (n < lim.max) problems.push(`The code now has only ${n} ${r.what}. Lower design.code.${key}.max to ${n} in docs/architecture.json so it can't creep back.`);
+    else if (n) notes.push(`Debt: ${n} ${r.what}. Fix: ${r.fix}.`);
+  }
 }
 
 if (problems.length) {

@@ -5,6 +5,7 @@ import { esc, ring, plural, toneFor, confirmDialog } from '../ui.js';
 import { readiness, fmtDate, MODES } from '../engine.js';
 import * as cloud from '../cloud.js';
 import { listCourses, chosenCourses, newCourses, saveChoice, courseLabel } from './subjects.js';
+import { dateTime } from '../format.js';
 
 function countdown(dateStr) {
   if (!dateStr) return '';
@@ -29,7 +30,7 @@ export function examCard(e, { big = false, grouped = false, ready = null, practi
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
       <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, timed test of ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
       ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
-      ${e.practiceOff ? '<p class="due-line bad"><span class="tag">Off for students</span></p>' : e.dueAt ? `<p class="due-line ${e.pastDue ? 'bad' : ''}">${e.practiceClosed ? 'Closed for students · was due' : e.pastDue ? 'Past due ·' : 'Due'} ${esc(new Date(e.dueAt).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}</p>` : ''}
+      ${e.practiceOff ? '<p class="due-line bad"><span class="tag">Off for students</span></p>' : e.dueAt ? `<p class="due-line ${e.pastDue ? 'bad' : ''}">${e.practiceClosed ? 'Closed for students · was due' : e.pastDue ? 'Past due ·' : 'Due'} ${esc(dateTime(e.dueAt))}</p>` : ''}
       ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best timed test ${best}%` : ''}</p>` : ''}
     </div>
     ${big && ready ? (() => { const r = ready; return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}

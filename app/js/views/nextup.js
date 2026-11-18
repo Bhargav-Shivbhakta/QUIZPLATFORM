@@ -4,6 +4,7 @@ import { getExam, getAssignments } from '../data.js';
 import * as store from '../store.js';
 import { esc, icon, ring, plural, toneFor } from '../ui.js';
 import { readiness, topicMastery, dueIds, streakDays, MODES } from '../engine.js';
+import { dayKey } from '../format.js';
 
 const DAY = 86400000;
 
@@ -50,7 +51,7 @@ export async function studyPanel(examMeta) {
   const step = nextStep(exam, stats, attempts, asgList, asgProg);
   const activity = store.getActivity();
   let week = 0;
-  for (let i = 0; i < 7; i++) { const d = new Date(Date.now() - i * DAY).toLocaleDateString('en-CA'); week += activity[d]?.answered || 0; }
+  for (let i = 0; i < 7; i++) { const d = dayKey(Date.now() - i * DAY); week += activity[d]?.answered || 0; }
   const streak = streakDays(activity);
   const asgDone = asgList.filter((a) => asgProg[a.slug]?.done).length;
   const until = daysUntil(examMeta.examDate);

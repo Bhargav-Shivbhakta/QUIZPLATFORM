@@ -8,11 +8,11 @@ import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
 import { esc, icon, plural, toast, confirmDialog, modal } from '../ui.js';
 import { fmtDate } from '../engine.js';
+import { dateTime as when } from '../format.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 const toLocalInput = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const fromLocalInput = (v) => { const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? null : t; };
-const when = (t) => new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 const slug = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'exam';
 
 let jszip = null;

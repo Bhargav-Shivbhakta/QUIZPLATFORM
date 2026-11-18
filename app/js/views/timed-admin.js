@@ -12,13 +12,14 @@ import { testJava } from '../java/client.js';
 import { formatErrors } from '../java/index.js';
 import { readCanvasExport, matchCanvas, canvasCsv, rosterAsCanvas } from '../canvas.js';
 import { ms, splitExam, gradeObjective, codePoints, answered, examPhase, attemptDeadline, parseExtraTime, windowFor, overallWindow, assignedSections, sectionRules, KINDS, kindOf, newAccessCode, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { dateTime, clock as clockTime, time as hmm } from '../format.js';
 
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(2, '0');
 const toLocalInput = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const fromLocalInput = (s) => (s ? new Date(s).getTime() : null);
-const when = (t) => (t ? new Date(t).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '–');
-const clock = (t) => (t ? new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' }) : '–');
+const when = (t) => dateTime(t) || '–';
+const clock = (t) => clockTime(t) || '–';
 const mmss = (msLeft) => { if (msLeft <= 0) return '0:00'; const s = Math.round(msLeft / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const r1 = (x) => (x == null || isNaN(x) ? '–' : String(Math.round(x * 10) / 10));
 const LEAVES = ['tab-hidden', 'window-blur', 'fullscreen-exit', 'page-leave', 'print-screen', 'devtools-key', 'away-too-long'];
@@ -225,7 +226,6 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
   const form = root.querySelector('[data-editor]');
   form.querySelector('[data-newcode]').addEventListener('click', () => { form.querySelector('[name=accessCode]').value = newAccessCode(); });
   // say plainly when Closes cuts the time limit short (a student who starts late gets less time)
-  const hmm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   function timeFit() {
     const el = form.querySelector('[data-time-fit]'); if (!el) return;
     const o = fromLocalInput(form.elements.opensAt.value), c = fromLocalInput(form.elements.closesAt.value), d = Number(form.elements.durationMin.value) || 0;
@@ -575,7 +575,7 @@ async function examPage(main, cls, tid, query) {
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
             <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
-            <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${new Date(r.win.closesAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</span>` : ''}</td>
+            <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${hmm(r.win.closesAt)}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
             <td data-label="Answered">${a ? `${r.answeredN} of ${(test.questions || []).length}` : '–'}</td>
             <td data-label="Exits">${r.exits?.length ? `<span class="bad">${Number(test.warnings) > 0 ? `${r.warns} of ${test.warnings} warnings` : r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}${r.awaySec ? ` · away ${r.awaySec}s in all` : ''}</span>` : a ? '0' : '–'}</td>

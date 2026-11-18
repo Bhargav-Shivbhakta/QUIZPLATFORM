@@ -1,6 +1,7 @@
 // Everything a student does is saved in their own browser (localStorage).
 // When student sign-in is on, cloud.js listens for 'qp:changed' events and
 // copies the changes to the student's account.
+import { dayKey } from './format.js';
 
 const PREFIX = 'qp1:';
 let memoryFallback = {};
@@ -129,7 +130,7 @@ export function clearSession() { remove('session'); }
 
 // ---------- activity log (for streaks / study time) ----------
 export function logActivity(ms, answered) {
-  const day = new Date().toLocaleDateString('en-CA');
+  const day = dayKey();
   const log = get('activity', {});
   const d = log[day] || { ms: 0, answered: 0 };
   d.ms += Math.max(0, ms | 0);

@@ -13,11 +13,10 @@ import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../nav.js';
 import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
+import { dateTime as when, time as hm } from '../format.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
 const pad = (n) => String(n).padStart(2, '0');
-const when = (t) => new Date(t).toLocaleString(undefined, { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-const hm = (t) => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 const mmss = (x) => { const s = Math.max(0, Math.ceil(x / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const r1 = (x) => String(Math.round(x * 10) / 10);
 const lsGet = (k) => { try { return localStorage.getItem('qp1:timed:' + k); } catch { return null; } };

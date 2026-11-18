@@ -5,6 +5,7 @@ import * as cloud from '../cloud.js';
 import { esc, icon, meter, toneFor, plural, toast, confirmDialog, modal } from '../ui.js';
 import { fmtDate } from '../engine.js';
 import { REASON_LABEL } from '../report.js';
+import { day as shortDay, dayKey } from '../format.js';
 
 const pct = (x) => (x == null ? '–' : Math.round(x * 100) + '%');
 const DAY = 86400000;
@@ -435,7 +436,6 @@ export async function render(main, params = {}, query = {}) {
 
   // ---------- one student, in a panel on the right ----------
   const qText = (q) => { const t = Array.isArray(q?.body) ? q.body.join(' ') : String(q?.body || ''); return t.replace(/```[\s\S]*?```/g, ' [code] ').replace(/[`*_#>]/g, '').replace(/\s+/g, ' ').trim(); };
-  const shortDay = (d) => new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   // each student's uploaded exam scores (as %), oldest exam first; examPct = the latest one
   function attachScores() {
     const sets = grades?.list || [];
@@ -551,7 +551,7 @@ export async function render(main, params = {}, query = {}) {
       // activity
       const days = (r.days || []).slice().sort();
       const now = Date.now(), strip = [];
-      for (let k = 27; k >= 0; k--) strip.push(new Date(now - k * DAY).toLocaleDateString('en-CA'));
+      for (let k = 27; k >= 0; k--) strip.push(dayKey(now - k * DAY));
       const on = new Set(days);
       out.push(`<section><h3>Activity</h3>
         <p class="small">${days.length ? `Studied on <strong>${plural(days.length, 'day')}</strong> in the last 60 days · last ${esc(shortDay(days[days.length - 1]))}${r.lastQuiz ? ` · last quiz ${esc(fmtDate(r.lastQuiz))}` : ''}` : '<span class="muted">No study days recorded yet.</span>'}</p>
@@ -710,7 +710,7 @@ export async function render(main, params = {}, query = {}) {
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${classId}-${examId}${section ? '-' + section.replace(/[^\w-]+/g, '_') : ''}-students-${new Date().toLocaleDateString('en-CA')}.csv`;
+    link.download = `${classId}-${examId}${section ? '-' + section.replace(/[^\w-]+/g, '_') : ''}-students-${dayKey()}.csv`;
     document.body.appendChild(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
     toast('CSV downloaded');

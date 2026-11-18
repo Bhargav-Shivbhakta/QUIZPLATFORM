@@ -24,6 +24,7 @@ import * as store from './store.js';
 import { getExam, getManifest, setCloudProvider, refreshManifest } from './data.js';
 import { readiness, topicMastery } from './engine.js';
 import { sectionRules } from './timed.js';
+import { dayKey } from './format.js';
 
 const fbc = config.firebase || {};
 export const enabled = !!(fbc.apiKey && fbc.projectId);
@@ -597,7 +598,7 @@ async function summaryFor(examId) {
 // along with the summary, which is only sent when progress changed, so it costs no extra saves.
 // Days come from this device's study log plus the synced progress (so other devices count too).
 function activeDays(attempts, stats, asg) {
-  const day = (t) => (t ? new Date(t).toLocaleDateString('en-CA') : null);
+  const day = (t) => (t ? dayKey(t) : null);
   const since = day(Date.now() - 60 * 86400000);
   const set = new Set();
   for (const [d, a] of Object.entries(store.getActivity())) if ((a.ms || 0) > 0 || (a.answered || 0) > 0) set.add(d);
@@ -754,7 +755,7 @@ export async function listAnnouncements(classId, { fresh = false } = {}) {
   const hit = annCache.get(classId);
   if (hit && !fresh && Date.now() - hit.at < 120000) return hit.list;
   const snap = await fb.getDocs(fb.collection(fb.db, 'classes', classId, 'announcements'));
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = dayKey();
   const list = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
   annCache.set(classId, { at: Date.now(), list });
   return list.map((a) => ({ ...a, expired: !!a.until && a.until < today }));

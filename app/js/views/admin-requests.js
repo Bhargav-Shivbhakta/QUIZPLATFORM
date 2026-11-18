@@ -5,8 +5,8 @@
 import * as cloud from '../cloud.js';
 import { esc, icon, toast } from '../ui.js';
 import { STATUSES, LIMITS, statusOf, statusLabel, countNew } from '../requests.js';
+import { dateTime as when } from '../format.js';
 
-const when = (ms) => new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 const tone = { new: 'ok', contacted: '', setup: 'good', nofit: 'bad' };
 const why = (e) => (e?.code === 'permission-denied' ? 'publish the latest firestore.rules in Firebase.' : e?.message || e);
 const tell = (list) => window.dispatchEvent(new CustomEvent('requests-changed', { detail: countNew(list) }));

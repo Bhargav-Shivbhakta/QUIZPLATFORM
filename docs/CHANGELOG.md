@@ -2,13 +2,19 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: the design foundation
+## 18 November 2026: the design foundation
+
+Uploaded in two parts: the tokens and the first rules (commit `380257e`), then the full rules, dates and numbers, and the code checks.
 
 - One look for all of Cramming, "Clear" (Inter, cool white and near-black, one blue). Every value now lives in `app/css/tokens.css`, loaded on every page.
 - The landing, sign-in and policy pages and the Request access sheet read their colours from the tokens. Screenshots before and after match (light, dark, phone). Error text in the sheet is now readable in dark mode, and the code font (JetBrains Mono) now actually loads.
 - `docs/DESIGN.md`: the rules for colour, type, space, corners, motion, the parts and the words. The "Cramming Design System" artifact shows the same.
 - `npm test` now fails if a stylesheet writes its own colour or uses a token that doesn't exist. The signed-in app's stylesheet is recorded as debt (293 colours) and can only go down.
-- **Tested:** 62 automated tests and the architecture check; the check was shown to catch a stray colour and a missing token; every colour pair in `DESIGN.md` measured at 4.5:1 or better.
+- `DESIGN.md` also holds the word list (one name for each thing), dates and numbers, icons, the four page templates and breakpoints, behaviour (saving, deleting, errors, loading, focus, keyboard), the plan for the parts kit in code, and rules for emails, downloads and print.
+- **Dates and numbers** now come from one place, `app/js/format.js`, on every screen (20 files moved onto it). The year shows only when it isn't this year. Some screens change slightly: the exam page says "Tue, Nov 17, 5:02 PM" instead of "Tuesday, Nov 17, 5:02 PM", and Access requests no longer shows the year for this year's requests.
+- `npm test` also counts four things in the code that should go through one place (inline styles 36, colours in code 18, dates formatted by hand 1, hand-drawn icons 17); each may only go down.
+- Page width tokens added to `tokens.css`. The screen inventory (33 screens, 4 on the new look) is on the system map whiteboard.
+- **Tested:** 66 automated tests (4 new for dates and numbers) and the architecture check; the checks were shown to catch a stray colour, a missing token, a hand-formatted date and a colour in code; every colour pair in `DESIGN.md` measured at 4.5:1 or better; all 20 signed-in screens opened as a student and as an admin on the local copy with no errors and no broken dates.
 
 ## 17 November 2026: landing fixes
 

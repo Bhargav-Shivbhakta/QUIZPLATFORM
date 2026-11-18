@@ -4,6 +4,7 @@ import { esc, ring, meter, toneFor, plural, lineChart } from '../ui.js';
 import { snippet, md } from '../render.js';
 import { readiness, topicMastery, missedRanking, streakDays, fmtDuration, fmtDate, dueIds, MODES } from '../engine.js';
 import { startSession } from './setup.js';
+import { day } from '../format.js';
 
 export async function render(main, { id }) {
   const exam = await getExam(id);
@@ -37,7 +38,7 @@ export async function render(main, { id }) {
   const chartFor = (mode) => {
     const list = attempts.filter((a) => a.score.count >= 3 && (mode === 'all' || a.mode === mode)).slice(-20);
     return lineChart(list.map((a, i) => ({
-      x: new Date(a.finishedAt).toLocaleDateString([], { month: 'numeric', day: 'numeric' }),
+      x: day(a.finishedAt),
       y: a.score.pct, title: `${a.label}: ${a.score.pct}% (${fmtDate(a.finishedAt)})`,
     })), { target: exam.passMark });
   };

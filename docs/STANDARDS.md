@@ -73,3 +73,14 @@ One piece at a time, in this order: the landing page, then students, then profes
 - Every bug fixed gets a test that would have caught it.
 - Coverage is measured and written in `FEATURES.md`. The aim: all shared logic close to 100%, and every screen covered by a browser check.
 - Security rules are tested against a local copy of Firebase before they're published.
+
+## Screen checks (planned; built with the design kit)
+
+Every screen gets reference pictures kept with the project, so a change that alters a screen nobody meant to touch is caught.
+
+- **What:** `npm run screens` opens every screen in a real browser (Playwright) at three sizes: laptop light (1366×768), laptop dark, and phone dark (390×844). It saves a picture of each and runs axe on each.
+- **Against what:** a local copy of Firebase (the mock server, moved from Claude's scratch space into `tests/mock/`) seeded with made-up classes and students, and only the public `exams/_template` set. No real student data or private exams, ever.
+- **Pass or fail:** each picture is compared with its reference in `tests/screens/`. More than a sliver of difference fails, and the report shows before, after and the difference side by side. Any axe finding fails.
+- **Updating a reference:** only on purpose, with `npm run screens -- --update`, and the changed pictures are reviewed before release.
+- **When:** before every release, and on every screen moved to the kit. It runs locally first; it joins the GitHub build once it's quick and steady.
+- **Covered first:** landing, sign-in, policy pages, the request sheet, then each screen as it moves onto the kit. The screen inventory on the whiteboard shows which are covered.

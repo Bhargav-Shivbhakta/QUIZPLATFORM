@@ -6,6 +6,7 @@ import * as cloud from '../cloud.js';
 import { esc, icon, toast, modal, confirmDialog, plural } from '../ui.js';
 import { readMaterial, packChunks, ACCEPT } from '../materials.js';
 import { createBuild } from '../build/engine.js';
+import { number, weekday as dayLabel } from '../format.js';
 
 const KINDS = [
   ['concepts', 'Concepts and facts', 'Terms, ideas, cases and readings. Multiple choice, short answers and written answers.'],
@@ -21,8 +22,7 @@ const MAKE = [
   ['progExams', 'Programming exams', true],
 ];
 const KIND_LABEL = { pdf: 'PDF', pptx: 'PowerPoint', docx: 'Word', text: 'Text' };
-const num = (n) => Number(n || 0).toLocaleString();
-const dayLabel = (s) => (s ? new Date(s + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '');
+const num = (n) => number(n || 0);
 
 function defaults(cls) {
   const cs = /\b(cs|cse|comp|computer|program)/i.test(`${cls.course || ''} ${cls.name || ''}`);

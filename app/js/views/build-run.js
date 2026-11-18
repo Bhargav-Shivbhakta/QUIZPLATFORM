@@ -3,6 +3,7 @@
 import * as cloud from '../cloud.js';
 import { esc, icon, toast, confirmDialog, plural } from '../ui.js';
 import { scheduleMap, approveMap, retryStuck, thinTopics, partInfo, releaseNext } from '../build/engine.js';
+import { day } from '../format.js';
 
 const SAY = 'Use the Cramming connector to build my course. Keep going, job after job, until it says FINISHED.';
 const SAY_ROLE = {
@@ -12,7 +13,6 @@ const SAY_ROLE = {
 };
 const CONTINUE = 'The course map is approved. Continue with the Cramming connector until it says FINISHED.';
 const POLL_MS = 15000;
-const day = (s) => (s ? new Date(s + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '');
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'just now' : m < 60 ? `${plural(m, 'minute')} ago` : m < 1440 ? `${plural(Math.round(m / 60), 'hour')} ago` : `${plural(Math.round(m / 1440), 'day')} ago`; };
 
 export async function render(main, { classId }) {
