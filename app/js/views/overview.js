@@ -155,6 +155,7 @@ export async function render(main, params = {}, query = {}) {
         </div>
         <div class="row">
           <a class="btn" href="#/admin">${icon('users')} Manage classes</a>
+          <a class="btn" href="#/requests">${icon('mail')} Access requests</a>
           <button class="btn" data-refresh>${icon('shuffle')} Refresh</button>
         </div>
       </header>

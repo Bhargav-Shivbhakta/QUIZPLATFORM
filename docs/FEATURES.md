@@ -6,7 +6,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 ## Starting point, 17 November 2026
 
-- Tests pass: 53.
+- Tests pass: 53 (59 after the landing refinements).
 - Coverage: about 22% of lines overall. The shared logic that is tested is mostly 90% or more (build engine, connector, parser, Canvas, study plan). The screens (`app/js/views/`), `cloud.js`, `ui.js` and `main.js` have no tests in the project. They were checked by hand and with browser scripts that live outside the project.
 - `npm run audit` lists 48 exports. Eight are used nowhere: `calculatorOpen`, `classExamEntries`, `savesLeftToday`, `getAccessCode`, `getBuilt`, `checkJava`, `runProgram`, `isRef`. The other 40 are used only inside their own file and just need `export` removed. Each is fixed while its feature is polished, and the list must be empty before launch.
 - Naming tangle: two files are both called `engine.js`. `app/js/engine.js` is spaced repetition, and `app/js/build/engine.js` is Build my course. Rename the first to `review.js` when practice is polished.
@@ -15,10 +15,11 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 | Feature | State | Files | Tests |
 |---|---|---|---|
-| Landing page (written for professors; product demo, try-it question, FAQ) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
-| Request access (sheet, saved to Firestore) and Admin › Access requests | Live, unpolished | `views/lp-shell.js`, `cloud.js`, `views/admin.js`, `firestore.rules` | Browser checks; rules on the local copy |
+| Landing page (story order: the problem, then professors, students, practice, exams; product demo, try-it question, FAQ) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
+| Request access in two steps (who you are; optional course details) | Live, unpolished | `views/lp-request.js`, `requests.js`, `cloud.js`, `firestore.rules` | 6 unit tests (incl. rules match the form); browser checks; rules on the local copy; independent review |
+| Admin › Access requests: statuses (New, Contacted, Set up, Not a fit), notes, no deleting, red count on Admin | Live, unpolished | `views/admin-requests.js`, `requests.js`, `main.js` | Unit tests; browser checks; axe clean |
 | Privacy, Terms, How we use AI, Accessibility pages (drafts) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |
-| Sign-in page at its own address (#/signin) | Live, unpolished | `views/signin.js`, `main.js` | Browser checks |
+| Sign-in page (#/signin) in the landing design, with two doors: I'm a student, I teach | Live, unpolished | `views/signin.js`, `main.js` | Browser checks, axe clean |
 
 ## Students
 

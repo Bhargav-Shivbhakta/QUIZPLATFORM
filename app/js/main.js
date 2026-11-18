@@ -10,12 +10,14 @@ import { applyClassColor } from './colors.js';
 import { getExam } from './data.js';
 import { mountBell } from './notify.js';
 import { getNavGuard, applyTheme } from './nav.js';
+import { countNew } from './requests.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/admin$/, view: () => import('./views/admin.js'), nav: 'admin' },
   { re: /^\/overview$/, view: () => import('./views/overview.js'), nav: 'admin' },
+  { re: /^\/requests$/, view: () => import('./views/admin-requests.js'), nav: 'admin' },
   { re: /^\/content\/([^/]+)$/, keys: ['classId'], view: () => import('./views/content.js'), nav: 'instructor' },
   { re: /^\/course\/([^/]+)$/, keys: ['course'], view: () => import('./views/home.js'), nav: 'home' },
   { re: /^\/exam\/([^/]+)$/, keys: ['id'], view: () => import('./views/exam.js'), nav: 'home' },
@@ -162,13 +164,30 @@ function paintChrome() {
   document.querySelector('.tabbar')?.remove();
   const tabs = [...nav.querySelectorAll('a[data-nav]')].map((a) => {
     const ic = { home: 'home', instructor: 'chart', admin: 'users', settings: 'settings', author: 'note' }[a.dataset.nav] || 'grid';
-    const label = { home: cloud.enabled && u ? 'Classes' : 'Exams', instructor: 'Dashboard' }[a.dataset.nav] || a.textContent;
+    const label = { home: cloud.enabled && u ? 'Classes' : 'Exams', instructor: 'Dashboard', admin: 'Admin' }[a.dataset.nav] || a.textContent;
     return `<a href="${a.getAttribute('href')}" data-nav="${a.dataset.nav}">${icon(ic)}<span>${esc(label)}</span></a>`;
   });
   document.getElementById('main').insertAdjacentHTML('afterend', `<nav class="tabbar" aria-label="Main">${tabs.join('')}</nav>`);
   const cur = routes.find((x) => x.re.test(parseHash().path));
   document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === cur?.nav));
+  paintBadge();
 }
+
+// The red count on Admin: access requests still marked New. Read once per visit (admins only);
+// the requests page sends the new count whenever an admin changes a status.
+let newRequests = null;
+function paintBadge() {
+  if (!cloud.isAdmin()) return;
+  if (newRequests === null) {
+    newRequests = 0;
+    cloud.listAccessRequests().then((list) => { newRequests = countNew(list); paintBadge(); }).catch(() => {});
+  }
+  document.querySelectorAll('a[data-nav="admin"]').forEach((a) => {
+    a.querySelector('.nav-badge')?.remove();
+    if (newRequests) a.insertAdjacentHTML('beforeend', `<span class="nav-badge">${newRequests > 99 ? '99+' : newRequests}<span class="sr-only"> new access ${newRequests === 1 ? 'request' : 'requests'}</span></span>`);
+  });
+}
+window.addEventListener('requests-changed', (e) => { newRequests = e.detail; paintBadge(); });
 
 function init() {
   document.getElementById('site-name').textContent = config.siteName;

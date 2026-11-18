@@ -2,6 +2,29 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 17 November 2026: landing refinements
+
+**Request access, in two steps**
+- Step 1: name, school email, school, role (professor or lecturer, TA, department chair or coordinator, high school teacher, other) and the course. That alone is a complete request.
+- Step 2, optional: department, class size, sections, term start, first exam, what they'd use first, what they use today, what material they have, another way to reach them, how they heard of us, notes. "Skip for now" is always there.
+- The rules check every field, allow the details only once and only within 30 minutes, and refuse anything else.
+
+**Admin › Access requests** (its own page, `#/requests`)
+- Each request has a status (New, Contacted, Set up, Not a fit) and a note, with who changed it and when. Nothing is deleted.
+- Filters by status, with counts. A red count on **Admin** shows how many are still New, on the top bar and the phone tab bar.
+- Linked from Platform overview and Manage classes. The old list and its "Handled" (delete) button are gone.
+
+**The landing page tells a story**
+- New section after the hero: "Most studying happens the night before", with the three problems Cramming fixes. "See how it works" goes there.
+- Order: problem, professors (Build my course), students (Today), practice, spaced review, tutor, dashboard, exams, subjects, three steps, privacy, questions.
+
+**Sign in, with two doors**
+- `#/signin` now uses the landing design: "I'm a student" and "I teach" (sign in, or request access). No school name in the wording.
+
+**Tested:** 59 automated tests, plus the architecture check. Browser checks at 1366×768 light and 390×844 dark: story order, both request steps, errors, skip, reopen, sign-in doors, admin page, status change, the count on Admin, and eight security-rule cases on the local copy (bad role, extra field, details twice, visitor setting a status or reading, admin setting an unknown status: all refused). axe clean on every screen. An independent review of the rules found no hole that exposes data; its two small fixes were made, and the open spam risk is I-4.
+
+**Outside GitHub:** publish the new `firestore.rules` in Firebase. Until then, new requests fail to send and the admin page can't save a status.
+
 ## 17 November 2026: live
 
 Published in two steps: the founder uploaded the landing page and everything before it, then Claude pushed the skeleton straight to `main` (commit `96494a6`, build green).

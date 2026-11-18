@@ -842,5 +842,49 @@ console.log('\nMock exams');
   });
 }
 
+{
+  const R = await import('../app/js/requests.js');
+  console.log('\nRequest access');
+  const ok = { name: '  Ana   Ruiz ', email: ' Ana@School.EDU ', school: 'State U', role: R.ROLES[0], course: 'MATH 150' };
+  test('step 1 cleans and accepts a full request', () => {
+    const { data, error } = R.checkRequest({ ...ok, website: 'x', extra: 1 });
+    assert.equal(error, undefined);
+    assert.deepEqual(data, { name: 'Ana Ruiz', email: 'ana@school.edu', school: 'State U', role: R.ROLES[0], course: 'MATH 150' });
+  });
+  test('step 1 names the first missing or wrong field', () => {
+    assert.deepEqual(R.checkRequest({ ...ok, name: ' ' }), { error: 'Please fill in your name.', field: 'name' });
+    assert.equal(R.checkRequest({ ...ok, email: 'ana@school' }).field, 'email');
+    assert.equal(R.checkRequest({ ...ok, email: 'a@b.c' }).field, 'email');
+    assert.equal(R.checkRequest({ ...ok, role: 'Dean' }).field, 'role');
+    assert.equal(R.checkRequest({ ...ok, role: '' }).field, 'role');
+    assert.equal(R.checkRequest({ ...ok, course: '' }).field, 'course');
+  });
+  test('step 1 cuts long answers to the limits the rules allow', () => {
+    const { data } = R.checkRequest({ ...ok, name: 'a'.repeat(500), course: 'c'.repeat(500) });
+    assert.equal(data.name.length, R.LIMITS.name);
+    assert.equal(data.course.length, R.LIMITS.course);
+  });
+  test('step 2 keeps only known answers and drops empty ones', () => {
+    const d = R.cleanDetails({ department: ' Maths ', start: '2027-01-20', firstExam: 'soon', sections: '3', students: 'Lots',
+      wants: ['Study notes', 'Hacking', 'Study notes'], uses: 'Canvas', has: [], contact: '', notes: 'a\n\n\n\nb', evil: 'x' });
+    assert.deepEqual(d, { department: 'Maths', start: '2027-01-20', sections: 3, wants: ['Study notes'], uses: ['Canvas'], notes: 'a\n\nb' });
+    assert.deepEqual(R.cleanDetails({}), {});
+    assert.equal(R.cleanDetails({ sections: '2.5' }).sections, undefined);
+    assert.equal(R.cleanDetails({ sections: '900' }).sections, 50);
+  });
+  test('statuses: old requests count as new; labels; the count of new', () => {
+    assert.equal(R.statusOf({}), 'new');
+    assert.equal(R.statusOf({ status: 'setup' }), 'setup');
+    assert.equal(R.statusOf({ status: 'deleted' }), 'new');
+    assert.equal(R.statusLabel('nofit'), 'Not a fit');
+    assert.equal(R.countNew([{}, { status: 'new' }, { status: 'contacted' }]), 2);
+  });
+  test('the security rules list the same choices as the form', () => {
+    const rules = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8');
+    const block = rules.slice(rules.indexOf('match /accessRequests/'), rules.indexOf('match /buildLinks/'));
+    for (const v of [...R.ROLES, ...R.SIZES, ...R.WANTS, ...R.USES, ...R.HAS, ...R.STATUSES.map(([k]) => k)]) assert.ok(block.includes(`'${v}'`), v);
+    for (const [k, n] of Object.entries(R.LIMITS)) if (k !== 'email' && k !== 'note') assert.match(block, new RegExp(`${k}, 1, ${n}\\)`), k);
+  });
+}
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

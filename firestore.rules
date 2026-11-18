@@ -292,17 +292,49 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid && code.matches('^[A-Za-z0-9]{32}$')
         && (enrolledIn(request.resource.data.classId) || teaches(request.resource.data.classId));
     }
-    // "Request access" on the landing page: anyone may send one request; only admins read them
+    // "Request access" on the landing page. Anyone may send one request (step 1), then add the optional
+    // details once, within 30 minutes (step 2). Only admins read them and set a status and a note;
+    // nobody deletes them. The limits match app/js/requests.js.
     match /accessRequests/{id} {
+      function str(v, lo, hi) { return v is string && v.size() >= lo && v.size() <= hi; }
+      function pick(v, opts) { return v is list && v.size() <= opts.size() && v.hasOnly(opts); }
+      function okDetails(d) {
+        return d is map && d.keys().hasOnly(['department', 'start', 'firstExam', 'sections', 'students', 'wants', 'uses', 'has', 'contact', 'heard', 'notes'])
+          && (!('department' in d) || str(d.department, 1, 150))
+          && (!('start' in d) || (d.start is string && d.start.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && (!('firstExam' in d) || (d.firstExam is string && d.firstExam.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && (!('sections' in d) || (d.sections is int && d.sections > 0 && d.sections <= 50))
+          && (!('students' in d) || d.students in ['Under 50', '50 to 150', '150 to 400', 'More than 400'])
+          && (!('wants' in d) || pick(d.wants, ['Practice questions', 'Study notes', 'Graded quizzes and exams', 'Programming assignments', 'Build my course with AI', 'The course tutor']))
+          && (!('uses' in d) || pick(d.uses, ['Canvas', 'Gradescope', 'zyBooks', 'Paper', 'Something else']))
+          && (!('has' in d) || pick(d.has, ['Slides', 'Notes', 'Question banks', 'Past exams']))
+          && (!('contact' in d) || str(d.contact, 1, 200))
+          && (!('heard' in d) || str(d.heard, 1, 200))
+          && (!('notes' in d) || str(d.notes, 1, 1500));
+      }
       allow create: if id.matches('^[A-Za-z0-9]{20}$')
-        && request.resource.data.keys().hasOnly(['name', 'email', 'school', 'course', 'size', 'createdAt'])
-        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 100
-        && request.resource.data.email is string && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') && request.resource.data.email.size() <= 200
-        && request.resource.data.school is string && request.resource.data.school.size() > 0 && request.resource.data.school.size() <= 150
-        && request.resource.data.course is string && request.resource.data.course.size() > 0 && request.resource.data.course.size() <= 100
-        && request.resource.data.size in ['Under 50', '50 to 150', '150 to 400', 'More than 400']
-        && request.resource.data.createdAt is int && math.abs(request.resource.data.createdAt - request.time.toMillis()) < 600000;
-      allow read, delete: if isAdmin();
+        && request.resource.data.keys().hasOnly(['name', 'email', 'school', 'role', 'course', 'status', 'v', 'createdAt'])
+        && str(request.resource.data.name, 1, 100)
+        && str(request.resource.data.email, 6, 200) && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && str(request.resource.data.school, 1, 150)
+        && request.resource.data.role in ['Professor or lecturer', 'Teaching assistant', 'Department chair or coordinator', 'High school teacher', 'Other']
+        && str(request.resource.data.course, 1, 100)
+        && request.resource.data.status == 'new' && request.resource.data.v == 1
+        && request.resource.data.createdAt is int && request.resource.data.createdAt > request.time.toMillis() - 600000
+        && request.resource.data.createdAt < request.time.toMillis() + 60000;
+      // Step 2: only the details, only once, only soon after step 1
+      allow update: if !('details' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['details'])
+        && okDetails(request.resource.data.details)
+        && request.time.toMillis() - resource.data.createdAt < 1800000;
+      // Admins track each request
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'statusAt', 'statusBy'])
+        && request.resource.data.status in ['new', 'contacted', 'setup', 'nofit']
+        && str(request.resource.data.note, 0, 1000)
+        && request.resource.data.statusBy == myEmail()
+        && request.resource.data.statusAt is int && math.abs(request.resource.data.statusAt - request.time.toMillis()) < 600000;
+      allow read: if isAdmin();
     }
     // Build my course: the secret link code a professor gives their AI → which class it builds.
     // Nobody can list these; the connector service reads them with its own service account.

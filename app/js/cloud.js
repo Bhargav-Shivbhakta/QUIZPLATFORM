@@ -114,28 +114,26 @@ async function load() {
 
 // ---------------------------------------------------------------- access requests
 // "Request access" on the landing page. Anyone may send one (no sign-in); only admins read them.
-// One write per request; the admin page reads them all once (one read per request).
-export const ACCESS_SIZES = ['Under 50', '50 to 150', '150 to 400', 'More than 400'];
-export async function requestAccess({ name, email, school, course, size }) {
+// Step 1 is one write; the optional details are one more. Admins read them all once per visit.
+export async function requestAccess(data) {
   await load();
   const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const id = Array.from(crypto.getRandomValues(new Uint8Array(20)), (n) => abc[n % abc.length]).join('');
-  const clean = (s, max) => String(s || '').trim().replace(/\s+/g, ' ').slice(0, max);
-  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), {
-    name: clean(name, 100), email: clean(email, 200).toLowerCase(), school: clean(school, 150), course: clean(course, 100),
-    size: ACCESS_SIZES.includes(size) ? size : ACCESS_SIZES[0], createdAt: Date.now(),
-  });
+  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), { ...data, status: 'new', v: 1, createdAt: Date.now() });
+  return id;
+}
+export async function addAccessDetails(id, details) {
+  await load();
+  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), { details }, { merge: true });
 }
 export async function listAccessRequests() {
   await load();
   const snap = await fb.getDocs(fb.collection(fb.db, 'accessRequests'));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => b.createdAt - a.createdAt);
 }
-export async function deleteAccessRequest(id) {
+export async function setAccessStatus(id, status, note) {
   await load();
-  const b = fb.writeBatch(fb.db);
-  b.delete(fb.doc(fb.db, 'accessRequests', id));
-  await b.commit();
+  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), { status, note, statusAt: Date.now(), statusBy: (user?.email || '').toLowerCase() }, { merge: true });
 }
 
 // ---------------------------------------------------------------- auth

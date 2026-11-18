@@ -13,7 +13,8 @@
         "app/js/assignments-core.js",
         "app/js/build/engine.js",
         "app/js/roster.js",
-        "app/js/seb.js"
+        "app/js/seb.js",
+        "app/js/requests.js"
       ],
       "mayImport": [
         "core"
@@ -158,7 +159,7 @@
         "since": 0
       },
       "accessRequests": {
-        "holds": "Request access from the landing page",
+        "holds": "Request access from the public pages: who (step 1), optional course details (step 2), and the status and note admins set. Never deleted.",
         "group": "growth",
         "since": 0
       }

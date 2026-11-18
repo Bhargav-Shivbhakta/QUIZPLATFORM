@@ -2,7 +2,8 @@
 // find "Sign in" in the header. No database reads. Motion: one passive scroll listener (rAF) for
 // the hero tilt, parallax and progress line; IntersectionObserver for reveals and for running the
 // demos only while they're on screen. Everything stops for "Pause motion" and reduced motion.
-import { ensureCss, header, footer, mountSheet } from './lp-shell.js';
+import { ensureCss, header, footer } from './lp-shell.js';
+import { mountSheet } from './lp-request.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
@@ -47,7 +48,7 @@ function markup() {
     <p class="kicker">Practice, plans and exams for any course</p>
     <h1 id="lp-h1">Cram the right way.<sup class="tm" aria-hidden="true">™</sup></h1>
     <p class="lp-lead">A little every day, ready on exam day. Cramming turns a professor's course materials into daily practice and a study plan for every student.</p>
-    <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="how">See how it works ›</a></div>
+    <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
     <div class="lp-stage">
       <div class="lp-tilt">
         <div class="lp-glow" aria-hidden="true"></div>
@@ -73,6 +74,35 @@ function markup() {
     </div>
   </section>
 
+  <section id="problem" class="wrap sec" aria-labelledby="pb-h">
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">The problem</p>
+      <h2 id="pb-h" class="h2">Most studying happens the night before.</h2>
+      <p class="lp-lead">Students reread their notes and cram at the last minute, because nobody has told them what to practice, or when. By the time the professor sees the gap, it's already on the midterm.</p>
+    </div>
+    <div class="points">${points([
+      ['No plan', "Students don't know what to study tonight, so they reread instead of practicing."],
+      ['Feedback comes late', 'Mistakes show up on the exam, when there is no time left to fix them.'],
+      ['No time to build more', 'Writing notes, practice questions and quizzes for every unit takes hours a professor doesn\'t have.'],
+    ])}</div>
+    <p class="lp-lead lp-turn reveal">Cramming fixes all three, starting from the materials the professor already has.</p>
+  </section>
+  <section id="professors" class="wrap sec" aria-labelledby="pf-h">
+    <div class="lp-panel split reveal">
+      <div class="stack">
+        <p class="lp-eyebrow">For professors</p>
+        <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
+        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
+        <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
+      </div>
+      <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
+        <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
+        <div class="lp-track" aria-hidden="true"><b data-build-bar style="--w:0%"></b></div>
+        <div aria-hidden="true">${BUILD.map((s) => `<div class="lp-step"><span class="mark">${CHECK}</span><span>${s}</span></div>`).join('')}</div>
+      </div>
+    </div>
+  </section>
+
   <section id="students" class="wrap sec" aria-labelledby="st-h">
     <div class="lp-center stack reveal">
       <p class="lp-eyebrow">For students</p>
@@ -83,22 +113,6 @@ function markup() {
       ['Built from the course', "Notes and questions come from the professor's own materials, so practice matches what's taught and what's tested."],
       ['Planned for each student', "Mistakes come first, then what's due for review, then this week's unit. Nobody has to guess where to start."],
       ['Short enough to happen', 'Three tasks at most, each with its time. Students finish, and come back tomorrow.'],
-    ])}</div>
-  </section>
-
-
-  <section id="subjects" class="wrap sec" aria-labelledby="sb-h">
-    <div class="lp-center stack reveal">
-      <p class="lp-eyebrow">Subjects</p>
-      <h2 id="sb-h" class="h2">Made for your subject.</h2>
-      <p class="lp-lead">If it can be asked as a question, it works on Cramming. Computer science, mathematics and statistics get extra tools: equations set properly, number answers checked automatically, and code that runs in the browser.</p>
-    </div>
-    <ul class="lp-chips reveal" aria-label="Subjects">${['Computer science', 'Mathematics', 'Statistics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Psychology', 'Engineering', 'Business', 'And more'].map((s, i) => `<li${i < 3 ? ' class="lp-strong"' : ''}>${s}</li>`).join('')}</ul>
-    <div class="points">${points([
-      ['Notes and flashcards', 'Study notes for each unit, and flashcards for terms, formulas and definitions.'],
-      ['Every kind of question', 'Multiple choice, select all that apply, true or false, number answers and short answers, all checked automatically.'],
-      ['Written answers', 'Longer answers in exams, graded by the professor and TAs.'],
-      ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
     ])}</div>
   </section>
 
@@ -150,22 +164,6 @@ function markup() {
     </div>
   </section>
 
-  <section id="professors" class="wrap sec" aria-labelledby="pf-h">
-    <div class="lp-panel split reveal">
-      <div class="stack">
-        <p class="lp-eyebrow">For professors</p>
-        <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
-        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
-        <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
-      </div>
-      <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
-        <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
-        <div class="lp-track" aria-hidden="true"><b data-build-bar style="--w:0%"></b></div>
-        <div aria-hidden="true">${BUILD.map((s) => `<div class="lp-step"><span class="mark">${CHECK}</span><span>${s}</span></div>`).join('')}</div>
-      </div>
-    </div>
-  </section>
-
   <section class="wrap sec split" aria-labelledby="da-h">
     <div class="stack reveal">
       <p class="lp-eyebrow">For professors · Class dashboard</p>
@@ -197,10 +195,25 @@ function markup() {
     ])}</div>
   </section>
 
+  <section id="subjects" class="wrap sec" aria-labelledby="sb-h">
+    <div class="lp-center stack reveal">
+      <p class="lp-eyebrow">Subjects</p>
+      <h2 id="sb-h" class="h2">Made for your subject.</h2>
+      <p class="lp-lead">If it can be asked as a question, it works on Cramming. Computer science, mathematics and statistics get extra tools: equations set properly, number answers checked automatically, and code that runs in the browser.</p>
+    </div>
+    <ul class="lp-chips reveal" aria-label="Subjects">${['Computer science', 'Mathematics', 'Statistics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Psychology', 'Engineering', 'Business', 'And more'].map((s, i) => `<li${i < 3 ? ' class="lp-strong"' : ''}>${s}</li>`).join('')}</ul>
+    <div class="points">${points([
+      ['Notes and flashcards', 'Study notes for each unit, and flashcards for terms, formulas and definitions.'],
+      ['Every kind of question', 'Multiple choice, select all that apply, true or false, number answers and short answers, all checked automatically.'],
+      ['Written answers', 'Longer answers in exams, graded by the professor and TAs.'],
+      ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
+    ])}</div>
+  </section>
+
   <section id="how" class="wrap sec" aria-labelledby="hw-h">
     <div class="lp-center stack reveal"><p class="lp-eyebrow">For professors · How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
     <ol class="lp-steps">${[
-      ['Request access', 'Tell us your course and roughly how many students. It takes a minute.'],
+      ['Request access', "Tell us who you are and the course you'd start with. It takes a minute."],
       ['We build it with you', 'Upload your materials and approve the course map. We help you through your first build and review.'],
       ['Students start that week', 'Share the class link. Each student gets a plan for the units you have opened.'],
     ].map(([h, p], i) => `<li class="card lp-lift reveal" style="--d:${i * 0.08}s"><span class="n">${i + 1}</span><h3>${h}</h3><p>${p}</p></li>`).join('')}</ol>

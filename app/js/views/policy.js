@@ -1,7 +1,8 @@
 // Public policy pages: #/privacy, #/terms, #/ai, #/accessibility. Plain language, no database reads.
 // DRAFTS until reviewed by a lawyer (see docs/DECISIONS.md); the banner says so on the page.
 import config from '../../config.js';
-import { ensureCss, header, footer, mountSheet } from './lp-shell.js';
+import { ensureCss, header, footer } from './lp-shell.js';
+import { mountSheet } from './lp-request.js';
 
 const UPDATED = '17 November 2026';
 const CONTACT = config.contactEmail || '';
@@ -17,7 +18,7 @@ const PAGES = {
         <li><strong>Your school account:</strong> your name, school email and profile picture, from your school's sign-in. We never see your password.</li>
         <li><strong>Your work in a class:</strong> your answers, scores, flashcard and review history, notes, code you write, and when you signed in and started work.</li>
         <li><strong>Course material:</strong> what your professor uploads, such as notes, questions and assignments.</li>
-        <li><strong>Access requests:</strong> the name, email, school, course and class size a professor sends us on the landing page.</li>
+        <li><strong>Access requests:</strong> the name, email, school, role and course someone who teaches sends us with Request access, and any course details they choose to add, such as class size and term dates.</li>
         <li><strong>On your device:</strong> your settings and a copy of your progress are kept in your browser's local storage, so the site works when your connection drops. We don't use advertising or tracking cookies.</li>
       </ul>
       <h2>Why we collect it</h2>
