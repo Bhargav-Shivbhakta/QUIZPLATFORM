@@ -1,0 +1,119 @@
+/* Cramming design tokens: the one place every colour, font, size, space, corner, shadow and motion
+   value lives. The look is "Clear" (decided 17 November 2026). How to use them: docs/DESIGN.md.
+   Change a value here and every screen follows. No other stylesheet may write a colour literal;
+   `npm test` checks it. Loaded first, on every page, by index.html. */
+:root {
+  /* surfaces and text */
+  --cr-bg: #FBFBFC;
+  --cr-surface: #FFFFFF;
+  --cr-soft: #F1F2F5;
+  --cr-soft-2: #F4F5F8;
+  --cr-ink: #1C1D21;
+  --cr-ink-2: #5B5D66;
+  --cr-ink-3: #6B6D76;
+  --cr-line: #E6E7EB;
+  --cr-line-2: #DADCE2;
+
+  /* the one accent */
+  --cr-accent: #2443C4;
+  --cr-accent-ink: #FFFFFF;
+  --cr-accent-soft: #EEF1FC;
+  --cr-accent-hover: #1A3296;
+
+  /* meaning: never used for decoration */
+  --cr-right: #15703A;
+  --cr-right-soft: #EAF6EE;
+  --cr-wrong: #C2410C;
+  --cr-wrong-soft: #FDF0E8;
+  --cr-warn: #A15C07;
+  --cr-warn-soft: #FDF4E3;
+  --cr-danger: #B4441A;
+  --cr-badge: #C7361F;
+
+  /* the dark band: sections and product pictures that stay dark in both themes */
+  --cr-band-bg: #0F1012;
+  --cr-band-surface: #1A1B1F;
+  --cr-band-line: #2A2B31;
+  --cr-band-ink: #F5F5F7;
+  --cr-band-ink-soft: #DCDDE2;
+  --cr-band-ink-2: #A1A3AB;
+  --cr-band-ink-3: #8A8C94;
+  --cr-band-accent: #8FA6FF;
+  --cr-band-accent-strong: #6E8BFF;
+  --cr-band-accent-text: #9DB1FF;
+  --cr-band-accent-pale: #B5C3FF;
+  --cr-band-wrong: #E0895A;
+  --cr-band-wrong-text: #F0B08C;
+  --cr-device: #1C1D21;
+  --cr-device-edge: #3A3C42;
+
+  /* fixed colours: a logo's white disc, light sheen, shadows and the dimmed backdrop */
+  --cr-white: #FFFFFF;
+  --cr-sheen: rgba(255, 255, 255, 0.3);
+  --cr-shadow: rgba(28, 29, 33, 0.22);
+  --cr-shadow-deep: rgba(0, 0, 0, 0.45);
+  --cr-shadow-device: rgba(0, 0, 0, 0.5);
+  --cr-scrim: rgba(10, 10, 14, 0.36);
+
+  /* type: Inter for everything, JetBrains Mono for code and plain-text maths */
+  --cr-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --cr-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --cr-text-xs: 13px;
+  --cr-text-sm: 15px;
+  --cr-text-md: 17px;
+  --cr-text-lg: 20px;
+  --cr-text-xl: 24px;
+  --cr-text-2xl: 32px;
+  --cr-text-3xl: 44px;
+  --cr-text-display: clamp(40px, 6vw, 72px);
+  --cr-leading: 1.5;
+  --cr-leading-tight: 1.08;
+  --cr-tracking-tight: -0.03em;
+
+  /* space: steps of 4px */
+  --cr-space-1: 4px;
+  --cr-space-2: 8px;
+  --cr-space-3: 12px;
+  --cr-space-4: 16px;
+  --cr-space-5: 20px;
+  --cr-space-6: 24px;
+  --cr-space-8: 32px;
+  --cr-space-10: 40px;
+  --cr-space-12: 48px;
+  --cr-space-16: 64px;
+
+  /* corners */
+  --cr-radius-sm: 8px;
+  --cr-radius: 12px;
+  --cr-radius-lg: 16px;
+  --cr-radius-xl: 24px;
+  --cr-radius-pill: 999px;
+
+  /* motion and touch */
+  --cr-ease: cubic-bezier(.16, 1, .3, 1);
+  --cr-fast: 150ms;
+  --cr-base: 250ms;
+  --cr-slow: 450ms;
+  --cr-tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cr-bg: #0B0B0D; --cr-surface: #17181B; --cr-soft: #141518; --cr-soft-2: #1E1F23;
+    --cr-ink: #F2F2F4; --cr-ink-2: #A9ABB3; --cr-ink-3: #9A9CA4; --cr-line: #2A2B30; --cr-line-2: #34353B;
+    --cr-accent: #6E8BFF; --cr-accent-ink: #0B0B0D; --cr-accent-soft: #1C2340; --cr-accent-hover: #8FA6FF;
+    --cr-right: #4ADE80; --cr-right-soft: #132A1C; --cr-wrong: #FB923C; --cr-wrong-soft: #2E1D12;
+    --cr-warn: #F5B544; --cr-warn-soft: #2D2410; --cr-danger: #F28B6B; --cr-badge: #C7361F;
+    --cr-band-bg: #000000; --cr-band-surface: #141518;
+    --cr-shadow: rgba(0, 0, 0, 0.6);
+  }
+}
+:root[data-theme="dark"] {
+  --cr-bg: #0B0B0D; --cr-surface: #17181B; --cr-soft: #141518; --cr-soft-2: #1E1F23;
+  --cr-ink: #F2F2F4; --cr-ink-2: #A9ABB3; --cr-ink-3: #9A9CA4; --cr-line: #2A2B30; --cr-line-2: #34353B;
+  --cr-accent: #6E8BFF; --cr-accent-ink: #0B0B0D; --cr-accent-soft: #1C2340; --cr-accent-hover: #8FA6FF;
+  --cr-right: #4ADE80; --cr-right-soft: #132A1C; --cr-wrong: #FB923C; --cr-wrong-soft: #2E1D12;
+  --cr-warn: #F5B544; --cr-warn-soft: #2D2410; --cr-danger: #F28B6B; --cr-badge: #C7361F;
+  --cr-band-bg: #000000; --cr-band-surface: #141518;
+  --cr-shadow: rgba(0, 0, 0, 0.6);
+}

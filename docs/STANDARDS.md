@@ -5,6 +5,7 @@ Two people build Cramming: the founder and Claude. These files are the record. I
 | File | What it holds | When it changes |
 |---|---|---|
 | `docs/STANDARDS.md` | This page: the bar, the rules for code and testing, how work moves | Rarely, and only by decision |
+| `docs/DESIGN.md`, `app/css/tokens.css` and the "Cramming Design System" artifact | The look: every colour, font, size and part, and the rules for using them | Before any new screen; a value changes in all three at once |
 | `docs/ARCHITECTURE.md` and `docs/architecture.json` | The skeleton: layers, plug points, the data model now and target, and the grid every file and stored path sits in | When a new kind of thing is added (a decision first) |
 | `docs/FEATURES.md` | Every feature: who uses it, its state, its files, its tests | Every time a feature changes state |
 | `docs/CHANGELOG.md` | Every release: what changed, how it was tested | Every upload to the live site |
@@ -30,6 +31,7 @@ We ship few features, and each one is the finest of its kind. A feature is **fin
 8. Every rule it follows has an automated test, and every test passes.
 9. It has no unused or duplicate code (see below).
 10. It fits the grid: `npm test` includes the architecture check, and it passes.
+11. It uses the design: only the tokens in `app/css/tokens.css` and the parts in `docs/DESIGN.md`.
 
 The six standards behind this list: **usability, accessibility, experience, the look, authenticity, optimisation.** Authenticity means students see only their professor's material, AI output is labelled, and a person makes every decision that matters.
 
@@ -54,7 +56,7 @@ One piece at a time, in this order: the landing page, then students, then profes
 3. **Test:** run `npm test` (logic and the architecture check), the browser checks (screens), and axe (accessibility). All must pass.
 4. **Independent review** for anything high-stakes (security rules, grading, a whole student or professor flow): a separate agent that didn't write the code reviews and tests it before release.
 5. **Record:** update `FEATURES.md`, and add a `CHANGELOG.md` entry.
-6. **Release:** Claude pushes the tested changes straight to `main` (on top of whatever is there, never the private `exams/` folder or the founder's `app/config.js`). GitHub builds, checks and publishes; the founder checks the live site.
+6. **Release:** the founder releases. Claude doesn't commit or push; it hands over a zip of the changed files (never the private `exams/` folder or the founder's `app/config.js`) with a list of what changed, and the founder uploads it to `main`. GitHub builds, checks and publishes; the founder checks the live site. Claude pushes only when the founder asks for that release.
 
 ## Rules for code
 

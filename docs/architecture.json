@@ -315,5 +315,15 @@
       "why": "Screens check Firebase's 'permission-denied' code themselves.",
       "fix": "cloud.js turns errors into plain reasons (denied, offline, missing) so screens never see Firebase codes."
     }
+  },
+  "design": {
+    "about": "The look is set once, in the tokens file, and every stylesheet uses it. New stylesheets may not write colours of their own; old ones may only lose them. Rules for using the tokens: docs/DESIGN.md.",
+    "tokens": "app/css/tokens.css",
+    "debt": {
+      "app/css/app.css": {
+        "max": 293,
+        "fix": "Move the signed-in app onto the tokens when the design kit is built (Inter, the Clear palette)."
+      }
+    }
   }
 }

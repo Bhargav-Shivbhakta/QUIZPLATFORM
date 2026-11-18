@@ -18,3 +18,12 @@ Decisions that shape Cramming, newest first, each with the reason. A decision ch
 - **The logo never changes.** The look: classic and quiet, in the style of Apple's product pages.
 - **Budget is zero for now.** Everything runs on free plans: GitHub Pages, Firebase Spark and Cloudflare Workers.
 - **Roles come from records, not email patterns.** A school's staff list decides who is a professor or TA. An email pattern is only a hint.
+
+## 17 November 2026: the founder releases
+
+From now on Claude doesn't commit or push. It hands over zip files of the changed files and the founder uploads them; Claude pushes only when asked. Why: the founder wants to see and control every change that goes live.
+
+## 17 November 2026: one look, "Clear"
+
+The whole product uses one look: cool white and near-black, one blue (`#2443C4`, `#6E8BFF` in dark), set in Inter, with JetBrains Mono for code. Chosen by the founder from three options (Clear, Paper, Focus) on the "Cramming Look Options" canvas. Why: it's the landing page's look, which already reads as a real product, and one look everywhere makes Cramming feel like one product. Every value lives in `app/css/tokens.css`; the rules are in `docs/DESIGN.md`; the "Cramming Design System" artifact shows them. The signed-in app moves onto it when the design kit is built.
+

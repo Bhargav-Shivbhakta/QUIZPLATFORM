@@ -109,3 +109,8 @@ Every new thing follows this checklist. The check script enforces the parts mark
 | Roles in rosters and on the class, not memberships | Memberships (section 3) | Before departments or high schools |
 
 Fixed on 17 November 2026: screens imported helpers from the router (a loop). They now come from `nav.js`.
+
+## The look
+
+Every colour, font, size, space, corner and motion value is a token in `app/css/tokens.css`, loaded first on every page. Stylesheets use only `var(--cr-…)`. The architecture check (section 7) fails if a stylesheet writes a colour of its own or uses a token that doesn't exist; `app/css/app.css` is recorded as debt (`design.debt` in `architecture.json`) and may only lose colours until the design kit moves it onto the tokens. The rules for using the tokens are in `docs/DESIGN.md`.
+

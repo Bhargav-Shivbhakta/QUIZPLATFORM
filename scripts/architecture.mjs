@@ -4,7 +4,8 @@
 //   3. every stored path the code uses is registered, and covered by firestore.rules;
 //   4. every screen in views/ is reachable from the router or another screen;
 //   5. no file grows past its line budget;
-//   6. known debt doesn't grow.
+//   6. known debt doesn't grow;
+//   7. colours come only from the design tokens (app/css/tokens.css), and every token used exists.
 // It fails with a plain message saying what to change. See docs/ARCHITECTURE.md.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -100,9 +101,38 @@ else if (codes < cap) problems.push(`Screens now check Firebase error codes only
 else notes.push(`Debt: screens check Firebase error codes ${codes} times. Fix: ${grid.debt.firebaseErrorCodesInViews.fix}`);
 
 for (const n of notes) console.log(`  note  ${n}`);
+// ---- 7. design tokens: no stylesheet writes its own colours
+{
+  const d = grid.design;
+  const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const tokensCss = stripComments(read(d.tokens));
+  const defined = new Set([...tokensCss.matchAll(/(--cr-[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  const literalsIn = (css) => stripComments(css).split(/[;{}]/).filter((seg) => {
+    const i = seg.indexOf(':');
+    return i >= 0 && /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/.test(seg.slice(i + 1));
+  }).length;
+  const sheets = fs.readdirSync(path.join(root, 'app/css')).filter((f) => f.endsWith('.css')).map((f) => `app/css/${f}`);
+  const scan = [...sheets, ...files];
+  for (const f of scan) {
+    for (const m of read(f).matchAll(/var\((--cr-[a-z0-9-]+)/g)) {
+      if (!defined.has(m[1])) problems.push(`${f} uses ${m[1]}, which isn't in ${d.tokens}. Use an existing token, or add it there (and to docs/DESIGN.md).`);
+    }
+  }
+  for (const f of sheets) {
+    if (f === d.tokens) continue;
+    const n = literalsIn(read(f));
+    const debt = d.debt[f];
+    if (!debt) { if (n) problems.push(`${f} writes ${n} colour ${n === 1 ? 'value' : 'values'} of its own. Use the tokens in ${d.tokens} instead (see docs/DESIGN.md).`); continue; }
+    if (n > debt.max) problems.push(`${f} writes ${n} colours of its own (limit ${debt.max}). Don't add more: use the tokens in ${d.tokens}.`);
+    else if (n < debt.max) problems.push(`${f} now writes only ${n} colours of its own. Lower design.debt["${f}"].max to ${n} in docs/architecture.json so it can't creep back.`);
+    else notes.push(`Debt: ${f} writes ${n} colours of its own. Fix: ${debt.fix}`);
+  }
+  for (const f of Object.keys(d.debt)) if (!sheets.includes(f)) problems.push(`docs/architecture.json lists design debt for ${f}, which doesn't exist. Remove it.`);
+}
+
 if (problems.length) {
   console.log(`\nArchitecture: ${problems.length} problem${problems.length > 1 ? 's' : ''}\n`);
   for (const p of problems) console.log(`  ✗ ${p}`);
   process.exit(1);
 }
-console.log(`Architecture: ${files.length} files in their layers, ${used.topLevel.size + used.classSub.size} stored paths registered and ruled, ${views.length} screens reachable, all within budget.`);
+console.log(`Architecture: ${files.length} files in their layers, ${used.topLevel.size + used.classSub.size} stored paths registered and ruled, ${views.length} screens reachable, colours from the tokens, all within budget.`);

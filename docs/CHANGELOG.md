@@ -2,6 +2,14 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## Not yet released: the design foundation
+
+- One look for all of Cramming, "Clear" (Inter, cool white and near-black, one blue). Every value now lives in `app/css/tokens.css`, loaded on every page.
+- The landing, sign-in and policy pages and the Request access sheet read their colours from the tokens. Screenshots before and after match (light, dark, phone). Error text in the sheet is now readable in dark mode, and the code font (JetBrains Mono) now actually loads.
+- `docs/DESIGN.md`: the rules for colour, type, space, corners, motion, the parts and the words. The "Cramming Design System" artifact shows the same.
+- `npm test` now fails if a stylesheet writes its own colour or uses a token that doesn't exist. The signed-in app's stylesheet is recorded as debt (293 colours) and can only go down.
+- **Tested:** 62 automated tests and the architecture check; the check was shown to catch a stray colour and a missing token; every colour pair in `DESIGN.md` measured at 4.5:1 or better.
+
 ## 17 November 2026: landing fixes
 
 - The product picture at the top no longer tilts while scrolling.
