@@ -1,0 +1,313 @@
+{
+  "about": "The grid. Every module and every stored path has a slot here. scripts/architecture.mjs checks the code against it on every npm test. Read docs/ARCHITECTURE.md before changing this file.",
+  "layers": {
+    "core": {
+      "means": "Rules with no outside world: no page, no network, no storage, no Firebase. Pure and fully testable.",
+      "files": [
+        "app/js/parser.js",
+        "app/js/engine.js",
+        "app/js/timed.js",
+        "app/js/grades.js",
+        "app/js/canvas.js",
+        "app/js/studyplan.js",
+        "app/js/assignments-core.js",
+        "app/js/build/engine.js",
+        "app/js/roster.js",
+        "app/js/seb.js"
+      ],
+      "mayImport": [
+        "core"
+      ]
+    },
+    "adapters": {
+      "means": "The only code that talks to the outside world. Each one is a plug point that can be swapped.",
+      "files": [
+        "app/js/cloud.js",
+        "app/js/store.js",
+        "app/js/data.js",
+        "app/js/render.js",
+        "app/js/materials.js",
+        "app/js/java/*"
+      ],
+      "mayImport": [
+        "core",
+        "adapters"
+      ]
+    },
+    "shell": {
+      "means": "The app frame and shared pieces of interface: routing, layout, toasts, the bell, the calculator.",
+      "files": [
+        "app/js/ui.js",
+        "app/js/notify.js",
+        "app/js/calculator.js",
+        "app/js/report.js",
+        "app/js/colors.js",
+        "app/js/nav.js"
+      ],
+      "mayImport": [
+        "core",
+        "adapters",
+        "shell"
+      ]
+    },
+    "router": {
+      "means": "The router: reads the address and loads the right screen. The only file that may load every layer.",
+      "files": [
+        "app/js/main.js"
+      ],
+      "mayImport": [
+        "core",
+        "adapters",
+        "shell",
+        "views"
+      ]
+    },
+    "views": {
+      "means": "One file per screen. Thin: they arrange the page and call the layers below.",
+      "files": [
+        "app/js/views/*"
+      ],
+      "mayImport": [
+        "core",
+        "adapters",
+        "shell",
+        "views"
+      ]
+    }
+  },
+  "ports": {
+    "identity": {
+      "now": "Google sign-in through Firebase Auth (cloud.js)",
+      "later": [
+        "School single sign-on (SAML/OIDC)",
+        "LTI 1.3 launch from Canvas"
+      ]
+    },
+    "data": {
+      "now": "Cloud Firestore (cloud.js), browser storage for offline (store.js)",
+      "later": [
+        "A university's own database or storage, chosen per institution"
+      ]
+    },
+    "ai": {
+      "now": "The professor's or student's own AI through the Cramming connector (connector/)",
+      "later": [
+        "A university's approved AI, billed per use"
+      ]
+    },
+    "lms": {
+      "now": "Canvas roster import (roster.js) and grade export (canvas.js)",
+      "later": [
+        "LTI 1.3: roster sync, grade passback, deep links"
+      ]
+    },
+    "files": {
+      "now": "None stored; text is read in the browser (materials.js)",
+      "later": [
+        "File and photo uploads in institution storage"
+      ]
+    },
+    "notifications": {
+      "now": "In-app bell (notify.js)",
+      "later": [
+        "Email and phone reminders"
+      ]
+    }
+  },
+  "data": {
+    "about": "Every stored path. 'since' is the schema version a new path starts at; paths from before versioning are 0. New paths start at 1 and every document they hold carries v.",
+    "topLevel": {
+      "admins": {
+        "holds": "Site admins",
+        "group": "people",
+        "since": 0
+      },
+      "users": {
+        "holds": "A person's profile and synced progress",
+        "group": "people",
+        "since": 0
+      },
+      "signins": {
+        "holds": "Who has signed in, by email",
+        "group": "people",
+        "since": 0
+      },
+      "enrollments": {
+        "holds": "Which classes an email belongs to",
+        "group": "people",
+        "since": 0
+      },
+      "rosters": {
+        "holds": "A class's roster and sections",
+        "group": "people",
+        "since": 0
+      },
+      "classes": {
+        "holds": "A class: one course offering with its sections, staff and settings",
+        "group": "organisation",
+        "since": 0
+      },
+      "buildLinks": {
+        "holds": "Secret link from a professor's AI to the class it builds",
+        "group": "ai",
+        "since": 0
+      },
+      "tutorLinks": {
+        "holds": "Secret link from a student's AI to the class tutor",
+        "group": "ai",
+        "since": 0
+      },
+      "accessRequests": {
+        "holds": "Request access from the landing page",
+        "group": "growth",
+        "since": 0
+      }
+    },
+    "classSub": {
+      "exams": {
+        "holds": "Practice sets (published)",
+        "group": "content",
+        "since": 0
+      },
+      "examFiles": {
+        "holds": "Practice question files",
+        "group": "content",
+        "since": 0
+      },
+      "assignmentSets": {
+        "holds": "Programming assignments shown to students",
+        "group": "content",
+        "since": 0
+      },
+      "assignmentFiles": {
+        "holds": "Programming assignment sources and hidden tests (staff)",
+        "group": "content",
+        "since": 0
+      },
+      "materials": {
+        "holds": "Course materials (titles and labels)",
+        "group": "content",
+        "since": 0
+      },
+      "materialText": {
+        "holds": "Text read from course materials, in chunks (staff)",
+        "group": "content",
+        "since": 0
+      },
+      "builder": {
+        "holds": "Build my course: setup and progress",
+        "group": "content",
+        "since": 0
+      },
+      "built": {
+        "holds": "Build my course: each finished step",
+        "group": "content",
+        "since": 0
+      },
+      "study": {
+        "holds": "Study pages, one per unit",
+        "group": "content",
+        "since": 0
+      },
+      "announcements": {
+        "holds": "Messages from staff to the class",
+        "group": "content",
+        "since": 0
+      },
+      "tests": {
+        "holds": "Graded work shown to students (no answers)",
+        "group": "assessment",
+        "since": 0
+      },
+      "testKeys": {
+        "holds": "Answer keys and hidden tests (staff only)",
+        "group": "assessment",
+        "since": 0
+      },
+      "testCodes": {
+        "holds": "Access codes for graded work",
+        "group": "assessment",
+        "since": 0
+      },
+      "testExtra": {
+        "holds": "Extra time and new attempts per student",
+        "group": "assessment",
+        "since": 0
+      },
+      "attempts": {
+        "holds": "A student's attempt at graded work",
+        "group": "activity",
+        "since": 0
+      },
+      "attemptArchive": {
+        "holds": "Earlier attempts kept when a new one is given",
+        "group": "activity",
+        "since": 0
+      },
+      "testGrades": {
+        "holds": "Scores for graded work",
+        "group": "activity",
+        "since": 0
+      },
+      "grades": {
+        "holds": "Imported exam scores for analytics",
+        "group": "activity",
+        "since": 0
+      },
+      "summaries": {
+        "holds": "A student's practice summary per set",
+        "group": "activity",
+        "since": 0
+      },
+      "code": {
+        "holds": "A student's saved code per assignment",
+        "group": "activity",
+        "since": 0
+      },
+      "signins": {
+        "holds": "Students of this class who have signed in",
+        "group": "activity",
+        "since": 0
+      },
+      "reports": {
+        "holds": "Problems students report on questions",
+        "group": "activity",
+        "since": 0
+      }
+    }
+  },
+  "budgets": {
+    "about": "Lines per file. A file may shrink but never grow past its budget; a new file gets the default. Split a file before it reaches its budget.",
+    "default": 400,
+    "files": {
+      "app/js/java/compiler.js": 1550,
+      "app/js/cloud.js": 1450,
+      "app/js/views/timed-admin.js": 1070,
+      "app/js/build/engine.js": 900,
+      "app/js/views/instructor.js": 850,
+      "app/js/views/analytics.js": 670,
+      "app/js/views/take.js": 600,
+      "app/js/views/quiz.js": 560,
+      "app/js/java/parser.js": 560,
+      "app/js/parser.js": 540,
+      "app/js/views/content.js": 470,
+      "app/js/views/code.js": 440
+    }
+  },
+  "debt": {
+    "about": "Known breaks of the grid, allowed only until fixed. The checks fail if any NEW break appears, and remind us of these.",
+    "imports": [
+      {
+        "from": "app/js/engine.js",
+        "to": "app/js/store.js",
+        "why": "Spaced review reads saved progress directly. Pass the progress in instead.",
+        "fix": "When practice is polished (rename engine.js to review.js at the same time)."
+      }
+    ],
+    "firebaseErrorCodesInViews": {
+      "max": 34,
+      "why": "Screens check Firebase's 'permission-denied' code themselves.",
+      "fix": "cloud.js turns errors into plain reasons (denied, offline, missing) so screens never see Firebase codes."
+    }
+  }
+}

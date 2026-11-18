@@ -3,7 +3,7 @@
 import { parseExam, TYPE_LABELS } from '../parser.js';
 import { addPreviewExam } from '../data.js';
 import { esc, icon, plural } from '../ui.js';
-import { go } from '../main.js';
+import { go } from '../nav.js';
 
 const CHEATSHEET = `---
 title: Midterm 2

@@ -11,7 +11,7 @@ import { md, highlight } from '../render.js';
 import { createCodeEditor, codeSize } from '../java/editor.js';
 import { runJava, testJava } from '../java/client.js';
 import { normalizeOutput } from '../java/index.js';
-import { setNavGuard } from '../main.js';
+import { setNavGuard } from '../nav.js';
 import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes

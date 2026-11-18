@@ -1,0 +1,108 @@
+// npm test runs this after the unit tests. It checks the code against the grid in docs/architecture.json:
+//   1. every module sits in one layer, and imports only the layers it may;
+//   2. only cloud.js loads Firebase;
+//   3. every stored path the code uses is registered, and covered by firestore.rules;
+//   4. every screen in views/ is reachable from the router or another screen;
+//   5. no file grows past its line budget;
+//   6. known debt doesn't grow.
+// It fails with a plain message saying what to change. See docs/ARCHITECTURE.md.
+import fs from 'node:fs';
+import path from 'node:path';
+
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const grid = JSON.parse(fs.readFileSync(path.join(root, 'docs/architecture.json'), 'utf8'));
+const rel = (p) => path.relative(root, p).split(path.sep).join('/');
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+const problems = [];
+const notes = [];
+
+// ---- the files and their layers
+const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((d) => {
+  const p = `${dir}/${d.name}`;
+  return d.isDirectory() ? walk(p) : /\.js$/.test(d.name) ? [p] : [];
+});
+const files = walk('app/js');
+const matches = (file, pattern) => (pattern.endsWith('/*') ? file.startsWith(pattern.slice(0, -1)) : file === pattern);
+const layerOf = (file) => Object.entries(grid.layers).find(([, l]) => l.files.some((p) => matches(file, p)))?.[0];
+
+for (const f of files) if (!layerOf(f)) problems.push(`${f} isn't in any layer. Add it to "layers" in docs/architecture.json (core, adapters, shell or views).`);
+for (const [name, l] of Object.entries(grid.layers)) {
+  for (const p of l.files) if (!p.endsWith('/*') && !files.includes(p)) problems.push(`docs/architecture.json lists ${p} in "${name}", but the file doesn't exist. Remove it from the list.`);
+}
+
+// ---- 1, 2. imports
+const debtImports = new Set(grid.debt.imports.map((d) => `${d.from} -> ${d.to}`));
+const usedDebt = new Set();
+for (const f of files) {
+  const src = read(f), from = layerOf(f);
+  for (const [, spec] of src.matchAll(/(?:import\s[^'"]*?from\s*|import\s*\(\s*)['"]([^'"]+)['"]/g)) {
+    if (!spec.startsWith('.')) continue;
+    const target = rel(path.resolve(path.join(root, path.dirname(f)), spec));
+    if (target.includes('vendor/firebase') && f !== 'app/js/cloud.js') problems.push(`${f} loads Firebase. Only app/js/cloud.js may; call a function in cloud.js instead.`);
+    if (!target.startsWith('app/js/') || target === 'app/config.js') continue;
+    const to = layerOf(target);
+    if (!to || !from || grid.layers[from].mayImport.includes(to)) continue;
+    const key = `${f} -> ${target}`;
+    if (debtImports.has(key)) { usedDebt.add(key); continue; }
+    problems.push(`${f} (${from}) imports ${target} (${to}). A ${from} file may only import: ${grid.layers[from].mayImport.join(', ')}. Move the logic down a layer, or pass the data in.`);
+  }
+  if (from === 'core' && /\b(document|localStorage|sessionStorage|fetch)\s*[.(]/.test(src)) problems.push(`${f} is core but uses the page, storage or the network. Core files must be pure; move that part to an adapter.`);
+}
+for (const d of grid.debt.imports) {
+  const key = `${d.from} -> ${d.to}`;
+  if (usedDebt.has(key)) notes.push(`Debt: ${key}. ${d.why} Fix: ${d.fix}`);
+  else problems.push(`The debt "${key}" is fixed. Remove it from "debt.imports" in docs/architecture.json.`);
+}
+
+// ---- 3. stored paths
+const cloud = read('app/js/cloud.js');
+const rules = read('firestore.rules');
+const used = { topLevel: new Set(), classSub: new Set() };
+for (const [, name] of cloud.matchAll(/(?:doc|collection)\(fb\.db,\s*'([A-Za-z]+)'/g)) used.topLevel.add(name);
+for (const [, name] of cloud.matchAll(/'classes',\s*[^,'()]+,\s*'([A-Za-z]+)'/g)) used.classSub.add(name);
+for (const [, name] of cloud.matchAll(/tdoc\([^,]+,\s*'([A-Za-z]+)'/g)) used.classSub.add(name);
+const ruled = new Set([...rules.matchAll(/match \/([A-Za-z]+)\/\{/g)].map((m) => m[1]));
+for (const scope of ['topLevel', 'classSub']) {
+  const where = scope === 'topLevel' ? 'a top-level collection' : 'a collection inside classes/{class}';
+  for (const name of used[scope]) {
+    if (!grid.data[scope][name]) problems.push(`cloud.js stores data in "${name}" (${where}), which isn't registered. Add it to data.${scope} in docs/architecture.json, with what it holds, its group and "since": 1.`);
+  }
+  for (const [name, d] of Object.entries(grid.data[scope])) {
+    if (!ruled.has(name) && !(scope === 'classSub' && /match \/\{kind\}\//.test(rules))) problems.push(`"${name}" is registered but firestore.rules has no "match /${name}/{…}". Every stored path needs a rule.`);
+    if (typeof d.since !== 'number') problems.push(`data.${scope}.${name} needs a "since" schema version.`);
+  }
+}
+
+// ---- 4. screens are reachable
+const main = read('app/js/main.js');
+const views = files.filter((f) => f.startsWith('app/js/views/'));
+for (const v of views) {
+  const name = path.basename(v);
+  const fromRouter = main.includes(`./views/${name}`);
+  const fromView = views.some((o) => o !== v && read(o).includes(`./${name}`));
+  if (!fromRouter && !fromView) problems.push(`${v} can't be reached: no route in main.js and no screen imports it. Add a route, or delete the file.`);
+}
+
+// ---- 5. line budgets
+for (const f of files) {
+  const lines = read(f).split('\n').length;
+  const budget = grid.budgets.files[f] ?? grid.budgets.default;
+  if (lines > budget) problems.push(`${f} has ${lines} lines, over its budget of ${budget}. Split it by job (see docs/ARCHITECTURE.md, "Growing without breaking") instead of raising the budget.`);
+  else if (lines > budget * 0.95) notes.push(`${f} is near its budget (${lines} of ${budget} lines). Plan the split.`);
+}
+for (const f of Object.keys(grid.budgets.files)) if (!files.includes(f)) problems.push(`docs/architecture.json has a budget for ${f}, which no longer exists. Remove it.`);
+
+// ---- 6. debt that must not grow
+const codes = views.reduce((n, v) => n + (read(v).match(/permission-denied/g) || []).length, 0);
+const cap = grid.debt.firebaseErrorCodesInViews.max;
+if (codes > cap) problems.push(`Screens check Firebase error codes ${codes} times (limit ${cap}). Don't add more: ${grid.debt.firebaseErrorCodesInViews.fix}`);
+else if (codes < cap) problems.push(`Screens now check Firebase error codes only ${codes} times. Lower debt.firebaseErrorCodesInViews.max to ${codes} so it can't creep back.`);
+else notes.push(`Debt: screens check Firebase error codes ${codes} times. Fix: ${grid.debt.firebaseErrorCodesInViews.fix}`);
+
+for (const n of notes) console.log(`  note  ${n}`);
+if (problems.length) {
+  console.log(`\nArchitecture: ${problems.length} problem${problems.length > 1 ? 's' : ''}\n`);
+  for (const p of problems) console.log(`  ✗ ${p}`);
+  process.exit(1);
+}
+console.log(`Architecture: ${files.length} files in their layers, ${used.topLevel.size + used.classSub.size} stored paths registered and ruled, ${views.length} screens reachable, all within budget.`);

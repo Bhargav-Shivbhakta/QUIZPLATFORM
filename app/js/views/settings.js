@@ -1,7 +1,7 @@
 import * as store from '../store.js';
 import { getManifest } from '../data.js';
 import { esc, icon, toast, confirmDialog } from '../ui.js';
-import { applyTheme } from '../main.js';
+import { applyTheme } from '../nav.js';
 import { listCourses, chosenCourses, courseOptions, saveChoice } from './subjects.js';
 import * as cloud from '../cloud.js';
 import { fmtDate } from '../engine.js';

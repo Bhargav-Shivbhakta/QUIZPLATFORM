@@ -5,7 +5,7 @@ import { md, highlight } from '../render.js';
 import { gradeQuestion, isAnswered, correctAnswerLabel, TYPE_LABELS } from '../parser.js';
 import { finishSession, recordAnswer, fmtDuration, EXAM_LIKE } from '../engine.js';
 import { toggleCalculator, closeCalculator } from '../calculator.js';
-import { go } from '../main.js';
+import { go } from '../nav.js';
 import { canReport, openReport } from '../report.js';
 
 const LETTERS = 'ABCDEFGHIJKLMNOP';

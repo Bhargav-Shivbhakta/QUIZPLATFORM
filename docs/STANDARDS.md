@@ -5,6 +5,7 @@ Two people build Cramming: the founder and Claude. These files are the record. I
 | File | What it holds | When it changes |
 |---|---|---|
 | `docs/STANDARDS.md` | This page: the bar, the rules for code and testing, how work moves | Rarely, and only by decision |
+| `docs/ARCHITECTURE.md` and `docs/architecture.json` | The skeleton: layers, plug points, the data model now and target, and the grid every file and stored path sits in | When a new kind of thing is added (a decision first) |
 | `docs/FEATURES.md` | Every feature: who uses it, its state, its files, its tests | Every time a feature changes state |
 | `docs/CHANGELOG.md` | Every release: what changed, how it was tested | Every upload to the live site |
 | `docs/DECISIONS.md` | Every decision that shapes the product, and why | When we decide something we'd otherwise forget |
@@ -28,6 +29,7 @@ We ship few features, and each one is the finest of its kind. A feature is **fin
 7. It opens in under a second on a school laptop.
 8. Every rule it follows has an automated test, and every test passes.
 9. It has no unused or duplicate code (see below).
+10. It fits the grid: `npm test` includes the architecture check, and it passes.
 
 The six standards behind this list: **usability, accessibility, experience, the look, authenticity, optimisation.** Authenticity means students see only their professor's material, AI output is labelled, and a person makes every decision that matters.
 
@@ -49,9 +51,10 @@ One piece at a time, in this order: the landing page, then students, then profes
 
 1. **Plan:** say what changes and what "done" looks like, before any code.
 2. **Build:** on the working branch, in small commits that each do one thing.
-3. **Test:** run `npm test` (logic), the browser checks (screens), and axe (accessibility). All must pass.
-4. **Record:** update `FEATURES.md`, and add a `CHANGELOG.md` entry.
-5. **Release:** the founder uploads, waits for the green build, and checks the live site.
+3. **Test:** run `npm test` (logic and the architecture check), the browser checks (screens), and axe (accessibility). All must pass.
+4. **Independent review** for anything high-stakes (security rules, grading, a whole student or professor flow): a separate agent that didn't write the code reviews and tests it before release.
+5. **Record:** update `FEATURES.md`, and add a `CHANGELOG.md` entry.
+6. **Release:** the founder uploads, waits for the green build, and checks the live site.
 
 ## Rules for code
 

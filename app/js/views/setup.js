@@ -3,7 +3,7 @@ import * as store from '../store.js';
 import { esc, plural, confirmDialog, $$ } from '../ui.js';
 import { buildSession, MODES, mistakeIds, EXAM_LIKE } from '../engine.js';
 import { TYPE_LABELS } from '../parser.js';
-import { go } from '../main.js';
+import { go } from '../nav.js';
 
 export async function startSession(exam, mode, opts) {
   const existing = store.getSession();

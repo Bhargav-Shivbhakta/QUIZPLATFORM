@@ -9,6 +9,7 @@ import * as cloud from './cloud.js';
 import { applyClassColor } from './colors.js';
 import { getExam } from './data.js';
 import { mountBell } from './notify.js';
+import { getNavGuard, applyTheme } from './nav.js';
 
 const routes = [
   { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
@@ -50,14 +51,6 @@ const SKELETON = `<section class="page skeleton" aria-busy="true" aria-label="Lo
   <span class="sk sk-block"></span><div class="sk-row"><span class="sk sk-card"></span><span class="sk sk-card"></span><span class="sk sk-card"></span></div></section>`;
 let renderToken = 0;
 
-// A timed exam locks navigation: { hash, blocked() } or null
-let navGuard = null;
-export function setNavGuard(g) { navGuard = g; }
-
-export function go(hash) {
-  if (location.hash === hash) route();
-  else location.hash = hash;
-}
 
 const POLICY = /^\/(privacy|terms|ai|accessibility)$/;
 const LANDING = { re: /^\/?$/, view: () => import('./views/landing.js'), nav: '' };
@@ -146,24 +139,6 @@ async function route() {
   }
 }
 
-export function applyTheme() {
-  const s = store.getSettings();
-  const root = document.documentElement;
-  if (s.theme === 'system') delete root.dataset.theme; else root.dataset.theme = s.theme;
-  root.dataset.size = s.textSize;
-  root.dataset.font = s.readFont || 'standard';
-  root.dataset.contrast = s.contrast || 'normal';
-  if (s.readFont === 'easy' && !document.getElementById('font-easy')) {
-    const l = document.createElement('link');
-    l.id = 'font-easy'; l.rel = 'stylesheet';
-    l.href = 'https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap';
-    document.head.appendChild(l);
-  }
-  const dark = s.theme === 'dark' || (s.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  const l = document.getElementById('hl-light'), d = document.getElementById('hl-dark');
-  if (l && d) { l.disabled = dark; d.disabled = !dark; }
-}
-
 function paintChrome() {
   const foot = document.getElementById('sitefoot');
   const u = cloud.currentUser();
@@ -209,6 +184,7 @@ function init() {
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
   window.addEventListener('hashchange', () => {
     // during a timed exam nothing may navigate away (Back, swipe-back, links): stay on the exam
+    const navGuard = getNavGuard();
     if (navGuard && location.hash !== navGuard.hash) { history.pushState(null, '', navGuard.hash); navGuard.blocked?.(); return; }
     route();
   });
