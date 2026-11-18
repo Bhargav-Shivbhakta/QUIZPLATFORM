@@ -18,7 +18,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 | Landing page (story order: the problem, then professors, students, practice, exams; product demo, try-it question, FAQ) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
 | Request access in two steps (who you are; optional course details), through the connector with daily limits | Live, unpolished | `views/lp-request.js`, `requests.js`, `cloud.js`, `connector/access.mjs`, `firestore.rules` | 9 unit tests; browser checks; rules on the local copy; two independent reviews |
 | Admin › Access requests: statuses (New, Contacted, Set up, Not a fit), notes, no deleting, red count on Admin | Live, unpolished | `views/admin-requests.js`, `requests.js`, `main.js` | Unit tests; browser checks; axe clean |
-| Privacy, Terms, How we use AI, Accessibility pages (drafts) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |
+| Privacy, Terms, How we use AI, Accessibility pages (drafts; rewritten after phase 1, see below) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |
 | Sign-in page (#/signin) in the landing design, with two doors: I'm a student, I teach | Live, unpolished | `views/signin.js`, `main.js` | Browser checks, axe clean |
 
 ## Students
@@ -91,6 +91,8 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 | Cloudflare Worker: builder and tutor connectors | Live, unpolished | `connector/` | Yes |
 
 ## Planned
+
+- **Phase 1 (now): finish what exists.** Every existing feature, journey by journey, made flawless on the new look (tokens, kit, `DESIGN.md`). **When phase 1 is done:** rewrite Privacy, Terms of use, How we use AI and Accessibility (`views/policy.js`) so they describe exactly what the finished product collects, shows and does, run the accessibility audit the Accessibility page promises, then have a lawyer review all four before launch.
 
 The order and the phases are on the system map whiteboard ("Cramming System Map"). A feature moves into a table above when work on it starts.
 

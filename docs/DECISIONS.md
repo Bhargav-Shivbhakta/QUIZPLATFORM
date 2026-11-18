@@ -27,3 +27,7 @@ From now on Claude doesn't commit or push. It hands over zip files of the change
 
 The whole product uses one look: cool white and near-black, one blue (`#2443C4`, `#6E8BFF` in dark), set in Inter, with JetBrains Mono for code. Chosen by the founder from three options (Clear, Paper, Focus) on the "Cramming Look Options" canvas. Why: it's the landing page's look, which already reads as a real product, and one look everywhere makes Cramming feel like one product. Every value lives in `app/css/tokens.css`; the rules are in `docs/DESIGN.md`; the "Cramming Design System" artifact shows them. The signed-in app moves onto it when the design kit is built.
 
+## 18 November 2026: policy pages after phase 1
+
+The Privacy, Terms, How we use AI and Accessibility pages stay as drafts until phase 1 (every existing feature finished on the new look) is done. Then they are rewritten to match what the finished product really collects and does, the accessibility audit is run, and a lawyer reviews them before launch. Why: written now, they would describe features that are still changing.
+
