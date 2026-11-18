@@ -339,7 +339,7 @@
         "note": "The one left is cloud.js reading the school clock in Pacific time for exam windows; that is a calculation, not a display."
       },
       "drawnIcons": {
-        "max": 17,
+        "max": 15,
         "note": "Includes the logo, Google mark, charts and the watermark, which stay."
       }
     }

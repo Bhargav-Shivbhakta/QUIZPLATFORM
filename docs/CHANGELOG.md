@@ -2,6 +2,12 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## Not yet released: sign-in and the rules register
+
+- **Sign in** is one clean panel instead of two "I'm a student / I teach" cards: "Sign in to Cramming", one Continue with Google button, a line for anyone who can't get in, and Request access for professors whose course isn't on Cramming yet. Same look as the landing page.
+- **`RULES.md`** at the top of the project: read first, every rule (57) with an ID, where it's written and how it's checked, and the steps to add or change a rule.
+- **Tested:** 66 automated tests and the architecture check (hand-drawn icons down from 17 to 15); sign-in at laptop light and dark and phone, axe clean, Request access opens, nothing scrolls sideways.
+
 ## 18 November 2026: the design foundation
 
 Uploaded in two parts: the tokens and the first rules (commit `380257e`), then the full rules, dates and numbers, and the code checks.

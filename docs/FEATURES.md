@@ -19,7 +19,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 | Request access in two steps (who you are; optional course details), through the connector with daily limits | Live, unpolished | `views/lp-request.js`, `requests.js`, `cloud.js`, `connector/access.mjs`, `firestore.rules` | 9 unit tests; browser checks; rules on the local copy; two independent reviews |
 | Admin › Access requests: statuses (New, Contacted, Set up, Not a fit), notes, no deleting, red count on Admin | Live, unpolished | `views/admin-requests.js`, `requests.js`, `main.js` | Unit tests; browser checks; axe clean |
 | Privacy, Terms, How we use AI, Accessibility pages (drafts; rewritten after phase 1, see below) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |
-| Sign-in page (#/signin) in the landing design, with two doors: I'm a student, I teach | Live, unpolished | `views/signin.js`, `main.js` | Browser checks, axe clean |
+| Sign-in page (#/signin): one panel in the landing design, Continue with Google, and Request access for new courses | Live, unpolished | `views/signin.js`, `main.js` | Browser checks, axe clean |
 
 ## Students
 

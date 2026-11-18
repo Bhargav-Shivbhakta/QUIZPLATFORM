@@ -4,6 +4,7 @@ Two people build Cramming: the founder and Claude. These files are the record. I
 
 | File | What it holds | When it changes |
 |---|---|---|
+| `RULES.md` (top of the project) | Read first: every rule with its ID, where it's written, and how it's checked; how to add or change a rule | Whenever a rule is added, changed or retired |
 | `docs/STANDARDS.md` | This page: the bar, the rules for code and testing, how work moves | Rarely, and only by decision |
 | `docs/DESIGN.md`, `app/css/tokens.css` and the "Cramming Design System" artifact | The look: every colour, font, size and part, and the rules for using them | Before any new screen; a value changes in all three at once |
 | `docs/ARCHITECTURE.md` and `docs/architecture.json` | The skeleton: layers, plug points, the data model now and target, and the grid every file and stored path sits in | When a new kind of thing is added (a decision first) |
