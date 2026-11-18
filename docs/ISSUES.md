@@ -36,6 +36,14 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Fixed
 
+### I-6. The site stays blank on some Macs (older Safari), including during an exam
+
+- **Found:** 18 November 2026, by the founder: on some MacBooks in Safari, www.cramming.net showed only a dark, empty screen, also while a test was running.
+- **What:** nothing loaded at all on Safari older than 16.4 (Macs that haven't been updated since early 2023, or can't be). Safe Exam Browser on those Macs uses the same engine, so exams were hit too. Chrome and current Safari were fine.
+- **Cause:** two lines in `app/js/render.js` (the formatting for maths) used a regex "lookbehind", added in the 17 November upload. Older Safari can't read that, so it rejects the whole file. Every page loads that file, so the site never started and stayed on its empty loading screen.
+- **Fixed:** 18 November 2026. Both lines rewritten without lookbehind; 400,000 random inputs give exactly the same result as before. If the site ever can't start in a browser again, it now says so in plain words ("This browser can't open Cramming…", with how to update Safari and a line for Safe Exam Browser) instead of a blank screen. `npm test` now fails on code that Safari 15 can't run (lookbehind, static blocks, the regex v flag, `.at()`, `findLast`, `structuredClone` and similar); shown to catch the old lines on the live code.
+- **Still to check:** a Mac with Safari 15 or 16.0–16.3, after upload. Students on Macs older than that (macOS Mojave and earlier, Safari 14) may still have problems; a current Chrome works there.
+
 ### I-5. Landing page: tilted product, off-centre line, page jumping in the practice question
 
 - **Found:** 17 November 2026, by the founder.

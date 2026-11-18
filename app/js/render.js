@@ -30,7 +30,9 @@ function protectMath(src) {
     p = p.replace(/\\\(([\s\S]+?)\\\)/g, (_, t) => keep(renderMath(t.trim(), false)));
     // $...$ inline: no space just inside the dollars and no digit right after the closing one,
     // so prices like "$5 and $10" are left alone
-    p = p.replace(/(^|[^\\$])\$(?=\S)((?:\\\$|[^$\n])+?)(?<=\S)\$(?!\d)/g, (_, pre, t) => pre + keep(renderMath(t, false)));
+    // (A space may sit inside but not right before the closing $. No lookbehind: Safari before 16.4
+    // can't read it, and then the whole site fails to start.)
+    p = p.replace(/(^|[^\\$])\$(?=\S)((?:\\\$|[^\s$]|[^\S\n](?!\$))+?)\$(?!\d)/g, (_, pre, t) => pre + keep(renderMath(t, false)));
     out += p.replace(/\\\$/g, '$');
   }
   return { text: out, store };
@@ -109,6 +111,6 @@ export function snippet(src, n = 120) {
   if (t.length <= n) return t;
   let cut = t.slice(0, n - 1);
   // don't cut a $math$ span in half
-  if ((cut.match(/(?<!\\)\$/g) || []).length % 2) cut = cut.slice(0, cut.lastIndexOf('$'));
+  if (cut.replace(/\\\$/g, '').split('$').length % 2 === 0) cut = cut.slice(0, cut.lastIndexOf('$'));
   return cut.trimEnd() + '…';
 }

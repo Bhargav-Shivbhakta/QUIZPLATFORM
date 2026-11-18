@@ -5,7 +5,8 @@
 //   4. every screen in views/ is reachable from the router or another screen;
 //   5. no file grows past its line budget;
 //   6. known debt doesn't grow;
-//   7. colours come only from the design tokens (app/css/tokens.css), and every token used exists.
+//   7. colours come only from the design tokens (app/css/tokens.css), and every token used exists;
+//   8. no code older Safari can't read (one such line stops the whole site from starting there).
 // It fails with a plain message saying what to change. See docs/ARCHITECTURE.md.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -146,9 +147,29 @@ for (const n of notes) console.log(`  note  ${n}`);
   }
 }
 
+// ---- 8. older browsers
+// Students use school-issued and older Macs. A file Safari can't parse stops every page from loading
+// (the site stays blank), so code must run on Safari 15 and later. These are the parts that can't.
+{
+  const TOO_NEW = [
+    { re: /\(\?<[=!]/, what: 'a regex lookbehind, (?<= or (?<! (Safari 16.4+)', fix: 'match the character instead, or check it in the callback' },
+    { re: /\bstatic\s*\{/, what: 'a class static block (Safari 16.4+)', fix: 'set it after the class' },
+    { re: /\/[dgimsuy]*v[dgimsuy]*\.(?:test|exec)\b|new RegExp\([^)]*,\s*['"][a-z]*v/, what: 'a regex v flag (Safari 17+)', fix: 'use the u flag' },
+    { re: /\.(?:toSorted|toReversed|toSpliced|findLast|findLastIndex)\(|\bstructuredClone\(|Object\.groupBy|Promise\.withResolvers|Array\.fromAsync/, what: 'a method Safari 15 lacks', fix: 'use the older form ([...a].sort(), a slice and loop, JSON copy)' },
+    { re: /[\w)\]]\.at\(-?\d/, what: 'Array.at (Safari 15.4+)', fix: 'use a[a.length - 1]' },
+  ];
+  for (const f of files) {
+    const lines = read(f).split('\n');
+    lines.forEach((line, i) => {
+      if (/^\s*\/\//.test(line)) return;
+      for (const t of TOO_NEW) if (t.re.test(line)) problems.push(`${f}:${i + 1} uses ${t.what}. Older Safari can't run it and the site would stay blank: ${t.fix}.`);
+    });
+  }
+}
+
 if (problems.length) {
   console.log(`\nArchitecture: ${problems.length} problem${problems.length > 1 ? 's' : ''}\n`);
   for (const p of problems) console.log(`  ✗ ${p}`);
   process.exit(1);
 }
-console.log(`Architecture: ${files.length} files in their layers, ${used.topLevel.size + used.classSub.size} stored paths registered and ruled, ${views.length} screens reachable, colours from the tokens, all within budget.`);
+console.log(`Architecture: ${files.length} files in their layers, ${used.topLevel.size + used.classSub.size} stored paths registered and ruled, ${views.length} screens reachable, colours from the tokens, nothing older Safari can't run, all within budget.`);

@@ -23,6 +23,25 @@
       if (s.textSize) document.documentElement.dataset.size = s.textSize;
     } catch (e) {}
   </script>
+  <script>
+    // If this browser can't run the app (an old Safari, say), say so instead of leaving a blank page.
+    // main.js sets window.crStarted once it runs; a code error before that means it never will.
+    (function () {
+      var shown = false;
+      function tooOld() {
+        if (shown || window.crStarted) return;
+        shown = true;
+        var m = document.getElementById('main');
+        if (!m) return;
+        m.innerHTML = '<section class="page"><h1>This browser can\'t open Cramming</h1>' +
+          '<p>Your browser is too old for Cramming. Update Safari: on a Mac, open System Settings, then General, then Software Update. ' +
+          'Or open www.cramming.net in a current Chrome, Edge or Firefox.</p>' +
+          '<p>Taking an exam in Safe Exam Browser? Tell your proctor now. It uses the same engine as Safari, so the Mac needs updating too.</p></section>';
+      }
+      window.addEventListener('error', function (e) { if (e && e.error instanceof SyntaxError) tooOld(); });
+      if (!('noModule' in document.createElement('script'))) document.addEventListener('DOMContentLoaded', tooOld);
+    })();
+  </script>
   <script defer src="vendor/katex/katex.min.js"></script>
   <script defer src="vendor/hljs/highlight.min.js"></script>
   <script type="module" src="js/main.js"></script>

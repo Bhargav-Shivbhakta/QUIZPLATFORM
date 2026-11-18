@@ -2,6 +2,7 @@ import config from '../config.js';
 // The site was renamed from "Exam Practice" (it hosts real exams too). A config.js that still has the
 // old default name gets the new one; any other name set there is kept.
 if (!config.siteName || config.siteName === 'Exam Practice') config.siteName = 'Cramming';
+window.crStarted = true; // index.html shows a "browser too old" message if this never runs
 import * as store from './store.js';
 import { esc, toast, closeModal, icon } from './ui.js';
 import { closeCalculator } from './calculator.js';

@@ -2,7 +2,14 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: sign-in and the rules register
+## Not yet released: blank site on older Safari (urgent fix)
+
+- **The site loads again on older Macs.** On Safari before 16.4, and in Safe Exam Browser on those Macs, www.cramming.net stayed on a dark, empty screen. Two lines of the maths formatting used code that older Safari can't read; they're rewritten (see I-6).
+- If a browser ever can't run Cramming, students now see a plain message saying what to do, not a blank screen.
+- `npm test` now fails on code that Safari 15 can't run (rule C-11).
+- **Tested:** 66 automated tests and the architecture check (shown to catch the old lines); the new lines matched the old ones on 400,000 random inputs; the built site loads in a browser, and a copy broken on purpose shows the message.
+
+## 18 November 2026: sign-in and the rules register
 
 - **Sign in** is one clean panel instead of two "I'm a student / I teach" cards: "Sign in to Cramming", one Continue with Google button, a line for anyone who can't get in, and Request access for professors whose course isn't on Cramming yet. Same look as the landing page.
 - **`RULES.md`** at the top of the project: read first, every rule (57) with an ID, where it's written and how it's checked, and the steps to add or change a rule.

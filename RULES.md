@@ -43,6 +43,7 @@ Read this before changing anything in Cramming, whoever you are: the founder, a 
 | C-8 | Rules live in pure functions so they can be tested; screens stay thin | STANDARDS › Rules for code | Review |
 | C-9 | Every database read and write is counted and noted in the file that makes it | STANDARDS › Rules for code | Review |
 | C-10 | Database errors become plain reasons in one place (`cloud.js`) | DESIGN › Behaviour | Automatic (debt: 34 left) |
+| C-11 | Code runs on Safari 15 and later: no regex lookbehind, static blocks, `.at()`, `findLast` and the like (one such line blanks the whole site there) | ISSUES › I-6 | Automatic (architecture check 8) |
 
 ### Testing (T)
 
