@@ -113,18 +113,20 @@ async function load() {
 }
 
 // ---------------------------------------------------------------- access requests
-// "Request access" on the landing page. Anyone may send one (no sign-in); only admins read them.
-// Step 1 is one write; the optional details are one more. Admins read them all once per visit.
-export async function requestAccess(data) {
-  await load();
-  const abc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const id = Array.from(crypto.getRandomValues(new Uint8Array(20)), (n) => abc[n % abc.length]).join('');
-  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), { ...data, status: 'new', v: 1, createdAt: Date.now() });
-  return id;
-}
-export async function addAccessDetails(id, details) {
-  await load();
-  await fb.setDoc(fb.doc(fb.db, 'accessRequests', id), { details }, { merge: true });
+// "Request access" on the public pages. Visitors send it to the connector (connector/access.mjs),
+// which checks it, limits how many arrive per day and saves it; only admins read them here.
+// body: { step: 1, ...who } returns { id }; { step: 2, id, details } returns { ok }.
+// Errors carry .code: 'limit' (too many today), 'invalid' (with .field), or 'failed'.
+export async function sendAccessRequest(body) {
+  const fail = (code, message, field) => Object.assign(new Error(message), { code, field });
+  if (!connectorUrl()) throw fail('failed', 'Request access is not set up on this site.');
+  let r, j = {};
+  try {
+    r = await fetch(`${connectorUrl()}/request`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    j = await r.json();
+  } catch { throw fail('failed', 'No connection.'); }
+  if (r.ok) return j;
+  throw fail(r.status === 429 ? 'limit' : r.status === 400 && j.field ? 'invalid' : 'failed', j.error || `Error ${r.status}`, j.field);
 }
 export async function listAccessRequests() {
   await load();

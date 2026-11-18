@@ -6,13 +6,6 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Open
 
-### I-4. Request access can be flooded by a script
-
-- **Found:** 17 November 2026, by the independent review of the new request rules.
-- **Where:** `accessRequests` in `firestore.rules`. Anyone may create a request without signing in. The hidden form field stops simple bots, but a script can write to Firestore directly and create any number of requests (each under about 4 KB). The email in a request isn't verified.
-- **Risk now:** low. The page is new and not advertised; a flood would cost free-tier writes and clutter Admin › Access requests, not expose data.
-- **Fix:** turn on Firebase App Check (reCAPTCHA) for Firestore, or send requests through the Cloudflare Worker with a limit per address. Treat every email as unverified until we reply. Do it before the site is promoted.
-
 ### I-2. A new practice set (Midterm 3) shows 300 questions from Midterm 2
 
 - **Reported:** 17 November 2026, by the founder.
@@ -42,6 +35,15 @@ For each issue: what happened, where (screen and steps), the cause once known, a
   - A flow check that creates a programming-only set from start to finish.
 
 ## Fixed
+
+### I-4. Request access could be flooded by a script
+
+- **Found:** 17 November 2026, by the independent review of the new request rules.
+- **Where:** `accessRequests` in `firestore.rules`. Anyone may create a request without signing in. The hidden form field stops simple bots, but a script can write to Firestore directly and create any number of requests (each under about 4 KB). The email in a request isn't verified.
+- **Risk now:** low. The page is new and not advertised; a flood would cost free-tier writes and clutter Admin › Access requests, not expose data.
+- **Fix:** turn on Firebase App Check (reCAPTCHA) for Firestore, or send requests through the Cloudflare Worker with a limit per address. Treat every email as unverified until we reply. Do it before the site is promoted.
+- **Fixed:** 17 November 2026. Visitors can no longer write requests to Firestore at all. Requests go through the connector (`connector/access.mjs`), which checks every field and allows 3 a day per network (IPv6 counted by its /64), 2 a day per email, and 40 a day for the whole site. Addresses and emails are kept only as keyed hashes inside one day's counter. Tested by 4 unit tests and a browser check of the "too many" message; reviewed independently.
+- **Still open, small:** one person on many networks could use up the 40 a day; Cloudflare Turnstile on step 1 would stop that. Old daily counters aren't deleted yet (a Firestore TTL policy would). Set `contactEmail` so the "too many" message offers an email.
 
 ### I-3. Landing page on large screens: capital-letter labels, jerky scrolling, phone covering a card
 

@@ -1,5 +1,6 @@
 // The connector as a Cloudflare Worker (free plan).
 //   SERVICE_ACCOUNT (secret)   the whole Firebase service account key file (JSON text): real classes
+//   (the same key also runs Request access: /request, limited per network, per email and per day)
 //   BUILDS (KV binding)        optional: a practice run with a sample course, for links that start "demo-"
 // Java solutions are run here too (small programs take about a millisecond); the Review page runs
 // every solution again in the professor's browser before anything is published.
@@ -10,11 +11,12 @@ import { demoStore, demoPage, isDemo } from './demo.mjs';
 import { runTests } from '../app/js/java/index.js';
 import { createTutorHandler, dbTutorSource } from './tutor.mjs';
 import { DEMO_FILES } from './demo.mjs';
+import { createAccessHandler } from './access.mjs';
 
 // Small student programs take about a millisecond to run, so the Worker can check them itself.
 const hooks = { runTests: (src, spec) => runTests(src, spec, { timeLimitMs: 1500 }) };
 
-let real = null, demo = null, tutor = null, tutorDemo = null;
+let real = null, demo = null, tutor = null, tutorDemo = null, access = null;
 // a practice tutor with the sample course's text as its notes (links that start "demo-")
 const demoTutorSource = { async open(code) { return isDemo(code) ? { course: 'CS 150 (sample)', units: DEMO_FILES.map((f, i) => ({ id: f.id, n: i + 1, title: f.name.replace(/\.\w+$/, '') })), closed: null, async notes(id) { const f = DEMO_FILES.find((x) => x.id === id); return f ? f.parts.map((p) => `## ${p.text.split('\n')[0]}\n${p.text.split('\n').slice(1).join('\n')}`).join('\n\n') : null; } } : null; } };
 const codeOf = (url) => (url.pathname.match(/^\/(?:mcp|demo|tutor)\/([A-Za-z0-9_-]{20,80})\/?$/) || [])[1] || '';
@@ -22,6 +24,12 @@ export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url), code = codeOf(url);
+      if (url.pathname === '/request') {
+        if (!env.SERVICE_ACCOUNT) return new Response('Request access is not set up yet.', { status: 503, headers: { 'access-control-allow-origin': '*' } });
+        const account = JSON.parse(env.SERVICE_ACCOUNT);
+        access ||= createAccessHandler(firestoreDb(account), { secret: account.private_key });
+        return await access(request);
+      }
       if (url.pathname.startsWith('/tutor/')) {
         if (isDemo(code)) { tutorDemo ||= createTutorHandler(demoTutorSource); return await tutorDemo(request); }
         if (!env.SERVICE_ACCOUNT) return new Response('The tutor is not set up yet.', { status: 503 });

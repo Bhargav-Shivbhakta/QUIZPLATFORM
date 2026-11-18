@@ -879,11 +879,69 @@ console.log('\nMock exams');
     assert.equal(R.statusLabel('nofit'), 'Not a fit');
     assert.equal(R.countNew([{}, { status: 'new' }, { status: 'contacted' }]), 2);
   });
-  test('the security rules list the same choices as the form', () => {
+  test('visitors cannot write requests; admins set only the listed statuses', () => {
     const rules = fs.readFileSync(path.join(ROOT, 'firestore.rules'), 'utf8');
     const block = rules.slice(rules.indexOf('match /accessRequests/'), rules.indexOf('match /buildLinks/'));
-    for (const v of [...R.ROLES, ...R.SIZES, ...R.WANTS, ...R.USES, ...R.HAS, ...R.STATUSES.map(([k]) => k)]) assert.ok(block.includes(`'${v}'`), v);
-    for (const [k, n] of Object.entries(R.LIMITS)) if (k !== 'email' && k !== 'note') assert.match(block, new RegExp(`${k}, 1, ${n}\\)`), k);
+    assert.doesNotMatch(block, /allow (create|write|delete)/);
+    for (const [k] of R.STATUSES) assert.ok(block.includes(`'${k}'`), k);
+    assert.match(block, /match \/accessLimits\/\{id\} \{\s*allow read, write: if false;/);
+  });
+  const A = await import('../connector/access.mjs');
+  const store = new Map(); let rev = 0, clock = 1_800_000_000_000;
+  const db = {
+    async getWithRev(p) { const x = store.get(p); return x ? { data: structuredClone(x.data), rev: x.rev } : { data: null, rev: null }; },
+    async set(p, data, { ifRev, ifMissing } = {}) {
+      const x = store.get(p);
+      if ((ifRev && x?.rev !== ifRev) || (ifMissing && x)) throw Object.assign(new Error('conflict'), { code: 'conflict' });
+      store.set(p, { data: structuredClone(data), rev: String(++rev) });
+    },
+  };
+  const send = A.createAccessHandler(db, { secret: 's3cret', now: () => clock });
+  const post = async (body, ip = '1.2.3.4') => { const r = await send(new Request('https://x.test/request', { method: 'POST', headers: { 'cf-connecting-ip': ip }, body: JSON.stringify(body) })); return { status: r.status, ...(await r.json()) }; };
+  const who = (n, email = `p${n}@school.edu`) => ({ step: 1, ...ok, name: `Prof ${n}`, email });
+  await atest('the connector saves a checked request, then its details once, within 30 minutes', async () => {
+    const r = await post({ ...who(1), extra: 'x', status: 'setup' });
+    assert.equal(r.status, 200);
+    const saved = store.get(`accessRequests/${r.id}`).data;
+    assert.deepEqual(Object.keys(saved).sort(), ['course', 'createdAt', 'email', 'name', 'role', 'school', 'status', 'v']);
+    assert.equal(saved.status, 'new');
+    assert.equal((await post({ step: 2, id: r.id, details: { department: 'Maths', wants: ['Hacking'] } })).status, 200);
+    assert.deepEqual(store.get(`accessRequests/${r.id}`).data.details, { department: 'Maths' });
+    assert.equal((await post({ step: 2, id: r.id, details: { department: 'Again' } })).status, 409);
+    const late = await post(who(2), '9.9.9.9'); clock += 31 * 60000;
+    assert.equal((await post({ step: 2, id: late.id, details: { department: 'Late' } })).status, 410);
+    assert.equal((await post({ ...who(3), role: 'Dean' }, '8.8.8.8')).field, 'role');
+  });
+  await atest('the connector limits requests per network, per email and per day, and stores no address', async () => {
+    store.clear(); clock += 86400000;
+    for (let i = 0; i < 3; i++) assert.equal((await post(who(10 + i))).status, 200);
+    const fourth = await post(who(13));
+    assert.equal(fourth.status, 429); assert.equal(fourth.limit, true);
+    assert.equal((await post(who(20, 'same@school.edu'), '5.5.5.1')).status, 200);
+    assert.equal((await post(who(21, 'same@school.edu'), '5.5.5.2')).status, 200);
+    assert.equal((await post(who(22, 'same@school.edu'), '5.5.5.3')).status, 429);
+    const keys = [...store.keys()].join(' ');
+    assert.doesNotMatch(keys, /1\.2\.3\.4|same@school/);
+    let n = 5; while ((await post(who(100 + n), `7.7.${n}.1`)).status === 200) n++;
+    assert.equal([...store.keys()].filter((k) => k.startsWith('accessRequests/')).length, A.PER_DAY.site);
+    clock += 86400000;
+    assert.equal((await post(who(500))).status, 200, 'a new day starts fresh');
+  });
+  await atest('the connector quietly drops bot requests and refuses anything malformed', async () => {
+    const before = store.size;
+    const bot = await post({ ...who(600), website: 'spam.example' }, '6.6.6.6');
+    assert.equal(bot.status, 200); assert.ok(bot.id);
+    assert.equal(store.size, before);
+    assert.equal((await post({ step: 2, id: bot.id, details: { notes: 'x' } })).status, 200);
+    const raw = async (body, method = 'POST') => (await send(new Request('https://x.test/request', { method, body }))).status;
+    assert.equal(await raw('not json'), 400);
+    assert.equal(await raw('{"step":3}'), 400);
+    assert.equal(await raw('x'.repeat(9000)), 413);
+    assert.equal(await raw(undefined, 'GET'), 405);
+    assert.equal((await post({ step: 2, id: '../admins/x' })).status, 404);
+    assert.equal(A.networkOf('2001:DB8:1:2:aaaa::1'), A.networkOf('2001:db8:1:2:bbbb::9'));
+    assert.notEqual(A.networkOf('2001:db8:1:2::1'), A.networkOf('2001:db8:1:3::1'));
+    assert.equal(A.networkOf('1.2.3.4'), '1.2.3.4');
   });
 }
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);

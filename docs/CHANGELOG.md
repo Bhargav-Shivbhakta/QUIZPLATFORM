@@ -2,6 +2,13 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 17 November 2026: spam check on Request access
+
+- Requests now go through the connector instead of straight to the database, and the database refuses visitors' writes. The connector checks every field and allows **3 requests a day per network, 2 per email, and 40 for the whole site**. Past that, the form says so and suggests trying tomorrow (or emailing, once `contactEmail` is set).
+- Network addresses and emails are never stored, only a keyed hash inside one day's counter (`accessLimits`, closed to the site).
+- **Tested:** 62 automated tests (4 new for the connector: saving, details once, the three limits, bots and bad input) and the architecture check; browser checks of both steps and the "too many" message at laptop and phone size; an independent review, whose fixes were made (IPv6 counted per network, the site counter written last, oversized requests refused early).
+- **Outside GitHub, in this order:** paste the new `worker.js` into Cloudflare and deploy, then publish the new `firestore.rules`. Until the Worker is updated, Request access shows "didn't send".
+
 ## 17 November 2026: landing refinements
 
 **Request access, in two steps**

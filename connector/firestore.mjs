@@ -76,8 +76,10 @@ export function firestoreDb(account, { fetch: f = fetch, tokenUrl = 'https://oau
       const j = await r.json();
       return { data: decodeFields(j.fields), rev: j.updateTime || null };
     },
-    async set(path, data, { ifRev } = {}) {
-      const r = await call('PATCH', path + (ifRev ? `?currentDocument.updateTime=${encodeURIComponent(ifRev)}` : ''), { fields: encodeFields(data) });
+    // ifRev: only if nobody changed it since that version; ifMissing: only if it doesn't exist yet
+    async set(path, data, { ifRev, ifMissing } = {}) {
+      const pre = ifRev ? `?currentDocument.updateTime=${encodeURIComponent(ifRev)}` : ifMissing ? '?currentDocument.exists=false' : '';
+      const r = await call('PATCH', path + pre, { fields: encodeFields(data) });
       if (!r.ok) throw fail(r.status, 'written');
     },
   };

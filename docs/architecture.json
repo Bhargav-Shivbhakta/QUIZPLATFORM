@@ -162,6 +162,11 @@
         "holds": "Request access from the public pages: who (step 1), optional course details (step 2), and the status and note admins set. Never deleted.",
         "group": "growth",
         "since": 0
+      },
+      "accessLimits": {
+        "holds": "Daily counters the connector keeps for Request access: per network and per email (keyed hashes only) and for the whole site. Nobody reads them from the site.",
+        "group": "growth",
+        "since": 1
       }
     },
     "classSub": {

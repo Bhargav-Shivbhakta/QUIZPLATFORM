@@ -1,9 +1,11 @@
 // The "Request access" sheet on the public pages, in two steps. Step 1 (who you are) is one write and
 // is enough on its own. Step 2 (your course, all optional) adds the details in one more write.
+import config from '../../config.js';
 import * as cloud from '../cloud.js';
 import { esc } from '../ui.js';
 import { ROLES, SIZES, WANTS, USES, HAS, LIMITS, checkRequest, cleanDetails } from '../requests.js';
 
+const CONTACT = config.contactEmail || '';
 const X = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 const opts = (list, blank) => (blank ? `<option value="">${blank}</option>` : '') + list.map((s) => `<option>${esc(s)}</option>`).join('');
 const picks = (name, legend, list) => `<fieldset class="full lp-pick"><legend>${legend}</legend><div>${list.map((s) => `<label><input type="checkbox" name="${name}" value="${esc(s)}"><span>${esc(s)}</span></label>`).join('')}</div></fieldset>`;
@@ -109,8 +111,8 @@ export function mountSheet(root) {
       if (error) return fail(form, error, field);
       busy(form, true, 'Sending…');
       try {
-        // the hidden field is filled only by bots: pretend it worked and save nothing
-        const id = raw.website ? null : await cloud.requestAccess(data);
+        // the hidden field is filled only by bots; the connector ignores those quietly
+        const { id } = await cloud.sendAccessRequest({ step: 1, ...data, website: raw.website || '' });
         sent = { id, first: data.name.split(' ')[0], course: data.course };
         show(step2(sent.first, sent.course));
         body.querySelector('.lp-done').setAttribute('tabindex', '-1');
@@ -118,7 +120,9 @@ export function mountSheet(root) {
       } catch (ex) {
         console.error(ex);
         busy(form, false, 'Send request');
-        fail(form, "Your request didn't send. Check your connection and try again.");
+        if (ex.code === 'limit') fail(form, `Too many requests have come from your network today. Please try again tomorrow${CONTACT ? `, or email us at ${CONTACT}` : ''}.`);
+        else if (ex.code === 'invalid') fail(form, ex.message, ex.field);
+        else fail(form, "Your request didn't send. Check your connection and try again.");
       }
       return;
     }
@@ -127,7 +131,7 @@ export function mountSheet(root) {
     if (!Object.keys(details).length) return finish(false);
     busy(form, true, 'Sending…');
     try {
-      if (sent.id) await cloud.addAccessDetails(sent.id, details);
+      await cloud.sendAccessRequest({ step: 2, id: sent.id, details });
       finish(true);
     } catch (ex) {
       console.error(ex);
