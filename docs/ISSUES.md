@@ -36,6 +36,13 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Fixed
 
+### I-5. Landing page: tilted product, off-centre line, page jumping in the practice question
+
+- **Found:** 17 November 2026, by the founder.
+- **What:** the product picture at the top was tilted in 3D while scrolling; "Cramming fixes all three…" sat left of centre; answering the practice question jumped the page down to "Try again".
+- **Cause:** a scroll-linked tilt; a general `.lp p { margin: 0 }` rule beat the centring rule; focus was moved to the "Try again" button, and the browser scrolls to whatever gets focus.
+- **Fixed:** 17 November 2026. The tilt is removed (the picture stays flat); the centring rule is now specific enough; focus moves without scrolling, and "Try again" keeps the question where it was on screen. Checked at 1332×800 dark, 1920×1080 light and 390×844 dark: page doesn't move on answer or retry, the line is centred to the pixel.
+
 ### I-4. Request access could be flooded by a script
 
 - **Found:** 17 November 2026, by the independent review of the new request rules.

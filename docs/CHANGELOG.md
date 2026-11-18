@@ -2,6 +2,13 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 17 November 2026: landing fixes
+
+- The product picture at the top no longer tilts while scrolling.
+- "Cramming fixes all three…" is centred.
+- Answering the practice question no longer jumps the page; "Try again" keeps the question in place.
+- **Tested:** 62 automated tests; browser checks at three sizes (see I-5).
+
 ## 17 November 2026: spam check on Request access
 
 - Requests now go through the connector instead of straight to the database, and the database refuses visitors' writes. The connector checks every field and allows **3 requests a day per network, 2 per email, and 40 for the whole site**. Past that, the form says so and suggests trying tomorrow (or emailing, once `contactEmail` is set).

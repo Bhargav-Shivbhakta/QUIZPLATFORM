@@ -1,6 +1,6 @@
 // Landing page for signed-out visitors (#/). Written for professors, who bring a class; students
 // find "Sign in" in the header. No database reads. Motion: one passive scroll listener (rAF) for
-// the hero tilt, parallax and progress line; IntersectionObserver for reveals and for running the
+// the progress line; IntersectionObserver for reveals and for running the
 // demos only while they're on screen. Everything stops for "Pause motion" and reduced motion.
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
@@ -50,7 +50,7 @@ function markup() {
     <p class="lp-lead">A little every day, ready on exam day. Cramming turns a professor's course materials into daily practice and a study plan for every student.</p>
     <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
     <div class="lp-stage">
-      <div class="lp-tilt">
+      <div class="lp-shot">
         <div class="lp-glow" aria-hidden="true"></div>
         <div class="lp-window" role="img" aria-label="Example: a student's Today screen for a calculus class. Three tasks are checked off one by one while the readiness bar for the chain rule grows.">
           <div class="lp-winbar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
@@ -274,17 +274,13 @@ export async function render(main, params = {}, query = {}) {
   lp.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   offs.push(() => io.disconnect());
 
-  // scroll-linked: the hero product tilts upright over the first screen; the progress line follows
-  const tilt = lp.querySelector('.lp-tilt'), bar = lp.querySelector('.lp-progress');
-  let ticking = false, lastT = -1;
+  // scroll-linked: the progress line under the header
+  const bar = lp.querySelector('.lp-progress');
+  let ticking = false;
   const frame = () => {
     ticking = false;
     const vh = innerHeight, max = document.documentElement.scrollHeight - vh;
     bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max).toFixed(4) : 0})`;
-    const t = paused ? 0 : Math.max(0, 1 - scrollY / (vh * 0.55));
-    if (Math.abs(t - lastT) < 0.002) return;
-    lastT = t;
-    tilt.style.transform = t > 0 ? `perspective(1800px) rotateX(${(t * 12).toFixed(2)}deg) scale(${(1 - t * 0.06).toFixed(4)})` : 'none';
   };
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener('scroll', onScroll, { passive: true });
@@ -334,12 +330,19 @@ export async function render(main, params = {}, query = {}) {
       <ol class="lp-work">${WORK.map(([label, m], i) => `<li style="--i:${i}"><span class="lp-work-n" aria-hidden="true">${i + 1}</span><div><p>${label}</p>${tex(m)}</div></li>`).join('')}</ol>
       <p class="lp-why"><strong>Why it matters:</strong> the error shrinks with the square root of the sample size, so four times as many students only halves it. That's why larger studies are more precise, but each extra student helps a little less.</p>
       <button type="button" data-q-again>Try again</button></div>`;
-    if (pick === null) q.querySelector('[data-opt]').focus(); else out.querySelector('[data-q-again]').focus();
+    // keep the reader where they are: move focus without scrolling the page
+    if (pick === null) q.querySelector('[data-opt]').focus({ preventScroll: true });
+    else { const v = out.querySelector('.lp-verdict'); v.tabIndex = -1; v.focus({ preventScroll: true }); }
   };
   q.addEventListener('click', (e) => {
     const o = e.target.closest('[data-opt]');
     if (o && !o.disabled) showQ(o.dataset.opt);
-    if (e.target.closest('[data-q-again]')) showQ(null);
+    if (e.target.closest('[data-q-again]')) {
+      // the working collapses: keep the question exactly where it was on screen
+      const top = q.getBoundingClientRect().top;
+      showQ(null);
+      scrollBy(0, q.getBoundingClientRect().top - top);
+    }
   });
 
   // section links glide; the pause button stops every animation
