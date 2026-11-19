@@ -289,6 +289,10 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-dot .lp-legs ellipse { fill: var(--cr-ink); }
 .lp-dot .lp-lid { fill: var(--cr-ink); stroke: var(--cr-bg); stroke-width: 2; }
 .lp-dot .lp-base { fill: var(--cr-ink-2); }
+/* reading glasses: bold orange frames with a light lens, so they read as glasses, not as rings round the eyes */
+.lp-dot .lp-lens { fill: var(--cr-white); fill-opacity: .18; stroke: var(--cr-class-orange); stroke-width: 3.4; }
+.lp-dot .lp-temple { fill: none; stroke: var(--cr-class-orange); stroke-width: 3; stroke-linecap: round; }
+.lp-dot .lp-glare { fill: none; stroke: var(--cr-white); stroke-width: 1.8; stroke-linecap: round; opacity: .85; }
 .lp-dot .lp-lid-logo circle { fill: none; stroke: var(--cr-bg); stroke-width: 1; }
 .lp-dot .lp-lid-logo circle.on { fill: var(--cr-accent); stroke: none; }
 .lp-dot g, .lp-dot path { transform-box: fill-box; }
@@ -300,7 +304,7 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-dot[data-pose="ball"] { opacity: 0; }
 .lp-dot[data-pose="ball"] .lp-legs { transform: scaleY(0); opacity: 0; }
 .lp-dot[data-pose="ball"] .lp-arms path, .lp-dot[data-pose="ball"] .lp-laptop { opacity: 0; }
-.lp-dot:is([data-pose="ball"], [data-pose="sit"]) .lp-glasses { transform: translateY(-20px); }
+.lp-dot:is([data-pose="ball"], [data-pose="sit"]) .lp-glasses { transform: translateY(-16px) scale(.7); opacity: 0; } /* the glasses come out only when it sits down to read */
 .lp-dot:is([data-pose="sit"], [data-pose="glasses"]) .lp-arm-down { opacity: 1; }
 .lp-dot:is([data-pose="sit"], [data-pose="glasses"]) .lp-arm-type { opacity: 0; }
 .lp-dot:is([data-pose="sit"], [data-pose="glasses"]) :is(.lp-lid, .lp-lid-logo) { transform: scaleY(0); }
@@ -308,7 +312,7 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 @keyframes lp-read { 0%, 100% { transform: translate(-2.4px, 1px); } 45% { transform: translate(2.4px, 1px); } 55% { transform: translate(2.4px, 2.4px); } 60% { transform: translate(-2.4px, 2.4px); } }
 
 /* the opening; without .play (reduced motion, no JS) everything is simply there */
-.lp-intro .lp-mark circle { fill-opacity: 0; animation: none; transform-box: fill-box; transform-origin: center; transition: fill-opacity .18s ease; }
+.lp-intro .lp-mark circle { fill-opacity: 0; animation: none; transform-box: fill-box; transform-origin: center; transition: fill-opacity .35s ease; }
 .lp-intro:not(.play) .lp-mark .m2, .lp-intro.play .lp-mark circle.on { fill-opacity: 1; }
 .lp-intro.play .lp-mark circle { animation: lp-pop .45s var(--cr-ease) both; }
 .lp-intro.play .lp-mark .m2 { animation-delay: .06s; } .lp-intro.play .lp-mark .m3 { animation-delay: .12s; } .lp-intro.play .lp-mark .m4 { animation-delay: .18s; }

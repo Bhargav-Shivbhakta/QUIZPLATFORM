@@ -16,7 +16,7 @@ export function readingDot() {
         <g class="lp-pupils"><ellipse class="bd-pupil" cx="50" cy="49" rx="3.2" ry="4"/><ellipse class="bd-pupil" cx="72" cy="49" rx="3.2" ry="4"/></g></g>
       <ellipse class="bd-blush" cx="40" cy="60" rx="4.4" ry="2.4"/><ellipse class="bd-blush" cx="80" cy="60" rx="4.4" ry="2.4"/>
       <path class="bd-stroke-light" fill="none" stroke-width="3" stroke-linecap="round" d="M54 62 Q60 67 66 62"/>
-      <g class="lp-glasses bd-stroke-pupil" fill="none" stroke-width="2.4"><circle cx="49" cy="47" r="8.6"/><circle cx="71" cy="47" r="8.6"/><path d="M57.6 47h4.8"/></g>
+      <g class="lp-glasses"><path class="lp-temple" d="M38 44 L31 41 M82 44 L89 41"/><rect class="lp-lens" x="38" y="38" width="21" height="17" rx="6"/><rect class="lp-lens" x="61" y="38" width="21" height="17" rx="6"/><path class="lp-temple" d="M59 45 Q60 42.5 61 45"/><path class="lp-glare" d="M42 43 l5 -2.6 M65 43 l5 -2.6"/></g>
     </g>
     <g class="lp-arms"><path class="lp-arm-down" d="M32 56 Q24 66 28 78"/><path class="lp-arm-down" d="M88 56 Q96 66 92 78"/>
       <path class="lp-arm-type" d="M33 58 Q30 72 42 77"/><path class="lp-arm-type" d="M87 58 Q90 72 78 77"/></g>
@@ -70,16 +70,24 @@ export function playHero(hero, lp) {
     ], { duration: ms, easing: 'cubic-bezier(.33,.7,.45,1)', fill: 'forwards' }).finished;
   };
 
+  // hitting a word: the Dot squashes against it like a ball and the word dips, then the next hop springs off
+  const hit = (word, p) => {
+    if (stopped) return Promise.resolve();
+    word.animate([{ transform: 'none' }, { transform: 'translateY(8px) scaleY(.95)', offset: 0.25 }, { transform: 'translateY(-3px)', offset: 0.6 }, { transform: 'none' }], { duration: 460, easing: 'ease-out' });
+    return dot.animate([{ transform: `${to(p)} scale(1.16, .82)` }, { transform: `${to({ x: p.x, y: p.y + 6 })} scale(1.3, .7)` }], { duration: 110, easing: 'ease-out', fill: 'forwards' }).finished;
+  };
+
   (async () => {
     try {
     // 1. the blue goes once round the logo and stops on its own circle (top right)
-    for (const i of [1, 2, 3, 0, 1]) {
+    for (const i of [1, 2, 3, 0]) {
       if (stopped) return;
       circles.forEach((c, k) => c.classList.toggle('on', k === i));
-      await wait(300);
+      await wait(620);
     }
-    await wait(250);
     if (stopped) return;
+    // back on its own circle, and the Dot springs out of it in the same moment
+    circles.forEach((c, k) => c.classList.toggle('on', k === 1));
     // 2. out of the logo, down onto "Cramming" (standing on its i)
     const s = seat(), from = centre(circles[1].getBoundingClientRect());
     const start = { x: from.x, y: from.y + (s.h * (SEAT - 50)) / H };
@@ -87,22 +95,26 @@ export function playHero(hero, lp) {
     const tag = hero.querySelector('.lp-tag > span + span');
     const onTop = letterTop(tag, 'Top', 1);
     dot.dataset.pose = 'ball';
-    dot.animate([{ transform: `${to(start)} scale(.3)`, opacity: 0 }, { transform: `${to(start)} scale(1)`, opacity: 1 }], { duration: 260, fill: 'forwards', easing: 'ease-out' });
-    await wait(260);
+    dot.animate([{ transform: `${to(start)} scale(.3)`, opacity: 0 }, { transform: `${to(start)} scale(1)`, opacity: 1 }], { duration: 220, fill: 'forwards', easing: 'ease-out' });
+    await wait(200);
     if (stopped) return;
     await hop(start, onName, 640, 60);
-    await wait(220);
+    await hit(hero.querySelector('.lp-name'), onName);
     if (stopped) return;
     // 3. up onto "Top"
-    await hop(onName, onTop, 560, 50);
-    await wait(260);
+    await hop({ x: onName.x, y: onName.y + 6 }, onTop, 560, 70);
+    await hit(tag, onTop);
     if (stopped) return;
-    // 4. down onto Request access, where it sits
-    await hop(onTop, { x: s.x, y: s.y }, 640, 40);
-    dot.getAnimations().forEach((a) => a.cancel());
+    // 4. down onto Request access: it lands, its legs come out and press the button
+    await hop({ x: onTop.x, y: onTop.y + 6 }, { x: s.x, y: s.y }, 640, 60);
     if (stopped) return;
     dot.dataset.pose = 'sit';
-    await wait(450);
+    dot.getAnimations().forEach((a) => a.cancel());
+    await wait(120);
+    const btn = hero.querySelector('.lp-perch .lp-btn'), press = { duration: 420, easing: 'cubic-bezier(.3,.7,.4,1)' };
+    btn.animate([{ transform: 'none' }, { transform: 'translateY(4px) scale(.97)', offset: 0.35 }, { transform: 'none' }], press);
+    await dot.animate([{ transform: 'none' }, { transform: 'translateY(4px) scale(1.06, .92)', offset: 0.35 }, { transform: 'translateY(-3px)', offset: 0.7 }, { transform: 'none' }], press).finished;
+    await wait(250);
     if (stopped) return;
     // 5. glasses down, laptop open, reading
     dot.dataset.pose = 'glasses';

@@ -2,16 +2,23 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: the new tagline and the landing page's first screen
+## Not yet released: the landing page's opening, polished (screen 1 locked)
+
+- The logo's blue moves round its four circles more slowly (about 0.6 s per circle), and the Dot springs out the moment the blue gets back to its circle, with no pause.
+- The Dot bounces off "Cramming" and "Top" like a ball, and each word dips as it's hit; landing on **Request access**, its legs come out and press the button.
+- The reading glasses are bold orange frames with a light lens, and appear only once it sits down to read.
+- **Tested:** all automated tests; the sequence timed in the browser (one step every 0.62 s, the Dot out at the same moment as the last step); laptop and phone, light and dark; Pause motion mid-way shows the finished scene; no errors.
+
+## 18 November 2026: the new tagline and the landing page's first screen
 
 - **New tagline: "Small reps. Top grades.™"** It replaces "Cram the right way." in the landing headline, the browser tab, the footer trademark line and the description search engines show.
 - **The first screen opens with the name:** the logo's blue goes once round its four circles, **Cramming** rises and "Small reps. Top grades." flips up under it.
-- **The Dot is on the landing page:** it pops out of the logo, lands on "Cramming", hops onto "Top", then sits on **Request access**, legs over the edge, pulls its reading glasses down and reads on a little laptop with the Cramming logo (about 6 seconds, once). Reduced motion and Pause motion show the finished scene.
+- **The Dot is on the landing page:** as the blue gets back round the logo, the Dot springs out of it, bounces off "Cramming" and off "Top" like a ball (each word dips as it's hit), and lands on **Request access**: its legs come out and press the button. Then it puts on its orange reading glasses, opens a little laptop with the Cramming logo and reads (about 7 seconds, once). Reduced motion and Pause motion show the finished scene.
 - **Fixed:** clicking **Pause motion** on the landing page caused an error (I-12).
 - The small line "Practice, plans and exams for any course" is gone; the description now says what the product does in one go.
 - **Tested:** all automated tests; laptop and phone, light and dark, and with reduced motion: no errors, axe clean on the first screen, the tab reads "Cramming · Small reps. Top grades."
 
-## Not yet released: fix for the Study plan with Soft motion
+## 18 November 2026: fix for the Study plan with Soft motion
 
 - With **Motion: Soft** in Settings, opening a class showed "Failed to execute 'add' on 'DOMTokenList'" and the Study plan line didn't draw. Fixed (I-11).
 - **Tested:** a new automated test fails on any class name with a space given to `classList` anywhere in the app (it caught the old line); in the browser, Soft and Full both open the Study plan with no error.

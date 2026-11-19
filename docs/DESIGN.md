@@ -112,7 +112,7 @@ Every student has a study buddy that cheers them on at a few moments. The defaul
 |---|---|---|---|
 | Morning hello | First open of the day, on Today | Full: the Dot hops out of the logo, lands on the Today tab, then jumps beside the greeting and waves; the countdown then ticks over. Soft: it is simply there | Once a day |
 | Tap | Any time, beside the greeting | Squish, wink, spin or a heart | Every 2 seconds at most |
-| Welcome | The landing page, after the logo's blue goes once round and the name and tagline appear | The Dot pops out of the logo, lands on "Cramming", hops onto "Top", sits on Request access (legs over the edge), pulls its glasses down and reads on a laptop; its eyes then read along slowly. Reduced motion or Pause motion: the finished scene | Once per visit |
+| Welcome | The landing page, as the logo's blue gets back round to its circle | The Dot springs out of the logo, bounces off "Cramming" and "Top" like a ball (each word dips), lands on Request access and presses it with its legs, then puts on its reading glasses and reads on a laptop; its eyes read along slowly. Reduced motion or Pause motion: the finished scene | Once per visit |
 | Three in a row | Practice, third right answer in a row | Pops in at the corner: "Three in a row!" | Once per set |
 | Done for today | End of the day's set; Today afterwards | Happy, "Nice work" | Once a day |
 | Weekly goal | The set that reaches the weekly goal | A flip, with confetti in the class colours | Once a week |
