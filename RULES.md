@@ -87,7 +87,13 @@ Read this before changing anything in Cramming, whoever you are: the founder, a 
 | D-25 | Students choose Full or Soft motion; big moments are rationed (daily, weekly, per set); exams have no motion | DESIGN › Motion | Review |
 | D-26 | The study buddy appears only at a moment from its table, within its limit; never in exams or on staff screens; never guilt | DESIGN › The study buddy | Review |
 | D-27 | A new buddy moment ships with a mood for every buddy, a limit and a row in the table | DESIGN › The study buddy | Review |
-| D-28 | Students have three places: Today, their classes, Progress. Bottom tabs on phones, a left bar on laptops and tablets; no other layout | DECISIONS › Student navigation | Review |
+| D-28 | Students have four places: Today, Classes, Progress, Settings. Bottom tabs on phones, a left bar on laptops and tablets; no other layout | DECISIONS › Student navigation | Review |
+| D-29 | Every page that isn't a place has exactly one back link, top left, to the page it belongs to, from `backFor()`; a new route adds a line and a test there | DESIGN › Navigation | Automatic (tests) + review |
+| D-30 | The account menu holds only who you are and Sign out; settings live on the Settings page; the bell is top right on every frame page | DESIGN › Navigation | Review |
+| D-31 | Classes are named with `classTitle()` and badged with `badgeFor()` (the course number), never by hand | DESIGN › Navigation | Automatic (tests) + review |
+| D-32 | Refreshing by the logo is limited to once a minute and never reads more than an ordinary visit | DESIGN › Navigation | Review |
+| D-33 | Links go to pages, buttons do things; addresses are lowercase nouns that never change meaning | DESIGN › Navigation | Review |
+| D-34 | Settings save the moment they change and say "Saved"; no Save button on a settings page | DESIGN › Behaviour | Review |
 
 ### Privacy and security (P)
 

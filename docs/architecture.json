@@ -16,7 +16,8 @@
         "app/js/seb.js",
         "app/js/requests.js",
         "app/js/format.js",
-        "app/js/today.js"
+        "app/js/today.js",
+        "app/js/navmap.js"
       ],
       "mayImport": [
         "core"

@@ -2,7 +2,20 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: students see professors' changes within a minute
+## Not yet released: one navigation, a new Settings page
+
+Students only.
+- **Settings is in the bar** under Progress (and is the fourth tab on phones). Your initials now open a small menu with your name, email and **Sign out**.
+- **The bell is top right** on every page.
+- **Every page has a back link** top left that names where it goes ("‹ Classes", "‹ CS150", "‹ Midterm 2 Practice"); the old breadcrumbs are gone for students.
+- **The slim bar shows course numbers** (150, 210) so two CS classes look different. Classes are named without repeating the course ("CS 210 Data Structures").
+- **Double-click the logo to refresh**: checks for new class content and saves waiting progress, at most once a minute ("Up to date", then "Already up to date").
+- **A new Settings page**: your account and classes, Save now, Sign out; Studying (study buddy, weekly goal, show answers, shuffle, ask before submitting); Appearance (theme, text size, motion, easier reading, high contrast); Your data (backup, restore, start a set over, erase). Changes save at once. **Weekly goal** (2 to 5 days) is new and Today's "This week" follows it.
+- A real gear icon for Settings (it looked like Today's sun) and a sign-out icon.
+- New classes made without a Course get it from their name ("CS 210 Data Structures" → CS210).
+- **Tested:** all automated tests (navigation rules: badges, class names, back links) and the architecture check; three classes on a laptop, a tablet and a phone, light and dark: every place and an old page opened with no errors, no sideways scrolling, axe clean; account menu opens and closes with Escape; double-click refresh read 10 documents the first time and none the second; each setting saved and applied (goal 5 shows "0 of 5 days" on Today).
+
+## 18 November 2026: students see professors' changes within a minute
 
 - Student pages (Today, a class, Classes, Progress) fetch the class's latest practice sets when what they have is more than a minute old. Before, a student with Cramming open kept seeing a set as it was when they signed in, for up to 10 minutes (seen with Midterm 3 Practice still showing 300 questions after they were removed).
 - **Tested:** all automated tests; on the local copy, a student with the class open saw the 300 questions, the professor removed them, and the student's next click a minute later showed only the coding practice, with their code and test results kept.

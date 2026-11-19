@@ -4,6 +4,7 @@
 // Practice: question sets and coding practice. Notes: the units' notes. Graded work: exams, quizzes,
 //   assignments and scores. The pages they open (practice, flashcards, coding, notes) are today's screens.
 import * as cloud from '../cloud.js';
+import { classTitle } from '../navmap.js';
 import * as store from '../store.js';
 import { esc, icon, plural, confirmDialog } from '../ui.js';
 import { daysUntil } from '../today.js';
@@ -30,7 +31,7 @@ export async function render(main, { classId }, query = {}) {
   main.innerHTML = `
     <section class="st-page st-class cc-${cc}">
       <header class="st-chead"><div><p class="st-muted st-small">${esc([cls.term, cls.section ? `Section ${cls.section}` : ''].filter(Boolean).join(' · '))}</p>
-        <h1><span class="st-cdot" aria-hidden="true"></span>${esc(cls.course ? `${cls.course} · ${cls.name}` : cls.name)}</h1></div>
+        <h1><span class="st-cdot" aria-hidden="true"></span>${esc(classTitle(cls))}</h1></div>
         ${d.tools.tutor ? `<a class="st-btn st-btn-ghost st-sm" href="#/mystudy/${e(cls.id)}">${icon('sparkle')} Ask the tutor</a>` : ''}</header>
       ${ann}
       <nav class="st-tabs-c" aria-label="${esc(cls.course || cls.name)}">${TABS.map(([k, l]) => `<a href="#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>

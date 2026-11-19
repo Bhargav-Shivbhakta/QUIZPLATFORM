@@ -1021,5 +1021,27 @@ console.log('\nMock exams');
   });
   test('the buddy hops once a day', () => { assert.equal(T.hopDue('2026-11-17', '2026-11-18'), true); assert.equal(T.hopDue('2026-11-18', '2026-11-18'), false); });
 }
+{
+  console.log('\nNavigation (the student frame)');
+  const N = await import('../app/js/navmap.js');
+  test('class badges use the course number, so two CS classes differ', () => {
+    assert.equal(N.badgeFor('CS150'), '150'); assert.equal(N.badgeFor('CS 210'), '210'); assert.equal(N.badgeFor('MATH 150A'), '150A');
+    assert.equal(N.badgeFor('', 'Biology'), 'BI'); assert.equal(N.badgeFor(''), '?');
+    assert.equal(N.badgeFor('CS', 'CS 210 Data Structures'), '210'); assert.equal(N.badgeFor('Intro', 'Intro to Programming'), 'IN');
+    assert.equal(N.classTitle({ course: 'CS 210', name: 'CS 210 Data Structures' }), 'CS 210 Data Structures'); assert.equal(N.classTitle({ course: 'CS150', name: 'Intro to Programming' }), 'CS150 · Intro to Programming'); assert.equal(N.classTitle({ name: 'Biology' }), 'Biology');
+  });
+  test('top-level places have no back link; every other page has one way up', () => {
+    const cls = { id: 'c1', course: 'CS150', name: 'Intro' };
+    const ctx = { classOf: (id) => (id === 'x' ? cls : null), several: true, codingOnly: (id) => id === 'code' };
+    for (const p of ['/', '/classes', '/progress', '/settings']) assert.equal(N.backFor(p, {}, ctx), null);
+    assert.deepEqual(N.backFor('/class/c1', { classId: 'c1' }, ctx), { href: '#/classes', label: 'Classes' });
+    assert.equal(N.backFor('/class/c1', { classId: 'c1' }, { ...ctx, several: false }), null);
+    assert.deepEqual(N.backFor('/exam/x', { id: 'x' }, ctx), { href: '#/class/c1?tab=practice', label: 'CS150' });
+    assert.deepEqual(N.backFor('/cards/x', { id: 'x', setTitle: 'Midterm 2 Practice' }, ctx), { href: '#/exam/x', label: 'Midterm 2 Practice' });
+    assert.equal(N.backFor('/assignments/code', { id: 'code' }, { ...ctx, classOf: () => cls }).href, '#/class/c1?tab=practice');
+    assert.deepEqual(N.backFor('/study/c1/u2', { classId: 'c1', className: 'CS150' }, ctx), { href: '#/class/c1?tab=notes', label: 'CS150' });
+    assert.deepEqual(N.backFor('/results/x/a1', { id: 'x' }, ctx), { href: '#/progress', label: 'Progress' });
+  });
+}
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

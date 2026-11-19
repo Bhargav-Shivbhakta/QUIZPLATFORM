@@ -344,7 +344,7 @@ async function editor(main, cls, exams, classes) {
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Saving…';
     try {
-      const r = await cloud.saveClass({ id, name, course: form.course.value.trim() || exam0?.course || name.split(/\s+/)[0], term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people,
+      const r = await cloud.saveClass({ id, name, course: form.course.value.trim() || exam0?.course || (name.match(/^[A-Za-z]{2,5}\s?\d{2,4}[A-Za-z]?\b/)?.[0] || name.split(/\s+/)[0]).replace(/\s+/, ''), term: form.term.value.trim(), exams: examIds, staff: staffNow, students: people,
         color: form.querySelector('input[name=color]:checked')?.value || 'blue',
         examDates: Object.fromEntries(Object.entries(dates).filter(([k]) => examIds.includes(k))) });
       await cloud.refreshAccess();

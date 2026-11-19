@@ -6,7 +6,29 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Open
 
-_Nothing open._
+Found in the navigation audit (18 November 2026). None blocks students; each is fixed in the journey step that owns the screen.
+
+### I-7. Words that break the word list on older screens
+
+- **What:** "Quiz readiness" (7 places; the word is "readiness"), "Smart review" and "Random practice test" on the practice set page, and "programming assignment" (14), "Java program" (6) and "Coding assignments" for ungraded coding practice (the words are "coding assignment" for graded and "coding practice" for ungraded).
+- **Where:** `exam.js`, `progress.js`, `home.js`, `assignments.js`, staff screens.
+- **Fix:** with the practice journey step (practice set page) and the staff journeys.
+
+### I-8. Breadcrumbs on 16 old screens
+
+- **What:** staff pages and the old student pages still draw their own "crumbs" line. Students no longer see them (the frame's back link replaces them), but staff do, and the trail and the back link can disagree.
+- **Fix:** each screen drops its crumbs when it moves onto the page header; staff get the frame's back link with their journeys.
+
+### I-9. Error and loading wording isn't one pattern
+
+- **What:** "Couldn't load…" (17), "Couldn't save…" (16), plus "Something went wrong", "Failed to fetch" and "Error:" in a few places; loading lines vary ("Loading…", "Loading the numbers for every class…"). Screens also check Firebase error codes 34 times.
+- **Fix:** the kit's error and loading parts (DESIGN › Behaviour), with `cloud.js` turning errors into plain reasons.
+
+### I-10. Classes whose course was guessed from their name
+
+- **What:** a class saved without a Course field got the first word of its name as its course ("CS" for "CS 210 Data Structures", "Intro" for "Intro to Programming"), so titles read "Intro · Intro to Programming".
+- **Fixed for new classes:** the admin form now takes "CS210" from a name like "CS 210 Data Structures". Existing classes are shown without the repeat (`classTitle()`) and their badges use the number from the name.
+- **To do (founder, optional):** Admin › each class › fill in **Course** (for example CS150) for classes made without it.
 
 ## Fixed
 

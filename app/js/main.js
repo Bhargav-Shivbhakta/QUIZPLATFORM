@@ -46,7 +46,7 @@ const routes = [
   { re: /^\/build\/([^/]+)\/go$/, keys: ['classId'], view: () => import('./views/build-run.js'), nav: 'instructor' },
   { re: /^\/build\/([^/]+)\/review$/, keys: ['classId'], view: () => import('./views/build-review.js'), nav: 'instructor' },
   { re: /^\/take\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/take.js'), nav: 'home', focus: true, exam: true },
-  { re: /^\/settings$/, view: () => import('./views/settings.js'), nav: 'settings' },
+  { re: /^\/settings$/, view: () => import('./views/settings.js'), st: () => import('./views/st-settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
   { re: /^\/signin$/, view: () => import('./views/signin.js'), nav: '' },
   { re: /^\/(privacy|terms|ai|accessibility)$/, keys: ['page'], view: () => import('./views/policy.js'), nav: '' },

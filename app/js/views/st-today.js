@@ -12,7 +12,6 @@ import { hopTargets, classColor } from '../stshell.js';
 import { classData, examItems, clearClassData, redrawAfterFirstSync } from './st-data.js';
 import { resumeBanner } from './home.js';
 
-const GOAL = 3; // days a week; a setting later
 
 export function fillRings(root, delayMs = 0) {
   const go = () => root.querySelectorAll('.st-ring-fill[data-off]').forEach((el) => { el.style.strokeDashoffset = el.dataset.off; });
@@ -74,6 +73,7 @@ export async function render(main, params, query = {}) {
     : `<section class="st-hero cc-${cc}" aria-label="Today"><div class="st-hero-main"><p class="st-eyebrow">Today</p><div class="st-big st-big-done">${buddy('calm', { size: 56, cls: 'bd-idle' })}<b>You're up to date.</b></div><p class="st-when">Nothing is waiting. Practise anything you like, or come back when the next unit opens.</p></div><div class="st-go">${practiseMore}</div></section>`;
 
   const week = weekDays(store.getActivity(), now, dayKey);
+  const GOAL = Math.min(5, Math.max(2, Number(store.getSettings().weekGoal) || 3));
   const daysDone = week.filter((d) => d.done).length;
   const coming = comingUp(examItems(data), now, 5);
   const resume = resumeBanner();

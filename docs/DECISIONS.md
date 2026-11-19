@@ -46,3 +46,16 @@ Decided by the founder from the clickable "Student Navigation Mockup":
 - **Going live in stages:** step 1 puts the new frame (navigation, Today, class tabs, Progress, the Dot, Messages, Settings) in front of every student, with today's screens opening inside it and exams untouched. Then each feature is made flawless in turn, starting with Today's set.
 - **Who gets the new frame first:** students only (on a roster, teaching no class, not an admin). Staff screens move later, journey by journey.
 
+## 18 November 2026: one navigation for the whole app
+
+Asked by the founder ("the initials open settings; I just want Sign out… notifications should be somewhere visible… make navigation standardised").
+
+- **Four places: Today, Classes, Progress, Settings.** Settings joins the bar under Progress (and the fourth phone tab) instead of hiding behind the initials. Why: a place you visit to change things is a page, not a menu.
+- **The initials open a small account menu**: name, email, Sign out. Nothing else goes in it.
+- **The bell is top right on every page**, on every device. Why: the corner people look at for news on every site they use.
+- **Class badges show the course number** ("150", "210") in the slim bar, so a student in two CS classes can tell them apart.
+- **Every page has one way up**: a back link top left that names where it goes, decided in one tested place (`navmap.js`). The old breadcrumbs are hidden for students.
+- **A double tap on the logo refreshes** class content and saves waiting progress, at most once a minute, and never reloads the page. Why: students will tap it to "make sure"; the limit keeps Firebase reads and writes where they are.
+- **A new Settings page**: grouped cards (account, Studying, Appearance, Your data), switches and segmented controls, saved at once. Adds **Weekly goal** (2 to 5 days), which Today's "This week" uses.
+- The rules are in DESIGN › Navigation and RULES D-29 to D-34, so professor and admin screens follow the same ones when their journeys come.
+

@@ -62,6 +62,7 @@ const DEFAULT_SETTINGS = {
   editorFont: 'm',        // code editor text size
   readFont: 'standard',   // standard | easy (Lexend, wider spacing)
   contrast: 'normal',     // normal | high
+  weekGoal: 3,            // days a week a student aims to study (2–5)
 };
 export function getSettings() { return { ...DEFAULT_SETTINGS, ...get('settings', {}) }; }
 export function saveSettings(patch) { const s = { ...getSettings(), ...patch }; set('settings', s); return s; }

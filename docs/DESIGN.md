@@ -159,7 +159,37 @@ Every screen uses one of four templates. A screen doesn't invent its own width, 
 
 **Spacing:** side gutter `--cr-gutter`; header to content `--cr-space-8`; between sections `--cr-space-10`; between cards `--cr-space-6`.
 
-**Breakpoints**, the only four: phone below 640px, tablet 640 to 1023px, laptop 1024px and up, large 1440px and up. Navigation is the top bar on a laptop and the tab bar on a phone. Today the app uses six different breakpoints; they collapse to these as screens move to the templates.
+**Breakpoints**, the only four: phone below 640px, tablet 640 to 1023px, laptop 1024px and up, large 1440px and up. Navigation follows **Navigation** below. Today the app uses six different breakpoints; they collapse to these as screens move to the templates.
+
+## Navigation
+
+One frame, the same on every page, so a student never has to look for the way around. Code: `app/js/stshell.js` (the frame) and `app/js/navmap.js` (where each page sits, tested). Students have it now; professors and admins move to the same rules in their own journeys.
+
+**The four places.** Today, Classes, Progress, Settings. They are always one tap away and are the only top-level pages.
+
+| | Phone (below 640px) | Tablet (640 to 1023px) | Laptop (1024px and up) |
+|---|---|---|---|
+| Places | Bottom tabs: Today, Classes (or the class, with one class), Progress, Settings | Slim left bar: icons and class badges | Left bar with labels; the student can make it slim |
+| Logo | Top left | Top of the bar | Top of the bar |
+| Notifications (bell) | Top right | Top right | Top right |
+| Account (initials) | Top right, after the bell | Foot of the bar | Foot of the bar |
+
+**The rules**
+
+1. **One way up.** Every page that isn't a place has exactly one back link, top left, naming where it goes: "‹ Classes", "‹ CS150", "‹ Midterm 2 Practice". It always goes to the page the current one belongs to, never "the last page". The four places have none. `backFor()` decides it; a new route adds a line there and a test.
+2. **The highlight shows where you are.** The place you're in (and the class, inside a class) is marked with `aria-current="page"`. A practice set highlights its class.
+3. **Inside a page, tabs.** A class has four: Study plan, Practice, Notes, Graded work. Tabs change the address (`?tab=practice`) so back links and shared links land on the same tab. Never more than five tabs; never tabs inside tabs.
+4. **Focus pages leave the frame.** Practice sets, practice tests, exams, flashcards and the code editor fill the screen with a slim bar: Exit on the left, the set name, progress on the right. Exit goes where the set was opened from, and asks first only when work would be lost.
+5. **Settings is a place, not a menu.** The account menu (initials) holds only who you are and Sign out. Everything a student can change lives on the Settings page.
+6. **Notifications live in one corner.** The bell is top right on every frame page, with its count. Nothing else goes in that corner.
+7. **Class badges are the course number** ("150", "210"), so two classes of the same subject never look alike; letters only when a course has no number. The full name is in the label and the tooltip. A class is named with `classTitle()` so nothing is said twice ("CS 210 Data Structures", not "CS 210 · CS 210 Data Structures").
+8. **The logo goes to Today; a double tap refreshes.** A double tap or double click on the logo checks for new class content and saves anything waiting, at most once a minute ("Up to date", then "Already up to date"). It never reloads the page and never reads more than an ordinary visit.
+9. **One name per place.** The tab, the bar, the page title (`<h1>`) and the browser tab use the same word: Today, Classes, Progress, Settings. A class page's title is its `classTitle()`.
+10. **No dead ends.** Every empty, error or not-found page has a way back to a place, and says what to do next.
+11. **Links go, buttons do.** Moving to another page is a link (`<a href="#/…">`), so it opens in a new tab and works with the keyboard and screen readers. Doing something (save, start, sign out) is a button.
+12. **Addresses are nouns, lowercase, stable.** `#/class/<id>`, `#/exam/<id>`, `#/progress/<id>`. A route never changes meaning; when one is renamed the old one forwards to it.
+
+**Adding a page.** Pick its place (which page it belongs to), add the route and its line in `backFor()` with a test, give it one `<h1>` in the page header, and check it at 390 and 1280 wide. It needs no other navigation of its own.
 
 ## Parts
 
@@ -225,6 +255,7 @@ One way to do each common thing. The helpers live in `app/js/ui.js` today and mo
 | **Keyboard** | Enter sends a form; Escape closes; in practice 1 to 4 pick an answer and Enter goes on; shortcuts are shown next to the button they press | |
 | **Live numbers** | Clocks and counts update in place without moving anything; screen readers hear only changes that matter (time almost up) | `aria-live="polite"` |
 | **Copy** | "Copy" changes to "Copied" for 2 seconds | |
+| **Settings** | Each change saves at once and a quiet "Saved" appears by the title; no Save button. Switches for on/off, a segmented control for one of a few, a menu only for long lists | `st-settings.js` (`.ss-row`, `.ss-seg`, `.ss-switch`) |
 
 Database errors become plain reasons in one place (`cloud.js`), not in each screen. Today screens check "permission-denied" 34 times; that goes when the kit arrives.
 
@@ -286,6 +317,7 @@ One name for each thing, on every screen, in every email and in help text. Code 
 | graded work | Anything that counts toward a grade | assessments, timed work |
 | quiz / exam | Graded, timed, usually one attempt | test (for graded work), assessment |
 | coding assignment | A graded program with tests | programming assignment, lab, project |
+| coding practice | A practice set of ungraded programs to write and test in the browser | programming practice, Java programs |
 | attempt | One go at graded work | submission, try |
 | access code | The code a professor reads out to start an exam | password, PIN |
 
@@ -340,3 +372,4 @@ Everything that carries the Cramming name follows this file, not only the app.
 4. Checked on a phone and a laptop, in light and dark mode, and axe shows nothing.
 5. Nothing moves the page by itself; reduce motion is respected; motion follows DESIGN › Motion (Full and Soft), and the study buddy only appears at a moment from its table.
 6. Every word read aloud once.
+7. Has its place in the navigation: one back link from `backFor()` (or none, for the four places), the right highlight, and no navigation of its own (DESIGN › Navigation).
