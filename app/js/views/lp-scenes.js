@@ -1,8 +1,8 @@
 // The Dot on the landing page's screens 2 and 3 (DESIGN › The study buddy: The night before, Daily reps).
 // Spot illustrations: one character, a few props, a soft circle behind, nothing else.
 // Screen 2: on a stack of titled books, worried over an open book; its thought bubble counts the hours
-// down while the units stay at 6. Screen 3: doing reps on top of the app's own "This week" card; each
-// rep ticks a day, and a full week earns an "A".
+// down while the units stay at 6. Screen 3: watering a little plant under the app's own "This week"
+// card; each watering ticks a day and grows a leaf, and on the seventh it blooms with an "A".
 // Same body, ring and limbs as the opening (lp-hero.js). Colours come from classes in landing.css and
 // student.css. Decorative (aria-hidden): the headings say it in words. Movement runs only while a
 // scene is on screen, and not at all with reduced motion or Pause motion.
@@ -41,34 +41,47 @@ export function nightSpot() {
   </svg>`;
 }
 
-// Screen 3: daily reps on the app's "This week" card.
+// Screen 3: the Dot waters a little plant under the app's own "This week" card. Each watering ticks a
+// day and the plant grows a leaf; on the seventh it blooms, with an "A" at the heart of the flower.
+const LEAVES = [[1, 154], [-1, 145], [1, 136], [-1, 127], [1, 118], [-1, 109]];
 export function repsSpot() {
   const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const petals = [0, 72, 144, 216, 288].map((a) => `<circle cx="${(176 + 12 * Math.sin((a * Math.PI) / 180)).toFixed(1)}" cy="${(90 - 12 * Math.cos((a * Math.PI) / 180)).toFixed(1)}" r="8.5"/>`).join('');
   return `<svg class="lp-scene lp-spot lp-scene-reps" viewBox="0 0 260 224" width="260" height="224" aria-hidden="true" focusable="false">
-    <circle class="lp-spot-bg" cx="130" cy="118" r="96"/>
-    <g class="lp-badge"><circle cx="204" cy="56" r="20"/><text x="204" y="64" text-anchor="middle">A</text><path class="lp-spark" d="M204 28v-6M228 38l5-4M180 38l-5-4M230 64h6M178 64h-6"/></g>
-    <rect class="lp-ui-card" x="34" y="142" width="192" height="64" rx="14"/>
-    <text class="lp-ui-title" x="50" y="163">This week</text><text class="lp-ui-meta lp-week-count" x="210" y="163" text-anchor="end">0 of 7 days</text>
-    <g class="lp-week">${days.map((d, i) => `<g class="lp-day" transform="translate(${56 + i * 24.7} 186)"><circle r="8.5"/><path d="M-3.5 0 l2.5 2.6 l4.5 -5"/></g>`).join('')}</g>
-    <path class="lp-limb-leg" d="M120 118 L117 140 M140 118 L143 140"/><path class="lp-limb-leg" d="M110 141 h9 M141 141 h9"/>
-    <g class="lp-arm-l"><path class="lp-limb" d="M103 94 Q95 106 103 116"/></g>
-    <g class="lp-curl"><path class="lp-limb" d="M157 92 Q171 100 169 114"/><g class="lp-dumbbell"><rect x="159" y="112" width="22" height="5" rx="2.5"/><rect x="154" y="105" width="7" height="19" rx="2.5"/><rect x="179" y="105" width="7" height="19" rx="2.5"/></g></g>
-    <path class="lp-limb lp-cheer" d="M105 82 Q91 68 89 52 M155 82 Q169 68 171 52"/>
-    <g class="lp-lift"><g transform="translate(11 4)">${body('happy')}</g></g>
+    <circle class="lp-spot-bg" cx="130" cy="122" r="96"/>
+    <rect class="lp-ui-card" x="34" y="10" width="192" height="56" rx="14"/>
+    <text class="lp-ui-title" x="50" y="30">This week</text><text class="lp-ui-meta lp-week-count" x="210" y="30" text-anchor="end">0 of 7 days</text>
+    <g class="lp-week">${days.map((d, i) => `<g class="lp-day" transform="translate(${56 + i * 24.7} 47)"><circle r="8.5"/><path d="M-3.5 0 l2.5 2.6 l4.5 -5"/></g>`).join('')}</g>
+    <path class="lp-stem" d="M176 166 V94" pathLength="100"/>
+    ${LEAVES.map(([side, y]) => `<path class="lp-leaf" d="M176 ${y} q${side * 10} -11 ${side * 21} -3 q${side * -8} 9 ${side * -21} 3z"/>`).join('')}
+    <g class="lp-flower"><g class="lp-petals">${petals}</g><circle class="lp-heart" cx="176" cy="90" r="10"/><text class="lp-heart-a" x="176" y="94.5" text-anchor="middle">A</text></g>
+    <rect class="lp-pot-rim" x="152" y="164" width="48" height="9" rx="3"/><path class="lp-pot" d="M156 173 H196 L191 202 H161 Z"/>
+    <g class="lp-drops"><ellipse cx="166" cy="148" rx="1.8" ry="2.6"/><ellipse cx="170" cy="152" rx="1.8" ry="2.6"/><ellipse cx="163" cy="155" rx="1.8" ry="2.6"/></g>
+    <g class="lp-grow-dot"><path class="lp-limb-leg" d="M86 170 L84 196 M98 170 L100 196"/><path class="lp-limb-leg" d="M77 197 h8 M99 197 h8"/>
+      <path class="lp-limb" d="M72 150 Q64 162 70 172"/>
+      <g transform="translate(92 148) scale(.82) translate(-119 -86)">${body('happy')}</g>
+      <path class="lp-limb" d="M112 148 Q122 152 128 144"/></g>
+    <g class="lp-can"><path class="lp-can-body" d="M124 133 h22 v17 a3 3 0 0 1 -3 3 h-16 a3 3 0 0 1 -3 -3z"/><path class="lp-can-spout" d="M146 140 L161 128"/><path class="lp-can-handle" d="M126 133 q9 -12 18 0"/></g>
   </svg>`;
 }
 
-// Plays each scene while it is on screen. The reps scene ticks a day per curl; after seven it cheers
-// and shows its "A" for two counts, then starts the week again.
+// Plays each scene while it is on screen. The plant: one watering every 0.65 s, each ticking a day and
+// growing the plant; after seven it blooms with its "A" for 2.6 s, then the week starts again.
 export function mountScenes(lp, reduce) {
   const scenes = [...lp.querySelectorAll('.lp-scene')];
   const reps = lp.querySelector('.lp-scene-reps'), days = reps ? [...reps.querySelectorAll('.lp-day')] : [], count = reps?.querySelector('.lp-week-count');
+  const leaves = reps ? [...reps.querySelectorAll('.lp-leaf')] : [], stem = reps?.querySelector('.lp-stem');
+  const show = (n) => {
+    days.forEach((d, i) => d.classList.toggle('on', i < n));
+    leaves.forEach((l, i) => l.classList.toggle('on', i < n));
+    if (stem) stem.style.strokeDashoffset = String(100 - (n >= 7 ? 100 : 16 + n * 12));
+    if (count) count.textContent = `${n} of 7 days`;
+  };
   if (reduce || !scenes.length || !('IntersectionObserver' in window)) {
-    days.forEach((d) => d.classList.add('on'));
-    if (count) count.textContent = '7 of 7 days';
-    reps?.classList.add('won');
+    show(7); reps?.classList.add('won');
     return () => {};
   }
+  show(0);
   // the thought bubble: the hours run down from 6 to 1 while the units stay at 6, then start again
   const hours = [...lp.querySelectorAll('.lp-hours')];
   let h = 6;
@@ -77,18 +90,21 @@ export function mountScenes(lp, reduce) {
     h = h <= 1 ? 6 : h - 1;
     hours.forEach((el) => { el.textContent = `${h} hour${h === 1 ? '' : 's'} left`; el.classList.remove('lp-tick'); void el.getBBox(); el.classList.add('lp-tick'); });
   }, 2600);
-  let n = 0, timer = 0;
+  let n = 0, timer = 0, grow = 0;
   const tick = () => {
     if (lp.classList.contains('paused')) return;
-    n = (n + 1) % 10;
-    days.forEach((d, i) => d.classList.toggle('on', i < Math.min(n, 7)));
-    if (count) count.textContent = `${Math.min(n, 7)} of 7 days`;
-    reps.classList.toggle('won', n >= 8);
+    n = (n + 1) % 12; // 1–7: a watering each; 8: bloom; 9–11: the bloom stays; 0: a fresh week
+    if (n === 0) { reps.classList.remove('won'); show(0); return; }
+    if (n <= 7) {
+      reps.classList.remove('pour'); void reps.getBBox(); reps.classList.add('pour'); // tilt the can once
+      clearTimeout(grow); const d = n; grow = setTimeout(() => show(d), 420); // the plant grows as the water lands
+    }
+    if (n === 8) { reps.classList.remove('pour'); reps.classList.add('won'); }
   };
   const io = new IntersectionObserver((es) => es.forEach((e) => {
     e.target.classList.toggle('playing', e.isIntersecting);
-    if (e.target === reps) { clearInterval(timer); if (e.isIntersecting) timer = setInterval(tick, 1600); }
+    if (e.target === reps) { clearInterval(timer); if (e.isIntersecting) { tick(); timer = setInterval(tick, 650); } }
   }), { threshold: 0.4 });
   scenes.forEach((s) => io.observe(s));
-  return () => { io.disconnect(); clearInterval(timer); clearInterval(clock); };
+  return () => { io.disconnect(); clearInterval(timer); clearTimeout(grow); clearInterval(clock); };
 }

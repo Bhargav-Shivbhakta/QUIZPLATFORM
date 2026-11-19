@@ -445,7 +445,25 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-scene .lp-moon { fill: var(--cr-class-gold-band); }
 .lp-scene .lp-limb { fill: none; stroke: var(--cr-accent-hover); stroke-width: 5; stroke-linecap: round; }
 .lp-scene .lp-limb-leg { fill: none; stroke: var(--cr-ink); stroke-width: 4.5; stroke-linecap: round; }
-.lp-scene .lp-dumbbell rect { fill: var(--cr-ink); }
+/* screen 3: the plant grows a leaf a day; the can tilts once per day; on day seven it blooms */
+.lp-scene .lp-pot { fill: var(--cr-class-orange-band); } .lp-scene .lp-pot-rim { fill: var(--cr-class-orange); }
+.lp-scene .lp-stem { fill: none; stroke: var(--cr-right); stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 84; transition: stroke-dashoffset .4s var(--cr-ease); }
+.lp-scene .lp-leaf { fill: var(--cr-right); opacity: 0; transform: scale(.2); transform-box: fill-box; transform-origin: 0% 100%; transition: opacity .25s, transform .45s cubic-bezier(.3,1.5,.5,1); }
+.lp-scene .lp-leaf:nth-of-type(even) { transform-origin: 100% 100%; }
+.lp-scene .lp-leaf.on { opacity: 1; transform: none; }
+.lp-scene .lp-flower { opacity: 0; transform: scale(.3); transform-box: fill-box; transform-origin: 50% 80%; transition: opacity .25s, transform .55s cubic-bezier(.3,1.6,.5,1); }
+.lp-scene .lp-petals circle { fill: var(--cr-class-gold-band); }
+.lp-scene .lp-heart { fill: var(--cr-right); } .lp-scene .lp-heart-a { fill: var(--cr-white); font: 800 13px var(--cr-font); }
+.lp-scene.won .lp-flower { opacity: 1; transform: none; }
+.lp-scene .lp-can-body { fill: var(--cr-class-teal-band); } .lp-scene .lp-can-spout, .lp-scene .lp-can-handle { fill: none; stroke: var(--cr-class-teal-band); stroke-width: 3.5; stroke-linecap: round; }
+.lp-scene .lp-can { transform-box: view-box; transform-origin: 128px 144px; }
+.lp-scene .lp-drops ellipse { fill: var(--cr-class-blue-band); opacity: 0; }
+.lp-scene.playing.pour .lp-can { animation: lp-pour .6s ease-in-out; }
+.lp-scene.playing.pour .lp-drops ellipse { animation: lp-drip .6s ease-in; } .lp-scene.playing.pour .lp-drops ellipse + ellipse { animation-delay: .05s; }
+.lp-scene.playing.won .lp-grow-dot { animation: lp-joy .9s ease-in-out 2; transform-box: view-box; transform-origin: 92px 196px; }
+@keyframes lp-pour { 0%, 100% { transform: none; } 30%, 65% { transform: rotate(26deg); } }
+@keyframes lp-drip { 0%, 30% { opacity: 0; transform: none; } 40% { opacity: 1; } 85% { opacity: .8; transform: translateY(12px); } 100% { opacity: 0; transform: translateY(14px); } }
+@keyframes lp-joy { 0%, 100% { transform: none; } 40% { transform: translateY(-6px); } 70% { transform: scale(1.04, .96); } }
 .lp-scene .lp-day circle { fill: none; stroke: var(--cr-line-2); stroke-width: 2; transition: fill .35s var(--cr-ease), stroke .35s var(--cr-ease); }
 .lp-scene .lp-day path { fill: none; stroke: var(--cr-accent-ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; transition: opacity .3s .1s; }
 .lp-scene .lp-day.on circle { fill: var(--cr-accent); stroke: var(--cr-accent); }
@@ -454,15 +472,10 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-scene .lp-badge { opacity: 0; transform: scale(.4); transform-box: fill-box; transform-origin: center; transition: opacity .3s, transform .5s cubic-bezier(.3,1.6,.5,1); }
 .lp-scene .lp-badge circle { fill: var(--cr-right); } .lp-scene .lp-badge text { fill: var(--cr-white); font: 800 24px var(--cr-font); }
 .lp-scene .lp-spark { fill: none; stroke: var(--cr-class-gold-band); stroke-width: 3; stroke-linecap: round; }
-.lp-scene .lp-cheer { opacity: 0; }
 .lp-scene.won .lp-badge { opacity: 1; transform: none; }
-.lp-scene.won .lp-cheer { opacity: 1; }
-.lp-scene.won .lp-curl, .lp-scene.won .lp-arm-l { opacity: 0; }
 /* movement: slow, only while on screen. One 16 s day: the sun crosses the window, night falls, morning returns. */
 .lp-scene .lp-orbit { transform-box: view-box; transform-origin: 150px 125px; }
 .lp-scene .lp-nod { transform-box: view-box; transform-origin: 150px 148px; }
-.lp-scene .lp-curl { transform-box: view-box; transform-origin: 146px 88px; }
-.lp-scene .lp-lift { transform-box: view-box; transform-origin: 119px 114px; }
 .lp-scene.playing .lp-orbit { animation: lp-orbit 16s cubic-bezier(.45,.05,.55,.95) infinite; }
 .lp-scene.playing .lp-sky-night { animation: lp-night 16s ease-in-out infinite; }
 .lp-scene.playing .lp-star { animation: lp-night 16s ease-in-out infinite, lp-twinkle 1.8s ease-in-out infinite; }
@@ -474,9 +487,6 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-scene.playing .lp-flip { animation: lp-flip 5.3s ease-in-out infinite; }
 .lp-scene.playing .lp-steam { animation: lp-steam 3s ease-in-out infinite; }
 .lp-scene.playing .lp-lap-line { animation: lp-type 2.4s steps(4) infinite; }
-.lp-scene.playing:not(.won) .lp-curl { animation: lp-curl 1.6s cubic-bezier(.45,.05,.55,.95) infinite; }
-.lp-scene.playing:not(.won) .lp-lift { animation: lp-effort 1.6s ease-in-out infinite; }
-.lp-scene.playing.won .lp-lift { animation: lp-hop .8s ease-in-out infinite; }
 .lp.paused .lp-scene * { animation-play-state: paused !important; }
 @keyframes lp-orbit { 0%, 12% { transform: rotate(0deg); } 44%, 62% { transform: rotate(180deg); } 94%, 100% { transform: rotate(360deg); } }
 @keyframes lp-night { 0%, 16% { opacity: 0; } 40%, 66% { opacity: 1; } 90%, 100% { opacity: 0; } }
@@ -486,8 +496,6 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 @keyframes lp-nodding { 0%, 44%, 100% { transform: none; } 50% { transform: rotate(-5deg) translateY(2px); } 53% { transform: rotate(-1deg); } 58% { transform: rotate(-6deg) translateY(3px); } 62%, 66% { transform: none; } 72% { transform: translateY(-3px); } 76% { transform: none; } }
 @keyframes lp-flip { 0%, 70%, 100% { transform: scaleX(1); } 85% { transform: scaleX(-1); opacity: 1; } 86% { opacity: 0; } 99% { transform: scaleX(1); opacity: 0; } }
 @keyframes lp-steam { 0% { opacity: 0; transform: translateY(4px); } 40% { opacity: .55; } 100% { opacity: 0; transform: translateY(-8px); } }
-@keyframes lp-curl { 0%, 100% { transform: rotate(0deg); } 45%, 55% { transform: rotate(-118deg); } }
-@keyframes lp-effort { 0%, 100% { transform: none; } 50% { transform: scale(1.02, .98); } }
 /* screen 2, side view: thought bubble, titled books, the laptop facing the Dot */
 .lp-scene .lp-spine { fill: var(--cr-white); font: 800 6.6px var(--cr-font); letter-spacing: .08em; }
 .lp-scene .lp-bub { fill: var(--cr-surface); stroke: var(--cr-line-2); stroke-width: 1.6; }
@@ -527,4 +535,3 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-spot-night .lp-flip { transform-box: view-box; transform-origin: 165px 158px; }
 @keyframes lp-worry { 0%, 100% { transform: none; } 50% { transform: translateY(1.5px) rotate(-1deg); } }
 @keyframes lp-type { 0% { stroke-dasharray: 0 40; } 100% { stroke-dasharray: 40 0; } }
-@keyframes lp-hop { 0%, 100% { transform: none; } 40% { transform: translateY(-8px); } 70% { transform: scale(1.05, .95); } }

@@ -9,6 +9,8 @@ One entry for every upload to the live site, newest first. Each entry says what 
 - **A reading zone before the blur:** the screen you're leaving stays sharp until it is mostly scrolled away, then blurs.
 - **The opening fills large screens:** the name, tagline and line scale with the window's height and sit at the optical centre, so there are no empty bands above and below.
 - **Header:** more room between the links, and Request access set apart from Sign in.
+- **Screen 3:** the Dot now waters a little plant under the "This week" card (the card sits on top). Each watering ticks a day and grows a leaf; on the seventh day, about 5 seconds in, the plant blooms with an "A" at its heart.
+- **Screen 2 words:** "Most students start the night before the exam and try to cover every unit in a few hours." and "Students find out which concepts they misunderstood once the exam results are out, and that is also when educators first see which concepts the class needs more time on."
 - **Tested:** all automated tests; paging timed in the browser on a small laptop, laptop and large screen (one swipe moves exactly one screen, both ways, long screens scroll to their end first); header links land each screen under the header; the whole app with version tags (sign-in, admin, landing); phone; no errors.
 
 ## 19 November 2026: the landing page's story, screens 2 and 3

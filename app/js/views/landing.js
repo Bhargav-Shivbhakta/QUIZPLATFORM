@@ -63,8 +63,8 @@ function markup() {
       ${nightSpot()}
     </div>
     <div class="points">${points([
-      ['Studying starts late', 'Most students start the night before the exam, and spend that time rereading.'],
-      ['Feedback arrives after the exam results', 'Students discover what they misunderstood once the exam results are out.'],
+      ['Studying starts late', 'Most students start the night before the exam and try to cover every unit in a few hours.'],
+      ['Feedback arrives after the exam results', 'Students find out which concepts they misunderstood once the exam results are out, and that is also when educators first see which concepts the class needs more time on.'],
       ['Every student learns differently', 'In a large lecture, each student has their own pace and pattern, so drafting personalized practice for every one of them can be challenging.'],
     ])}</div>
     <p class="lp-lead lp-turn reveal">Cramming solves all three, starting from the materials the educator already has.</p>
