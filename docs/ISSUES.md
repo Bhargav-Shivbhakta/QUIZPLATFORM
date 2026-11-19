@@ -37,6 +37,12 @@ Found in the navigation audit (18 November 2026). None blocks students; each is 
 
 ## Fixed
 
+### I-14. A new upload didn't show on the live site (fixed)
+
+- **What:** after the 19 November upload, the live landing page still showed the old screens 2 and 3, although GitHub had the new files and the publish check had passed.
+- **Cause:** GitHub Pages lets browsers keep each file for 10 minutes, and the file names never change, so browsers kept the old copies (and could mix old and new files).
+- **Fix:** the build (`scripts/build.mjs`, `stampVersions`) adds a version tag made from the files' contents to every script, style sheet and import (`main.js?v=…`), so each release has new addresses and the page always loads its own matching files. The page itself (index.html) can still be kept for up to 10 minutes, which GitHub Pages doesn't let us change; a refresh shows the new one. Checked: every relative import in the built site is tagged, and the whole app runs with the tags.
+
 ### I-12. Pause motion on the landing page caused an error
 
 - **Found:** 18 November 2026, while testing the new first screen.

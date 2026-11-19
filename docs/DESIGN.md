@@ -166,7 +166,9 @@ Every screen uses one of four templates. A screen doesn't invent its own width, 
 
 ## The landing page
 
-- **One screen at a time.** Each section of the landing page fills the window under the header with its content centred, so the next screen appears only when the visitor scrolls. The screen being left blurs and fades with the scroll; with reduced motion it simply scrolls.
+- **One screen at a time.** Each section of the landing page fills the window under the header with its content centred, so the next screen appears only when the visitor scrolls. The screen being left stays sharp until it is mostly scrolled away (its bottom past 60% of the window), then blurs and fades; with reduced motion it simply scrolls.
+- **Small scroll, whole screen.** One small turn of the wheel or one light trackpad swipe glides to the next screen, and the swipe's leftover momentum is ignored so a screen is never skipped. A screen taller than the window scrolls normally to its end first. Screens settle into place under the header (CSS snapping); keyboard, scrollbar and touch keep the browser's own scrolling. Off with reduced motion and Pause motion.
+- **The opening fills the screen.** Its type scales with the window's height, and the block sits a little above the middle (the optical centre), so a large screen shows no empty bands.
 - **One story, in order:** the opening, the challenge, how Cramming helps, then the product. Each screen has one heading, one picture and at most three points; headings carry the message without a line under them.
 
 ## Navigation

@@ -2,7 +2,16 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: the landing page's story, screens 2 and 3
+## 19 November 2026: one screen per scroll, and uploads always load whole
+
+- **Uploads always load whole.** Every file the site loads now carries a version tag that changes with each release. Once a browser has the new page, it fetches all the new files together, never a mix of old and new. The page itself can still be up to 10 minutes old after an upload (GitHub's limit); a refresh shows it at once. See I-14.
+- **One small scroll, one screen:** a light trackpad swipe or one turn of the wheel glides to the next screen, and screens settle into place under the header. Long screens scroll normally to their end first. The header's links glide smoothly to their screens.
+- **A reading zone before the blur:** the screen you're leaving stays sharp until it is mostly scrolled away, then blurs.
+- **The opening fills large screens:** the name, tagline and line scale with the window's height and sit at the optical centre, so there are no empty bands above and below.
+- **Header:** more room between the links, and Request access set apart from Sign in.
+- **Tested:** all automated tests; paging timed in the browser on a small laptop, laptop and large screen (one swipe moves exactly one screen, both ways, long screens scroll to their end first); header links land each screen under the header; the whole app with version tags (sign-in, admin, landing); phone; no errors.
+
+## 19 November 2026: the landing page's story, screens 2 and 3
 
 The landing page now tells one story in order: the opening, **the challenge**, **how Cramming helps**, then the product.
 - **Screen 2, The challenge:** "Most studying happens the night before." in large type, with the Dot on the right: sitting on a stack of titled books (Biology, Statistics, Calculus), holding an open book, worried but cute, while its thought bubble reads "6 units to go" and the hours count down from 6. Three points: studying starts late, feedback arrives after the exam results, every student learns differently. It ends: "Cramming solves all three, starting from the materials the educator already has."

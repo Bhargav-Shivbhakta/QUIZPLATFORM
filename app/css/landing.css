@@ -22,6 +22,10 @@ body.landing-mode main#main { padding: 0; max-width: none; }
 .lp > section.sec { padding-block: clamp(48px, 8vh, 96px); }
 .lp > section.lp-dark, .lp > section.lp-band { margin-top: 0; }
 .lp > section[style*="--out"] > * { filter: blur(calc(var(--out) * 10px)); opacity: calc(1 - var(--out) * .75); }
+/* screens settle into place under the header; one small wheel or swipe moves one screen (lp-paging.js) */
+html:has(.lp > section.lp-intro) { scroll-snap-type: y proximity; scroll-padding-top: 53px; }
+.lp > section { scroll-snap-align: start; }
+.lp-foot { scroll-snap-align: end; }
 .lp .lp-center { text-align: center; display: flex; flex-direction: column; align-items: center; }
 .lp .lp-eyebrow { font-size: 17px; font-weight: 500; color: var(--cr-ink-2); }
 .lp .h2 { font-size: clamp(34px, min(5.2vw, 8vh), 60px); line-height: 1.06; font-weight: 700; letter-spacing: -0.035em; text-wrap: balance; max-width: 840px; }
@@ -42,8 +46,9 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-brand { display: flex; gap: 9px; align-items: center; color: var(--cr-ink) !important; font-weight: 600; font-size: 16px; letter-spacing: -0.01em; }
 .lp-brand svg circle { fill: none; stroke: var(--cr-ink); stroke-width: 1.6; }
 .lp-brand svg circle.filled { fill: var(--cr-accent); stroke: var(--cr-accent); }
-.lp-nav { display: flex; gap: 2px; align-items: center; font-size: 14px; }
-.lp-nav a.link { padding: 10px 12px; color: var(--cr-ink); border-radius: 999px; transition: background-color .25s; }
+.lp-nav { display: flex; gap: clamp(2px, 1vw, 10px); align-items: center; font-size: 14px; }
+.lp-nav [data-request] { margin-left: clamp(4px, 1.2vw, 14px); }
+.lp-nav a.link { padding: 10px 14px; color: var(--cr-ink); border-radius: 999px; transition: background-color .25s; }
 .lp-nav a.link:hover { background: var(--cr-soft); }
 .lp-progress { height: 2px; background: var(--cr-accent); transform-origin: 0 50%; transform: scaleX(var(--progress, 0)); }
 
@@ -62,13 +67,14 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 /* hero */
 .lp-hero { gap: clamp(14px, 2.4vh, 22px); }
 /* the first screen fills the window on its own; the product preview starts below the fold */
-.lp-hero-top { min-height: calc(100svh - 53px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(14px, 2.4vh, 22px); padding: clamp(20px, 4vh, 48px) 0 clamp(36px, 7vh, 72px); }
+.lp-hero-top { min-height: calc(100svh - 53px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(14px, 2.4vh, 22px); padding: clamp(16px, 3vh, 40px) 0 clamp(40px, 11vh, 120px); }
+.lp-hero-top .lp-mark { width: clamp(40px, 7vh, 72px); height: auto; }
 @media (max-width: 700px) { .lp-hero-top { min-height: calc(100svh - 53px - 66px); } } /* room for the Request access bar at the bottom */
-.lp-hero h1 { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.2vh, 14px); max-width: 940px; font-weight: 700; letter-spacing: -0.04em; }
-.lp-hero .lp-name { font-size: clamp(48px, min(8.4vw, 12vh), 104px); line-height: 1; }
-.lp-hero .lp-tag { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .28em; font-size: clamp(26px, min(4vw, 5.6vh), 48px); line-height: 1.1; letter-spacing: -0.03em; color: var(--cr-accent); perspective: 600px; }
+.lp-hero h1 { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.4vh, 16px); max-width: 1100px; font-weight: 700; letter-spacing: -0.04em; }
+.lp-hero .lp-name { font-size: clamp(48px, min(10vw, 16vh), 150px); line-height: 1; }
+.lp-hero .lp-tag { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .28em; font-size: clamp(26px, min(4.8vw, 7.4vh), 68px); line-height: 1.1; letter-spacing: -0.03em; color: var(--cr-accent); perspective: 600px; }
 .lp-hero .lp-tag > span { display: inline-block; }
-.lp-hero .lp-lead { font-size: clamp(17px, min(2vw, 2.7vh), 22px); }
+.lp-hero .lp-lead { font-size: clamp(17px, min(2vw, 3vh), 26px); max-width: 30em; }
 .lp-hero .ctas { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; justify-content: center; }
 .lp-stage { position: relative; width: min(100%, 1080px, 160vh); margin: clamp(28px, 6vh, 56px) auto 0; }
 .lp-glow { position: absolute; inset: -6% -10% -14%; pointer-events: none; background: radial-gradient(50% 50% at 50% 55%, color-mix(in srgb, var(--cr-accent) 16%, transparent), transparent 72%); }

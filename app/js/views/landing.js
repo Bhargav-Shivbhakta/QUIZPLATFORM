@@ -5,7 +5,7 @@
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
 import { readingDot, playHero } from './lp-hero.js';
-import { nightSpot, repsSpot, mountScenes } from './lp-scenes.js';
+import { nightSpot, repsSpot, mountScenes } from './lp-scenes.js'; import { mountPaging } from './lp-paging.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
@@ -270,13 +270,13 @@ function markup() {
 </div>`;
 }
 
-// Eased scroll to a section, so a jump glides instead of flashing the whole page past.
+// Eased scroll to a section, so a jump glides instead of flashing the whole page past (snapping paused meanwhile).
 function glideTo(el, reduce) {
-  const head = 56, y = el.getBoundingClientRect().top + scrollY - head;
+  const head = 53, y = el.getBoundingClientRect().top + scrollY - head;
   if (reduce) { scrollTo(0, y); return; }
   const from = scrollY, dist = y - from, dur = Math.min(1400, 600 + Math.abs(dist) * 0.12), t0 = performance.now();
-  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-  const step = (now) => { const t = Math.min(1, (now - t0) / dur); scrollTo(0, from + dist * ease(t)); if (t < 1) requestAnimationFrame(step); };
+  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), root = document.documentElement.style; root.scrollSnapType = 'none';
+  const step = (now) => { const t = Math.min(1, (now - t0) / dur); scrollTo(0, from + dist * ease(t)); if (t < 1) requestAnimationFrame(step); else root.scrollSnapType = ''; };
   requestAnimationFrame(step);
 }
 
@@ -292,7 +292,7 @@ export async function render(main, params = {}, query = {}) {
 
   // the opening: the logo, the name, the tagline, then the Dot's walk to Request access (lp-hero.js)
   if (!reduce) offs.push(playHero(lp.querySelector('.lp-intro'), lp));
-  offs.push(mountScenes(lp, reduce));
+  offs.push(mountScenes(lp, reduce), mountPaging(lp, reduce));
 
   // reveals
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
@@ -306,8 +306,8 @@ export async function render(main, params = {}, query = {}) {
     ticking = false;
     const vh = innerHeight, max = document.documentElement.scrollHeight - vh;
     bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max).toFixed(4) : 0})`;
-    if (!reduce) screens.forEach((sc) => { // the screen being left blurs and fades with the scroll
-      const r = sc.getBoundingClientRect(), out = r.top < 0 ? Math.min(1, Math.max(0, 1 - r.bottom / vh)) : 0;
+    if (!reduce) screens.forEach((sc) => { // the screen being left stays sharp until its bottom passes 60% of the window, then blurs (fully at 10%)
+      const r = sc.getBoundingClientRect(), out = r.top < 0 ? Math.min(1, Math.max(0, (0.6 - r.bottom / vh) / 0.5)) : 0;
       if (out > 0.005) sc.style.setProperty('--out', out.toFixed(3)); else sc.style.removeProperty('--out');
     });
   };

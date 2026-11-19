@@ -235,9 +235,36 @@ export function buildAll({ write = true, quiet = false } = {}) {
   manifest.exams.sort((a, b) => (a.course || '').localeCompare(b.course || '', undefined, { numeric: true }) || (b.active - a.active) || (a.archived - b.archived) || (a.order - b.order) || a.title.localeCompare(b.title));
   fs.writeFileSync(path.join(dataDir, 'exams.json'), JSON.stringify(manifest, null, 1));
   fs.writeFileSync(path.join(DIST, '.nojekyll'), '');
+  stampVersions(DIST);
 
   log(green(bold(`\nBuilt ${manifest.exams.length} exam${manifest.exams.length === 1 ? '' : 's'} into dist/`)) + (warnCount ? yellow(` (${warnCount} warning${warnCount > 1 ? 's' : ''})`) : ''));
   return { ok: true, errorCount, warnCount };
+}
+
+// Every release gets its own file addresses. GitHub Pages lets browsers keep files for 10 minutes, and
+// our files have fixed names, so after an upload a browser could mix new files with old ones (a new page
+// with an old stylesheet) or keep showing the old page. Each JS and CSS address in dist/ gets ?v=<version>,
+// where the version is a hash of the code, so a new release is fetched whole and an unchanged one stays
+// cached. Every relative address is stamped the same way, so each module still loads once.
+export function stampVersions(dir) {
+  const files = [];
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((f) => { const p = path.join(d, f.name); if (f.isDirectory()) walk(p); else if (/\.(js|mjs|css|html)$/.test(f.name)) files.push(p); });
+  walk(dir);
+  const v = crypto.createHash('sha1').update(files.sort().map((f) => fs.readFileSync(f)).join('\n')).digest('hex').slice(0, 10);
+  const tag = (u) => `${u}?v=${v}`;
+  for (const f of files) {
+    let t = fs.readFileSync(f, 'utf8');
+    const before = t;
+    if (/\.(m?js)$/.test(f)) {
+      // import ... from './x.js'   export ... from '../x.js'   import('./x.js')   import './x.js'   new URL('./x.js', import.meta.url)
+      t = t.replace(/((?:\bfrom|\bimport)\s*\(?\s*|new URL\(\s*)(['"])(\.{1,2}\/[^'"?]+\.(?:m?js|css))\2/g, (m, pre, q, u) => `${pre}${q}${tag(u)}${q}`);
+      t = t.replace(/(['"])(css\/[a-z0-9-]+\.css)\1/g, (m, q, u) => `${q}${tag(u)}${q}`);
+    } else if (f.endsWith('.html')) {
+      t = t.replace(/((?:src|href)=")((?:js|css|vendor)\/[^"?]+\.(?:m?js|css))"/g, (m, pre, u) => `${pre}${tag(u)}"`);
+    }
+    if (t !== before) fs.writeFileSync(f, t);
+  }
+  return v;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
