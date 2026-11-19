@@ -424,6 +424,11 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp .lp-h-mid { font-size: clamp(30px, min(3.8vw, 6.6vh), 50px); line-height: 1.06; letter-spacing: -0.035em; text-wrap: balance; }
 .lp .lp-sr { align-items: center; } .lp .lp-sr > .stack { flex: 1 1 320px; align-items: flex-start; text-align: left; } .lp .lp-sr > figure { flex: 1.5 1 440px; margin: 0; }
 .lp-sr .lp-lead { margin-left: 0; text-wrap: pretty; }
+/* screens that need every pixel on a small laptop */
+.lp > .lp-fit { padding-block: clamp(16px, 3vh, 56px); }
+.lp-fit .lp-panel { padding-block: clamp(24px, 5vh, 72px); }
+.lp-fit .lp-checks { gap: clamp(6px, 1.2vh, 12px); }
+.lp-fit .lp-h-mid { font-size: clamp(28px, min(3.4vw, 6vh), 50px); }
 .lp-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 72px); align-items: stretch; }
 .lp-duo-col { align-items: flex-start; text-align: left; }
 .lp-duo-col .lp-lead { margin-left: 0; text-wrap: pretty; font-size: clamp(16px, min(1.5vw, 2.3vh), 18px); }

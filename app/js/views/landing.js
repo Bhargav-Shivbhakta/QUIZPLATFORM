@@ -132,13 +132,13 @@ function markup() {
     </div>
   </section>
 
-  <section id="professors" class="wrap sec" aria-labelledby="pf-h">
+  <section id="professors" class="wrap sec lp-fit" aria-labelledby="pf-h">
     <div class="lp-panel split reveal">
       <div class="stack">
-        <p class="lp-eyebrow">For professors</p>
+        <p class="lp-eyebrow">For educators</p>
         <h2 id="pf-h" class="h2 lp-h-mid">Your materials in. A complete course out.</h2>
-        <p class="lp-lead">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
-        <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
+        <p class="lp-lead">Upload your slides, notes and past exams. Cramming makes notes, practice and quizzes for every unit, checks every answer key twice, then waits for your review. Students see it once you publish.</p>
+        <ul class="lp-checks">${['Built from the materials you upload', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
       </div>
       <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
         <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
@@ -148,29 +148,29 @@ function markup() {
     </div>
   </section>
 
-  <section class="wrap sec" aria-label="AI tutor and class dashboard">
+  <section class="wrap sec lp-fit" aria-label="Course tutor and class dashboard">
     <div class="lp-duo">
     <div class="stack reveal lp-duo-col">
-      <p class="lp-eyebrow">For students · AI tutor</p>
-      <h2 id="tu-h" class="h2 lp-h-mid">AI that stays inside the course.</h2>
-      <p class="lp-lead">Students can connect the AI they already use to their course. It reads only the units the professor has opened, and it switches off while a quiz or exam is running. The professor can turn it off for the whole class with one switch.</p>
-      <div class="card lp-chat lp-lift" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
+      <p class="lp-eyebrow">For students · Course tutor</p>
+      <h2 id="tu-h" class="h2 lp-h-mid">Help that stays inside the course.</h2>
+      <p class="lp-lead">Students can connect the AI they already use to their course. It reads only the units the educator has opened and pauses while a quiz or exam is open. The educator can turn it off for the whole class with one switch.</p>
+      <div class="card lp-chat lp-lift" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor leaves the quiz to the student and offers to go through the topic from the unit notes once the quiz closes.">
         <small>MATH 150 tutor · Quiz 3 is open</small>
         <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
-        <div class="ai">Quiz 3 is open right now, so I can't help with it. When it closes, I can walk you through the chain rule using your Unit 4 notes.</div>
+        <div class="ai">Quiz 3 is open right now, so this one is yours. When it closes, I'll walk you through the chain rule using your Unit 4 notes.</div>
       </div>
     </div>
     <div class="stack reveal lp-duo-col">
-      <p class="lp-eyebrow">For professors · Class dashboard</p>
-      <h2 id="da-h" class="h2 lp-h-mid">Spot who's struggling before the exam.</h2>
-      <p class="lp-lead">See the questions most of your class gets wrong and the students who haven't started, so you can fix a misunderstanding in Tuesday's lecture instead of after the midterm.</p>
-      <div class="card lp-dash lp-lift" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
+      <p class="lp-eyebrow">For educators · Class dashboard</p>
+      <h2 id="da-h" class="h2 lp-h-mid">See what to reteach, weeks before the exam.</h2>
+      <p class="lp-lead">See the questions your class finds hardest and the students yet to begin, so Tuesday's lecture can clear up a concept well before the midterm.</p>
+      <div class="card lp-dash lp-lift" role="img" aria-label="Example class dashboard: the two hardest questions this week, 36 and 59 percent correct, and 9 students yet to begin the quiz.">
         <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
         <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
-          <small style="font-size:13px;color:var(--ink-3)">Most missed</small>
-          <div class="lp-row"><span>Q7 · The chain rule, nested functions</span><b>64% wrong</b></div><div class="lp-track"><b style="--w:64%"></b></div>
-          <div class="lp-row"><span>Q3 · Limits at infinity</span><b>41% wrong</b></div><div class="lp-track"><b style="--w:41%;opacity:.55"></b></div>
-          <div class="alert">9 students signed in but haven't started Quiz 3.</div>
+          <small style="font-size:13px;color:var(--ink-3)">Hardest this week</small>
+          <div class="lp-row"><span>Q7 · The chain rule, nested functions</span><b>36% correct</b></div><div class="lp-track"><b style="--w:36%"></b></div>
+          <div class="lp-row"><span>Q3 · Limits at infinity</span><b>59% correct</b></div><div class="lp-track"><b style="--w:59%;opacity:.55"></b></div>
+          <div class="alert">9 students are yet to begin Quiz 3.</div>
         </div>
       </div>
     </div>
@@ -182,7 +182,7 @@ function markup() {
     <div class="stack reveal">
       <p class="lp-eyebrow">Spaced review</p>
       <h2 id="sr-h" class="h2 lp-h-mid">Learn it once. Keep it for the exam.</h2>
-      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. Get a question wrong, and its gaps start again.</p>
+      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. When a question needs another try, its gaps start again.</p>
     </div>
     <figure class="card lp-curve reveal">
       <p class="axis">How much you remember</p>
@@ -225,15 +225,6 @@ function markup() {
       ['Written answers', 'Longer answers in exams, graded by the professor and TAs.'],
       ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
     ])}</div>
-  </section>
-
-  <section id="how" class="wrap sec" aria-labelledby="hw-h">
-    <div class="lp-center stack reveal"><p class="lp-eyebrow">For professors · How it starts</p><h2 id="hw-h" class="h2">Three steps. No big project.</h2></div>
-    <ol class="lp-steps">${[
-      ['Request access', "Tell us who you are and the course you'd start with. It takes a minute."],
-      ['We build it with you', 'Upload your materials and approve the course map. We help you through your first build and review.'],
-      ['Students start that week', 'Share the class link. Each student gets a plan for the units you have opened.'],
-    ].map(([h, p], i) => `<li class="card lp-lift reveal" style="--d:${i * 0.08}s"><span class="n">${i + 1}</span><h3>${h}</h3><p>${p}</p></li>`).join('')}</ol>
   </section>
 
   <section class="lp-band" aria-labelledby="tr-h">
