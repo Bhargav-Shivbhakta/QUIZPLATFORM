@@ -2,6 +2,44 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 19 November 2026: one type scale, quicker paging, and every screen fits
+
+- **One type scale on every screen:** every screen's heading is the same size (up to 68 px, scaling with the window), every lead line the same (up to 20 px), every point title 18 px and every point 16 px. Before, sizes drifted from screen to screen (Privacy and Graded exams had become smaller).
+- **Every screen fits one window** at 1275 × 696, 1280 × 800, 1440 × 900, 1536 × 864 and 1920 × 1080: on short windows the cards scale a little, and the side-by-side screens keep tighter padding.
+- **Quicker paging:** the glide between screens now starts fast and lands softly (about 0.6 s, was about 0.7 s plus a pause). A new swipe is recognised at once, even mid-glide, and the next screen follows straight after; the arrow, Page and space keys page too (not while typing, and space still presses buttons).
+- **Graded exams:** "Straight to Canvas" is now "Straight to your gradebook: scores export as a spreadsheet your learning platform imports, with a ready-made file for Canvas."
+- **Words:** the course tutor's line is shorter ("Students connect the AI they already use. It reads only the units the educator has opened, and pauses during quizzes and exams."), the class dashboard heading is "See what to reteach, early.", and the practice line says "each attempt" instead of "a mistake".
+- **Tested:** all automated tests; paging timed in the browser (single swipes, two quick swipes, one wheel notch, keys); every screen measured at the five sizes above.
+
+## 19 November 2026: exams and privacy side by side, and a clearer story order
+
+- **New order:** opening → the challenge → how Cramming helps → for students → practice → for educators → subjects → course tutor and class dashboard → graded exams → the science (spaced review) → privacy and access → questions → the end. Students first, then educators, then why it works and why it is safe.
+- **Graded exams** is side by side: the words and four short points on the left; on the right, the live exam view an educator watches during a midterm: the access code for the projector, the time left counting down, how many are working, submitted or yet to begin, a student who left the exam window once, and a student with 15 minutes of extra time. It plays while on screen and holds still with reduced motion or Pause motion. (`views/lp-live.js`)
+- **Privacy and access** is side by side, with the Dot standing guard on the right: a shield in hand and a padlock that clicks shut.
+- **Words:** "educator" throughout both screens, and "Student work stays private" in place of "No student work in AI".
+- Spaced review's eyebrow is now "The science · Spaced review".
+- New ISSUES entry I-15: the chemistry balancing buttons and the biology diagram question on the Subjects screen get built, with question styles for every subject, when the educators' side is updated.
+- **Tested:** all automated tests; both screens in light and dark, at laptop, small laptop and phone sizes; each fits one window on laptops; no errors.
+
+## 19 November 2026: the Subjects screen, a question to try for every subject
+
+- **Subjects is now side by side and interactive.** Left: the heading, one line and the subjects as buttons. Right: a question made for the chosen subject, drawn the way an educator's own notes would appear, which a visitor can answer:
+  - Computer science: fill the blank in a Java loop, then run four tests; a failing test says what it gave and what it expected.
+  - Mathematics: evaluate an integral, typed as a number, with the area drawn under y = 3x²; the area and the working appear.
+  - Statistics: a dot plot with an outlier; which measure barely moves (the mean and median then appear on the plot).
+  - Physics: the kinetic energy of a rolling ball (the 6 J slip is named as the momentum).
+  - Chemistry: balance 2H₂ + O₂ → 2H₂O with plus and minus buttons; the atom counts update live.
+  - Biology: a labelled-diagram question: an arrow points at a part of a cell (mitochondrion, then nucleus, then Golgi), choose its name from three.
+  - Economics: a price ceiling on a supply and demand graph; the shortage appears.
+  - Psychology: true or false on the spacing effect, with the same total time drawn both ways (5 × 20 min, or 100 min the night before).
+  - Engineering: Ohm's law on a drawn circuit; current flows once answered.
+  - Business: select all the current assets.
+  - And more: a written answer the visitor marks out of 5, as educators and TAs do (rubrics come in phase 2, so none is shown).
+- Wrong answers say "Almost." and explain; every question has Try again. The four old points under the subjects are gone: each question now shows its own type.
+- New file `app/js/views/lp-subjects.js` (an illustration file, like `lp-scenes.js`, so its drawings are on the drawn-icons skip list).
+- **Checked for accuracy:** every answer, number, diagram and explanation checked (the median and mean of the dot plot, the equilibrium and shortage on the graph, conventional current direction, the parts of the cell, the WWI dates).
+- **Tested:** all automated tests; each subject answered in the browser, in light and dark at laptop, small laptop and phone sizes; the screen fits one window on laptops; no errors.
+
 ## 19 November 2026: one screen per scroll, and uploads always load whole
 
 - **Uploads always load whole.** Every file the site loads now carries a version tag that changes with each release. Once a browser has the new page, it fetches all the new files together, never a mix of old and new. The page itself can still be up to 10 minutes old after an upload (GitHub's limit); a refresh shows it at once. See I-14.

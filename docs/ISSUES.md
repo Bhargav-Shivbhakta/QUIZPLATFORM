@@ -6,6 +6,11 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Open
 
+### I-15. Question styles shown on the landing page that the app doesn't have yet
+
+- **What:** the Subjects screen shows two question styles a visitor can try that educators can't make yet: balancing an equation with + and − buttons (chemistry), and naming the part of a diagram an arrow points to (biology, images from the educator's notes).
+- **Decision (19 November 2026):** keep them on the page. Build them, with subject-specific question styles for every subject, when the educators' side is updated.
+
 Found in the navigation audit (18 November 2026). None blocks students; each is fixed in the journey step that owns the screen.
 
 ### I-13. Negative words and "mistakes" in what people read

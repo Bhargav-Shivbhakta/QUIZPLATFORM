@@ -15,7 +15,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 | Feature | State | Files | Tests |
 |---|---|---|---|
-| Landing page (story order: the problem, then professors, students, practice, exams; product demo, try-it question, FAQ) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
+| Landing page (one screen at a time: opening, the challenge, how Cramming helps, for students, practice, for educators, subjects with a question to try for each, course tutor and dashboard, graded exams with a live exam view, the science, privacy, questions, the end) | Live, unpolished | `views/landing.js`, `views/lp-shell.js`, `views/lp-hero.js`, `views/lp-scenes.js`, `views/lp-paging.js`, `views/lp-subjects.js`, `views/lp-live.js`, `css/landing.css` | Browser checks at 6 sizes, axe clean |
 | Request access in two steps (who you are; optional course details), through the connector with daily limits | Live, unpolished | `views/lp-request.js`, `requests.js`, `cloud.js`, `connector/access.mjs`, `firestore.rules` | 9 unit tests; browser checks; rules on the local copy; two independent reviews |
 | Admin › Access requests: statuses (New, Contacted, Set up, Not a fit), notes, no deleting, red count on Admin | Live, unpolished | `views/admin-requests.js`, `requests.js`, `main.js` | Unit tests; browser checks; axe clean |
 | Privacy, Terms, How we use AI, Accessibility pages (drafts; rewritten after phase 1, see below) | Live, unpolished | `views/policy.js` | Browser checks, axe clean |

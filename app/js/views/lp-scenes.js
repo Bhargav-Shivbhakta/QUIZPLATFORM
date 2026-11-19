@@ -65,6 +65,19 @@ export function repsSpot() {
   </svg>`;
 }
 
+// Privacy and access: the Dot standing guard with a shield, beside a padlock that clicks shut.
+export function guardSpot() {
+  return `<svg class="lp-scene lp-spot lp-scene-guard" viewBox="0 0 260 224" width="260" height="224" aria-hidden="true" focusable="false">
+    <circle class="lp-spot-bg" cx="130" cy="118" r="96"/>
+    <g class="lp-lock-g"><path class="lp-shackle" d="M184 70 v-10 a10 10 0 0 1 20 0 v10"/><rect class="lp-lock" x="178" y="68" width="32" height="26" rx="6"/><circle class="lp-keyhole" cx="194" cy="79" r="3.4"/><path class="lp-keyhole" d="M192.6 80 h2.8 l1 7 h-4.8z"/></g>
+    <path class="lp-limb-leg" d="M104 146 L102 172 M118 146 L120 172"/><path class="lp-limb-leg" d="M93 173 h9 M120 173 h9"/>
+    <path class="lp-limb" d="M84 116 Q74 130 82 142"/>
+    <g class="lp-guard-body"><g transform="translate(-9 34)">${body('happy')}</g></g>
+    <path class="lp-limb" d="M134 118 Q146 124 144 134"/>
+    <g class="lp-shield-g"><path class="lp-shield" d="M152 112 l24 9 v19 c0 17 -11 28 -24 34 c-13 -6 -24 -17 -24 -34 v-19z"/><path class="lp-shield-tick" d="M141 142 l8 8 l14 -16"/></g>
+  </svg>`;
+}
+
 // Plays each scene while it is on screen. The plant: one watering every 0.65 s, each ticking a day and
 // growing the plant; after seven it blooms with its "A" for 2.6 s, then the week starts again.
 export function mountScenes(lp, reduce) {

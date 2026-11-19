@@ -5,7 +5,7 @@
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
 import { readingDot, playHero } from './lp-hero.js';
-import { nightSpot, repsSpot, mountScenes } from './lp-scenes.js'; import { mountPaging } from './lp-paging.js';
+import { nightSpot, repsSpot, guardSpot, mountScenes } from './lp-scenes.js'; import { liveMarkup, mountLive } from './lp-live.js'; import { mountPaging } from './lp-paging.js'; import { subjectsMarkup, mountSubjects } from './lp-subjects.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
@@ -40,6 +40,7 @@ const FAQ = [
   ['Which courses does it suit?', 'Any course where students learn by answering questions: multiple choice, true or false, numbers, short and written answers. Computer science, mathematics and statistics get extra tools: equations, number answers and Java programming with automatic tests.'],
 ];
 const points = (list) => list.map(([h, p], i) => `<div class="reveal" style="--d:${i * 0.08}s"><h3>${h}</h3><p>${p}</p></div>`).join('');
+const pts = (list) => `<ul class="lp-pts">${list.map(([h, p]) => `<li><i aria-hidden="true"></i><div><b>${h}</b><span>${p}</span></div></li>`).join('')}</ul>`;
 const task = ([t, m]) => `<div class="lp-task"><span class="mark">${CHECK}</span><span class="text">${t}</span><span class="mins">${m} min</span><span class="go" aria-hidden="true">Start</span></div>`;
 
 function markup() {
@@ -54,7 +55,7 @@ function markup() {
     </div>
   </section>
 
-  <section id="problem" class="wrap sec" aria-labelledby="pb-h">
+  <section id="problem" class="wrap sec lp-fit" aria-labelledby="pb-h">
     <div class="lp-split-head reveal">
       <div class="stack">
         <p class="lp-eyebrow">The challenge</p>
@@ -116,12 +117,12 @@ function markup() {
     <ul class="lp-ticks">${['From the educator\'s own materials', 'Planned for each student', 'About 15 minutes a day'].map((t) => `<li><i>${CHECK}</i>${t}</li>`).join('')}</ul>
   </section>
 
-  <section class="lp-dark" aria-labelledby="pr-h">
+  <section class="lp-dark lp-fit" aria-labelledby="pr-h">
     <div class="wrap">
       <div class="lp-center stack reveal">
         <p class="lp-eyebrow">Practice · try it</p>
         <h2 id="pr-h" class="h2">Practice that teaches.</h2>
-        <p class="lp-lead">Every answer is explained the moment it's given, right or wrong, so a mistake becomes the next thing learned. Try this one.</p>
+        <p class="lp-lead">Every answer is explained the moment it's given, so each attempt becomes the next thing learned. Try this one.</p>
       </div>
       <div class="lp-q reveal" data-q>
         <div class="top"><span>STAT 119 · Sampling</span><span>Question 3 of 10</span></div>
@@ -148,12 +149,16 @@ function markup() {
     </div>
   </section>
 
+  <section id="subjects" class="wrap sec lp-fit" aria-labelledby="sb-h">
+    ${subjectsMarkup()}
+  </section>
+
   <section class="wrap sec lp-fit" aria-label="Course tutor and class dashboard">
     <div class="lp-duo">
     <div class="stack reveal lp-duo-col">
       <p class="lp-eyebrow">For students · Course tutor</p>
       <h2 id="tu-h" class="h2 lp-h-mid">Help that stays inside the course.</h2>
-      <p class="lp-lead">Students can connect the AI they already use to their course. It reads only the units the educator has opened and pauses while a quiz or exam is open. The educator can turn it off for the whole class with one switch.</p>
+      <p class="lp-lead">Students connect the AI they already use. It reads only the units the educator has opened, and pauses during quizzes and exams.</p>
       <div class="card lp-chat lp-lift" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor leaves the quiz to the student and offers to go through the topic from the unit notes once the quiz closes.">
         <small>MATH 150 tutor · Quiz 3 is open</small>
         <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
@@ -162,8 +167,8 @@ function markup() {
     </div>
     <div class="stack reveal lp-duo-col">
       <p class="lp-eyebrow">For educators · Class dashboard</p>
-      <h2 id="da-h" class="h2 lp-h-mid">See what to reteach, weeks before the exam.</h2>
-      <p class="lp-lead">See the questions your class finds hardest and the students yet to begin, so Tuesday's lecture can clear up a concept well before the midterm.</p>
+      <h2 id="da-h" class="h2 lp-h-mid">See what to reteach, early.</h2>
+      <p class="lp-lead">The hardest questions and who is yet to begin, so the next lecture can clear up a concept well before the midterm.</p>
       <div class="card lp-dash lp-lift" role="img" aria-label="Example class dashboard: the two hardest questions this week, 36 and 59 percent correct, and 9 students yet to begin the quiz.">
         <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
         <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
@@ -177,10 +182,27 @@ function markup() {
     </div>
   </section>
 
+  <section class="wrap sec lp-fit" aria-labelledby="ex-h">
+    <div class="lp-pair">
+      <div class="stack reveal">
+        <p class="lp-eyebrow">Graded exams</p>
+        <h2 id="ex-h" class="h2 lp-h-mid">Exams you can trust.</h2>
+        <p class="lp-lead">Run quizzes and exams in the room or online, and watch the whole class live.</p>
+        ${pts([
+          ['Access codes', 'Students begin when the educator shares the code on the projector.'],
+          ['Lockdown', 'Works with Safe Exam Browser, and notes when a student leaves the exam.'],
+          ['Fair timing', 'Timed by the server, with extra time for students who have accommodations.'],
+          ['Straight to your gradebook', 'Scores export as a spreadsheet your learning platform imports, with a ready-made file for Canvas.'],
+        ])}
+      </div>
+      <div class="reveal">${liveMarkup()}</div>
+    </div>
+  </section>
+
   <section class="wrap sec" aria-labelledby="sr-h">
     <div class="split lp-sr">
     <div class="stack reveal">
-      <p class="lp-eyebrow">Spaced review</p>
+      <p class="lp-eyebrow">The science · Spaced review</p>
       <h2 id="sr-h" class="h2 lp-h-mid">Learn it once. Keep it for the exam.</h2>
       <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. When a question needs another try, its gaps start again.</p>
     </div>
@@ -198,49 +220,29 @@ function markup() {
     </div>
   </section>
 
-  <section class="wrap sec" aria-labelledby="ex-h">
-    <div class="lp-center stack reveal">
-      <p class="lp-eyebrow">Graded exams</p>
-      <h2 id="ex-h" class="h2">Exams you can trust.</h2>
-      <p class="lp-lead">Professors can run quizzes and exams in Cramming, in the room or online, with the controls a fair exam needs.</p>
+  <section class="lp-band lp-fit" aria-labelledby="tr-h">
+    <div class="wrap lp-pair">
+      <div class="stack reveal">
+        <p class="lp-eyebrow">Privacy and access</p>
+        <h2 id="tr-h" class="h2 lp-h-mid">Safe for students. Ready for your school.</h2>
+        ${pts([
+          ['School accounts only', 'Only students on a class roster sign in, with their school account.'],
+          ['Student work stays private', "Students' answers and scores are never sent to an AI. The AI sees only the educator's course materials."],
+          ['Scores stay with staff', 'Educators and TAs see exam scores; each student sees theirs once the educator releases them.'],
+          ['Accessible', 'Keyboard and screen reader support, light and dark mode, and extra time built into the timer.'],
+        ])}
+      </div>
+      ${guardSpot()}
     </div>
-    <div class="points">${points([
-      ['Access codes', 'Students start only when the professor gives the code, shown on the projector.'],
-      ['Lockdown', 'Safe Exam Browser support, and warnings when a student leaves the exam.'],
-      ['Fair timing', "Timed by the server, not the student's laptop, with extra time for students who have accommodations."],
-      ['Straight to Canvas', 'Scores export in the file format Canvas imports.'],
-    ])}</div>
   </section>
 
-  <section id="subjects" class="wrap sec" aria-labelledby="sb-h">
-    <div class="lp-center stack reveal">
-      <p class="lp-eyebrow">Subjects</p>
-      <h2 id="sb-h" class="h2">Made for your subject.</h2>
-      <p class="lp-lead">If it can be asked as a question, it works on Cramming. Computer science, mathematics and statistics get extra tools: equations set properly, number answers checked automatically, and code that runs in the browser.</p>
-    </div>
-    <ul class="lp-chips reveal" aria-label="Subjects">${['Computer science', 'Mathematics', 'Statistics', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Psychology', 'Engineering', 'Business', 'And more'].map((s, i) => `<li${i < 3 ? ' class="lp-strong"' : ''}>${s}</li>`).join('')}</ul>
-    <div class="points">${points([
-      ['Notes and flashcards', 'Study notes for each unit, and flashcards for terms, formulas and definitions.'],
-      ['Every kind of question', 'Multiple choice, select all that apply, true or false, number answers and short answers, all checked automatically.'],
-      ['Written answers', 'Longer answers in exams, graded by the professor and TAs.'],
-      ['Programming', 'Java assignments with an editor in the browser and automatic tests.'],
-    ])}</div>
-  </section>
 
-  <section class="lp-band" aria-labelledby="tr-h">
-    <div class="wrap">
-      <div class="lp-center stack reveal"><p class="lp-eyebrow">Privacy and access</p><h2 id="tr-h" class="h2">Safe for students. Ready for your school.</h2></div>
-      <div class="points">${points([
-        ['School accounts only', "Only students on a class roster can sign in, with their school account."],
-        ['No student work in AI', "Students' answers and scores are never sent to an AI. The AI only sees the professor's course materials."],
-        ['Scores stay with staff', 'Exam scores are visible to the professor and TAs, and to each student only after the professor releases them.'],
-        ['Accessible', 'Keyboard and screen reader support, light and dark mode, and extra time built into the timer.'],
-      ])}</div>
-    </div>
-  </section>
+
+
+
 
   <section id="faq" class="wrap sec lp-faq" aria-labelledby="fq-h">
-    <h2 id="fq-h" class="h2 reveal" style="text-align:center;margin:0 auto;font-size:clamp(30px,min(4.2vw,6.5vh),48px)">Questions professors ask.</h2>
+    <h2 id="fq-h" class="h2 reveal lp-fq-h">Questions professors ask.</h2>
     <div class="list">${FAQ.map(([q, a]) => `<details class="reveal"><summary><span>${q}</span>${PLUS}</summary><p>${a}</p></details>`).join('')}</div>
   </section>
 
@@ -279,7 +281,7 @@ export async function render(main, params = {}, query = {}) {
 
   // the opening: the logo, the name, the tagline, then the Dot's walk to Request access (lp-hero.js)
   if (!reduce) offs.push(playHero(lp.querySelector('.lp-intro'), lp));
-  offs.push(mountScenes(lp, reduce), mountPaging(lp, reduce));
+  offs.push(mountScenes(lp, reduce), mountPaging(lp, reduce), mountLive(lp, reduce)); mountSubjects(lp);
 
   // reveals
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
