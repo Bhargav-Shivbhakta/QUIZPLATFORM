@@ -113,6 +113,8 @@ Every student has a study buddy that cheers them on at a few moments. The defaul
 | Morning hello | First open of the day, on Today | Full: the Dot hops out of the logo, lands on the Today tab, then jumps beside the greeting and waves; the countdown then ticks over. Soft: it is simply there | Once a day |
 | Tap | Any time, beside the greeting | Squish, wink, spin or a heart | Every 2 seconds at most |
 | Welcome | The landing page, as the logo's blue gets back round to its circle | The Dot springs out of the logo, bounces off "Cramming" and "Top" like a ball (each word dips), lands on Request access and presses it with its legs, then puts on its reading glasses and reads on a laptop; its eyes read along slowly. Reduced motion or Pause motion: the finished scene | Once per visit |
+| The night before | Landing page, screen 2 (The challenge), right of the heading | A spot illustration on a soft circle: sitting on a stack of titled books (Biology, Statistics, Calculus), holding an open book, worried but cute (big glossy eyes looking up, brows raised in the middle, a small pout, a sweat drop); its thought bubble says "6 units to go" while the hours count down from 6. Moon and stars behind | While in view |
+| Daily reps | Landing page, screen 3 (How Cramming helps), right of the heading | Doing reps on top of the app's own "This week" card; each rep ticks a day and the count reads "n of 7 days". On the seventh it raises both arms and an "A" pops up, then the week starts again. Reduced motion: the finished week with the A | While in view |
 | Three in a row | Practice, third right answer in a row | Pops in at the corner: "Three in a row!" | Once per set |
 | Done for today | End of the day's set; Today afterwards | Happy, "Nice work" | Once a day |
 | Weekly goal | The set that reaches the weekly goal | A flip, with confetti in the class colours | Once a week |
@@ -161,6 +163,11 @@ Every screen uses one of four templates. A screen doesn't invent its own width, 
 **Spacing:** side gutter `--cr-gutter`; header to content `--cr-space-8`; between sections `--cr-space-10`; between cards `--cr-space-6`.
 
 **Breakpoints**, the only four: phone below 640px, tablet 640 to 1023px, laptop 1024px and up, large 1440px and up. Navigation follows **Navigation** below. Today the app uses six different breakpoints; they collapse to these as screens move to the templates.
+
+## The landing page
+
+- **One screen at a time.** Each section of the landing page fills the window under the header with its content centred, so the next screen appears only when the visitor scrolls. The screen being left blurs and fades with the scroll; with reduced motion it simply scrolls.
+- **One story, in order:** the opening, the challenge, how Cramming helps, then the product. Each screen has one heading, one picture and at most three points; headings carry the message without a line under them.
 
 ## Navigation
 
@@ -270,6 +277,7 @@ Database errors become plain reasons in one place (`cloud.js`), not in each scre
 - Numbers as digits: "4 min", "12 days".
 - **Whole sentences that sound like a person.** Every line a reader sees is a complete sentence with a subject and a verb, written the way a kind person would say it out loud. No fragments ("Practice built from your class, a few minutes a day."), because a reader might not fill in the missing half. The tagline ("Small reps. Top grades.") and short labels on buttons, tabs and headings are the only exceptions.
 - **Affirmative, always.** Say what is true and what to do, never what isn't: "Every question you've tried, you last got right" rather than "No mistakes"; "Ready when you are" rather than "Nothing to show yet". Avoid "not", "no", "never", "don't", "can't", "fail" and "wrong" in text people read, unless a rule or a safety warning needs them (an exam's rules, a delete confirmation).
+- **The Dot's feelings stay cute.** When a scene needs a negative feeling (worry, stress, tiredness), the Dot shows it the way a plush toy would: big glossy eyes, brows raised in the middle, a small pout, a sweat drop. Never anger, tears or a frown that reads as upset.
 - **Attempts, never mistakes.** A question a student answered incorrectly is a question **to try again**; their tries are **attempts**. Never "mistake", "error" or "wrong answer" on a student's screen.
 - **Connect.** Write to the person reading, about what they want: feeling ready, a calm exam day, students who keep up. Features come second, in service of that.
 

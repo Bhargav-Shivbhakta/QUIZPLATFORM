@@ -2,7 +2,21 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: the landing page's opening, polished (screen 1 locked)
+## Not yet released: the landing page's story, screens 2 and 3
+
+The landing page now tells one story in order: the opening, **the challenge**, **how Cramming helps**, then the product.
+- **Screen 2, The challenge:** "Most studying happens the night before." in large type, with the Dot on the right: sitting on a stack of titled books (Biology, Statistics, Calculus), holding an open book, worried but cute, while its thought bubble reads "6 units to go" and the hours count down from 6. Three points: studying starts late, feedback arrives after the exam results, every student learns differently. It ends: "Cramming solves all three, starting from the materials the educator already has."
+- **Screen 3, How Cramming helps:** "Students learn best with practice every day." with the Dot doing reps on the app's own "This week" card: each rep ticks a day, and a full week earns an "A". Three answers, one for each challenge: a little practice every day, feedback with every answer, practice for each student.
+- **The Today preview moved** from under the opening to the For students screen; the opening now fills the window on its own.
+- **One screen at a time:** every screen fills the window with its content centred, so the next one appears only when you scroll; the screen you're leaving blurs and fades with the scroll (not with reduced motion).
+- **Soft motion:** the points rise in one by one and the line above each draws from the left. The Dot's movement runs only while its screen is on show; Pause motion and reduced motion show the finished scenes.
+- **The opening's bounce is calmer:** a real arc between the words, a light squash, the words nudge a few pixels, a softer press on Request access.
+- **Words:** the preview's tasks read "Try 4 questions again" and "Review 6 questions to keep them fresh"; the educator's note is from "Ms. Harper"; readiness shows its number and word ("41% · Getting there"); the practice question says "Almost." and "Your answer" (DESIGN › Words: affirmative, whole sentences).
+- **Fixed:** a hidden "Start" label in the preview failed the colour check in dark mode; the sideways-scrolling memory chart and long formulas on phones could not be reached by keyboard.
+- **New check:** the tests now fail if any file in the app can't load (a broken file stops the whole page).
+- **Tested:** all automated tests; laptop, small laptop and phone, light and dark, and reduced motion: no errors, axe clean on the whole page, no sideways scrolling, headings on three lines.
+
+## 18 November 2026: the landing page's opening, polished (screen 1 locked)
 
 - The logo's blue moves round its four circles more slowly (about 0.6 s per circle), and the Dot springs out the moment the blue gets back to its circle, with no pause.
 - The Dot bounces off "Cramming" and "Top" like a ball, and each word dips as it's hit; landing on **Request access**, its legs come out and press the button.

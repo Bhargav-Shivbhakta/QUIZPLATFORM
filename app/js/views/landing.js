@@ -5,20 +5,21 @@
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
 import { readingDot, playHero } from './lp-hero.js';
+import { nightSpot, repsSpot, mountScenes } from './lp-scenes.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
 const PLUS = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--accent)"/></svg>';
 
 const MARK = (size) => `<svg class="lp-mark" width="${size}" height="${size}" viewBox="0 0 28 28" aria-hidden="true"><circle class="m1" cx="9" cy="9" r="5.5"/><circle class="m2" cx="19" cy="9" r="5.5"/><circle class="m3" cx="19" cy="19" r="5.5"/><circle class="m4" cx="9" cy="19" r="5.5"/></svg>`;
-const TASKS = [['Redo 4 questions you got wrong', 4], ['Review 6 questions that are due', 4], ['Read Unit 4: The chain rule', 15]];
+const TASKS = [['Try 4 questions again', 4], ['Review 6 questions to keep them fresh', 4], ['Read Unit 4: The chain rule', 15]];
 const BUILD = ['Read your materials', 'Draft the course map', 'You approve the map', 'Write notes and practice', 'Check every answer key twice', 'Ready for your review'];
 // The worked solution for the practice question. Maths is typeset with KaTeX (loaded by the page).
 const OPTIONS = [
-  ['0.4', 'Not quite. 0.4 divides by n instead of its square root:', String.raw`\dfrac{10}{25} = 0.4`],
+  ['0.4', 'Almost. 0.4 divides by n; the formula divides by its square root:', String.raw`\dfrac{10}{25} = 0.4`],
   ['2', 'Correct. Here is the working:', ''],
-  ['10', 'Not quite. 10 is the standard deviation itself; it still needs dividing by the square root of n.', String.raw`s = 10`],
-  ['50', 'Not quite. 50 multiplies by the square root of n instead of dividing:', String.raw`10 \times \sqrt{25} = 50`],
+  ['10', 'Almost. 10 is the standard deviation itself; the next step divides it by the square root of n.', String.raw`s = 10`],
+  ['50', 'Almost. 50 multiplies by the square root of n; the formula divides by it:', String.raw`10 \times \sqrt{25} = 50`],
 ];
 const WORK = [
   ['Write down what you know', String.raw`s = 10, \qquad n = 25`],
@@ -45,62 +46,43 @@ function markup() {
   return `<div class="lp js-anim">
   ${header(true)}
   <section class="wrap lp-center lp-hero lp-intro" aria-labelledby="lp-h1">
+    <div class="lp-hero-top">
     ${MARK(56)}
     <h1 id="lp-h1" data-title="Cramming · Small reps. Top grades."><span class="lp-name">Cramming<sup class="tm" aria-hidden="true">™</sup></span> <span class="lp-tag"><span>Small reps.</span> <span>Top grades.<sup class="tm" aria-hidden="true">™</sup></span></span></h1>
     <p class="lp-lead">Cramming turns an educator's own materials into a few minutes of practice each day. Every student gets a clear plan to follow, so they walk into the exam feeling ready.</p>
     <div class="ctas"><span class="lp-perch"><button type="button" class="lp-btn big" data-request>Request access</button>${readingDot()}</span><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
-    <div class="lp-stage">
-      <div class="lp-shot">
-        <div class="lp-glow" aria-hidden="true"></div>
-        <div class="lp-window" role="img" aria-label="Example: a student's Today screen for a calculus class. Three tasks are checked off one by one while the readiness bar for the chain rule grows.">
-          <div class="lp-winbar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
-          <div class="lp-today" aria-hidden="true">
-            <div class="main">
-              <div><p class="meta">Tuesday · MATH 150 · Midterm in 12 days</p><p class="title" data-today-title>Today, about 23 minutes</p></div>
-              <div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div>
-            </div>
-            <div class="side">
-              <div class="lp-note"><small>From Prof. Alvarez</small><span>Most of you lost points on the chain rule in Quiz 2. Read Unit 4 before Tuesday.</span></div>
-              <div class="lp-note">
-                <small>How ready you are</small>
-                <div class="lp-meter"><span>Limits</span><span>Solid</span></div><div class="lp-track"><b class="ink" style="--w:86%"></b></div>
-                <div class="lp-meter"><span>The chain rule</span><span data-chain-label>Needs work</span></div><div class="lp-track"><b data-chain style="--w:41%"></b></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="lp-phone" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 23 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
     </div>
   </section>
 
   <section id="problem" class="wrap sec" aria-labelledby="pb-h">
-    <div class="lp-center stack reveal">
-      <p class="lp-eyebrow">The problem</p>
-      <h2 id="pb-h" class="h2">Most studying happens the night before.</h2>
-      <p class="lp-lead">Students reread their notes and cram at the last minute, because nobody has told them what to practice, or when. By the time the professor sees the gap, it's already on the midterm.</p>
+    <div class="lp-split-head reveal">
+      <div class="stack">
+        <p class="lp-eyebrow">The challenge</p>
+        <h2 id="pb-h" class="h2">Most studying happens the night before.</h2>
+      </div>
+      ${nightSpot()}
     </div>
     <div class="points">${points([
-      ['No plan', "Students don't know what to study tonight, so they reread instead of practicing."],
-      ['Feedback comes late', 'Mistakes show up on the exam, when there is no time left to fix them.'],
-      ['No time to build more', 'Writing notes, practice questions and quizzes for every unit takes hours a professor doesn\'t have.'],
+      ['Studying starts late', 'Most students start the night before the exam, and spend that time rereading.'],
+      ['Feedback arrives after the exam results', 'Students discover what they misunderstood once the exam results are out.'],
+      ['Every student learns differently', 'In a large lecture, each student has their own pace and pattern, so drafting personalized practice for every one of them can be challenging.'],
     ])}</div>
-    <p class="lp-lead lp-turn reveal">Cramming fixes all three, starting from the materials the professor already has.</p>
+    <p class="lp-lead lp-turn reveal">Cramming solves all three, starting from the materials the educator already has.</p>
   </section>
-  <section id="professors" class="wrap sec" aria-labelledby="pf-h">
-    <div class="lp-panel split reveal">
+
+  <section id="solution" class="wrap sec" aria-labelledby="so-h">
+    <div class="lp-split-head reveal">
       <div class="stack">
-        <p class="lp-eyebrow">For professors</p>
-        <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
-        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
-        <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
+        <p class="lp-eyebrow">How Cramming helps</p>
+        <h2 id="so-h" class="h2">Students learn best with practice every day.</h2>
       </div>
-      <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
-        <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
-        <div class="lp-track" aria-hidden="true"><b data-build-bar style="--w:0%"></b></div>
-        <div aria-hidden="true">${BUILD.map((s) => `<div class="lp-step"><span class="mark">${CHECK}</span><span>${s}</span></div>`).join('')}</div>
-      </div>
+      ${repsSpot()}
     </div>
+    <div class="points">${points([
+      ['A little practice every day', 'Each student practices for a few minutes a day, from the first week of class, so exam night becomes a final review.'],
+      ['Feedback with every answer', 'Students see the answer and the full working as soon as they try a question, weeks before the exam.'],
+      ['Practice for each student', "Each student's practice follows their own answers and pace, so every student in a large lecture gets a plan of their own."],
+    ])}</div>
   </section>
 
   <section id="students" class="wrap sec" aria-labelledby="st-h">
@@ -108,6 +90,29 @@ function markup() {
       <p class="lp-eyebrow">For students</p>
       <h2 id="st-h" class="h2">Every student knows what to do tonight.</h2>
       <p class="lp-lead">Each student gets a short plan built from their own mistakes, the questions due for review and this week's unit. Small sessions, most days: the way people remember best.</p>
+    </div>
+    <div class="lp-stage">
+      <div class="lp-shot">
+        <div class="lp-glow" aria-hidden="true"></div>
+        <div class="lp-window" role="img" aria-label="Example: a student's Today screen for a calculus class. Three tasks get done one by one, and readiness for the chain rule grows from 41 to 74 percent.">
+          <div class="lp-winbar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
+          <div class="lp-today" aria-hidden="true">
+            <div class="main">
+              <div><p class="meta">Tuesday · MATH 150 · Midterm in 12 days</p><p class="title" data-today-title>Today, about 23 minutes</p></div>
+              <div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div>
+            </div>
+            <div class="side">
+              <div class="lp-note"><small>A note from Ms. Harper</small><span>The chain rule is the key to Tuesday's quiz. Read Unit 4, then try a few reps.</span></div>
+              <div class="lp-note">
+                <small>How ready you are</small>
+                <div class="lp-meter"><span>Limits</span><span>86% · Solid</span></div><div class="lp-track"><b class="ink" style="--w:86%"></b></div>
+                <div class="lp-meter"><span>The chain rule</span><span data-chain-label>41% · Getting there</span></div><div class="lp-track"><b data-chain style="--w:41%"></b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="lp-phone" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 23 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
     </div>
     <div class="points">${points([
       ['Built from the course', "Notes and questions come from the professor's own materials, so practice matches what's taught and what's tested."],
@@ -140,7 +145,7 @@ function markup() {
     </div>
     <figure class="card lp-curve reveal" style="margin-left:0;margin-right:0">
       <p class="axis">How much you remember</p>
-      <div class="scroll"><svg viewBox="0 0 800 270" role="img" aria-label="Two memory curves over a month. Without review, memory keeps falling. With reviews on day 1, 4, 11 and 27, it climbs back each time and falls more slowly after each review.">
+      <div class="scroll" tabindex="0"><svg viewBox="0 0 800 270" role="img" aria-label="Two memory curves over a month. Without review, memory keeps falling. With reviews on day 1, 4, 11 and 27, it climbs back each time and falls more slowly after each review.">
         <line class="base" x1="0" y1="250" x2="800" y2="250" stroke-width="1.5"/>
         <path class="without" d="M0 20 C120 170 300 222 800 238" fill="none" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round"/>
         <path class="with" d="M0 20 C10 50 20 64 27 72 L27 24 C60 56 90 70 107 78 L107 24 C170 56 240 72 293 80 L293 24 C450 48 620 60 720 66 L720 22 C750 25 780 28 800 30" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -161,6 +166,22 @@ function markup() {
       <small>MATH 150 tutor · Quiz 3 is open</small>
       <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
       <div class="ai">Quiz 3 is open right now, so I can't help with it. When it closes, I can walk you through the chain rule using your Unit 4 notes.</div>
+    </div>
+  </section>
+
+  <section id="professors" class="wrap sec" aria-labelledby="pf-h">
+    <div class="lp-panel split reveal">
+      <div class="stack">
+        <p class="lp-eyebrow">For professors</p>
+        <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
+        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
+        <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
+      </div>
+      <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
+        <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
+        <div class="lp-track" aria-hidden="true"><b data-build-bar style="--w:0%"></b></div>
+        <div aria-hidden="true">${BUILD.map((s) => `<div class="lp-step"><span class="mark">${CHECK}</span><span>${s}</span></div>`).join('')}</div>
+      </div>
     </div>
   </section>
 
@@ -271,6 +292,7 @@ export async function render(main, params = {}, query = {}) {
 
   // the opening: the logo, the name, the tagline, then the Dot's walk to Request access (lp-hero.js)
   if (!reduce) offs.push(playHero(lp.querySelector('.lp-intro'), lp));
+  offs.push(mountScenes(lp, reduce));
 
   // reveals
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
@@ -278,12 +300,16 @@ export async function render(main, params = {}, query = {}) {
   offs.push(() => io.disconnect());
 
   // scroll-linked: the progress line under the header
-  const bar = lp.querySelector('.lp-progress');
+  const bar = lp.querySelector('.lp-progress'), screens = [...lp.querySelectorAll(':scope > section')];
   let ticking = false;
   const frame = () => {
     ticking = false;
     const vh = innerHeight, max = document.documentElement.scrollHeight - vh;
     bar.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max).toFixed(4) : 0})`;
+    if (!reduce) screens.forEach((sc) => { // the screen being left blurs and fades with the scroll
+      const r = sc.getBoundingClientRect(), out = r.top < 0 ? Math.min(1, Math.max(0, 1 - r.bottom / vh)) : 0;
+      if (out > 0.005) sc.style.setProperty('--out', out.toFixed(3)); else sc.style.removeProperty('--out');
+    });
   };
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } };
   addEventListener('scroll', onScroll, { passive: true });
@@ -302,7 +328,7 @@ export async function render(main, params = {}, query = {}) {
     todayTitles.forEach((el) => (el.textContent = done === 3 ? 'Done for today' : `Today, about ${left} minutes`));
     taskLists.forEach((list) => [...list.children].forEach((row, i) => { row.classList.toggle('done', i < done); row.classList.toggle('next', i === done); }));
     const c = [41, 52, 63, 74][done];
-    chain.style.setProperty('--w', c + '%'); chainLabel.textContent = c >= 70 ? 'Getting there' : 'Needs work';
+    chain.style.setProperty('--w', c + '%'); chainLabel.textContent = `${c}% · ${c >= 75 ? 'Solid' : 'Getting there'}`; // readiness: the number and its word
     const b = Math.min(k % 9, 6);
     steps.forEach((s, i) => { s.classList.toggle('done', i < b); s.classList.toggle('now', i === b); });
     pct.textContent = b === 6 ? 'Ready' : Math.round((b / 6) * 100) + '%';
@@ -324,7 +350,7 @@ export async function render(main, params = {}, query = {}) {
       b.disabled = pick !== null;
       b.classList.toggle('right', pick !== null && right);
       b.classList.toggle('wrong', pick === v && !right);
-      b.querySelector('em').textContent = pick !== null && right ? 'Correct' : pick === v ? 'Not this one' : '';
+      b.querySelector('em').textContent = pick !== null && right ? 'Correct' : pick === v ? 'Your answer' : '';
     });
     const [, verdict, slip] = OPTIONS.find((o) => o[0] === pick) || [];
     out.innerHTML = pick === null ? '<p class="lp-hint">Choose an answer.</p>' : `<div class="lp-explain" role="status">
@@ -333,6 +359,8 @@ export async function render(main, params = {}, query = {}) {
       <ol class="lp-work">${WORK.map(([label, m], i) => `<li style="--i:${i}"><span class="lp-work-n" aria-hidden="true">${i + 1}</span><div><p>${label}</p>${tex(m)}</div></li>`).join('')}</ol>
       <p class="lp-why"><strong>Why it matters:</strong> the error shrinks with the square root of the sample size, so four times as many students only halves it. That's why larger studies are more precise, but each extra student helps a little less.</p>
       <button type="button" data-q-again>Try again</button></div>`;
+    // wide maths scrolls sideways on a phone; a scrolling area must be reachable by keyboard
+    out.querySelectorAll('.katex-display, .lp-slip').forEach((el) => { if (el.scrollWidth > el.clientWidth + 1) el.tabIndex = 0; });
     // keep the reader where they are: move focus without scrolling the page
     if (pick === null) q.querySelector('[data-opt]').focus({ preventScroll: true });
     else { const v = out.querySelector('.lp-verdict'); v.tabIndex = -1; v.focus({ preventScroll: true }); }

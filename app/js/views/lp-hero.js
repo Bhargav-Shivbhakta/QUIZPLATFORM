@@ -60,21 +60,23 @@ export function playHero(hero, lp) {
   let home = null;
   const seat = () => { if (!home) { const r = dot.getBoundingClientRect(); home = { x: r.left + r.width / 2, y: r.top + (r.height * SEAT) / H, h: r.height }; } return home; };
   const to = (p) => { const s = seat(); return `translate(${(p.x - s.x).toFixed(1)}px, ${(p.y - s.y).toFixed(1)}px)`; };
+  // a hop is a real arc: steady sideways, rising and falling like a thrown ball, with a light stretch on
+  // take-off and a light squash on touching down (DESIGN › Motion: playful, never cartoonish)
   const hop = (a, b, ms, peak) => {
-    const mid = { x: (a.x + b.x) / 2, y: Math.min(a.y, b.y) - peak };
-    return dot.animate([
-      { transform: `${to(a)} scale(1.08, .9)` },
-      { transform: `${to(mid)} scale(.94, 1.08)`, offset: 0.45 },
-      { transform: `${to(b)} scale(1.16, .82)`, offset: 0.86 },
-      { transform: `${to(b)}` },
-    ], { duration: ms, easing: 'cubic-bezier(.33,.7,.45,1)', fill: 'forwards' }).finished;
+    const n = 10, frames = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t - peak * 4 * t * (1 - t);
+      const sx = i === 0 ? 1.06 : i === 1 ? 0.97 : i === n ? 1.06 : 1, sy = i === 0 ? 0.94 : i === 1 ? 1.03 : i === n ? 0.94 : 1;
+      frames.push({ transform: `${to({ x, y })} scale(${sx}, ${sy})` });
+    }
+    return dot.animate(frames, { duration: ms, easing: 'cubic-bezier(.45,.05,.55,.95)', fill: 'forwards' }).finished;
   };
 
   // hitting a word: the Dot squashes against it like a ball and the word dips, then the next hop springs off
   const hit = (word, p) => {
     if (stopped) return Promise.resolve();
-    word.animate([{ transform: 'none' }, { transform: 'translateY(8px) scaleY(.95)', offset: 0.25 }, { transform: 'translateY(-3px)', offset: 0.6 }, { transform: 'none' }], { duration: 460, easing: 'ease-out' });
-    return dot.animate([{ transform: `${to(p)} scale(1.16, .82)` }, { transform: `${to({ x: p.x, y: p.y + 6 })} scale(1.3, .7)` }], { duration: 110, easing: 'ease-out', fill: 'forwards' }).finished;
+    word.animate([{ transform: 'none' }, { transform: 'translateY(3px)', offset: 0.3 }, { transform: 'translateY(-1px)', offset: 0.7 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.3,.7,.4,1)' });
+    return dot.animate([{ transform: `${to(p)} scale(1.06, .94)` }, { transform: `${to({ x: p.x, y: p.y + 3 })} scale(1.1, .9)` }], { duration: 90, easing: 'ease-out', fill: 'forwards' }).finished;
   };
 
   (async () => {
@@ -98,22 +100,22 @@ export function playHero(hero, lp) {
     dot.animate([{ transform: `${to(start)} scale(.3)`, opacity: 0 }, { transform: `${to(start)} scale(1)`, opacity: 1 }], { duration: 220, fill: 'forwards', easing: 'ease-out' });
     await wait(200);
     if (stopped) return;
-    await hop(start, onName, 640, 60);
+    await hop(start, onName, 620, 56);
     await hit(hero.querySelector('.lp-name'), onName);
     if (stopped) return;
     // 3. up onto "Top"
-    await hop({ x: onName.x, y: onName.y + 6 }, onTop, 560, 70);
+    await hop({ x: onName.x, y: onName.y + 3 }, onTop, 560, 44);
     await hit(tag, onTop);
     if (stopped) return;
     // 4. down onto Request access: it lands, its legs come out and press the button
-    await hop({ x: onTop.x, y: onTop.y + 6 }, { x: s.x, y: s.y }, 640, 60);
+    await hop({ x: onTop.x, y: onTop.y + 3 }, { x: s.x, y: s.y }, 620, 48);
     if (stopped) return;
     dot.dataset.pose = 'sit';
     dot.getAnimations().forEach((a) => a.cancel());
     await wait(120);
     const btn = hero.querySelector('.lp-perch .lp-btn'), press = { duration: 420, easing: 'cubic-bezier(.3,.7,.4,1)' };
-    btn.animate([{ transform: 'none' }, { transform: 'translateY(4px) scale(.97)', offset: 0.35 }, { transform: 'none' }], press);
-    await dot.animate([{ transform: 'none' }, { transform: 'translateY(4px) scale(1.06, .92)', offset: 0.35 }, { transform: 'translateY(-3px)', offset: 0.7 }, { transform: 'none' }], press).finished;
+    btn.animate([{ transform: 'none' }, { transform: 'translateY(2px) scale(.985)', offset: 0.35 }, { transform: 'none' }], press);
+    await dot.animate([{ transform: 'none' }, { transform: 'translateY(2px) scale(1.04, .96)', offset: 0.35 }, { transform: 'translateY(-1px)', offset: 0.7 }, { transform: 'none' }], press).finished;
     await wait(250);
     if (stopped) return;
     // 5. glasses down, laptop open, reading

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { parseExam, gradeQuestion, isAnswered, parseNumber, correctAnswerLabel } from '../app/js/parser.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -1029,6 +1030,11 @@ console.log('\nMock exams');
     assert.equal(N.badgeFor('', 'Biology'), 'BI'); assert.equal(N.badgeFor(''), '?');
     assert.equal(N.badgeFor('CS', 'CS 210 Data Structures'), '210'); assert.equal(N.badgeFor('Intro', 'Intro to Programming'), 'IN');
     assert.equal(N.classTitle({ course: 'CS 210', name: 'CS 210 Data Structures' }), 'CS 210 Data Structures'); assert.equal(N.classTitle({ course: 'CS150', name: 'Intro to Programming' }), 'CS150 · Intro to Programming'); assert.equal(N.classTitle({ name: 'Biology' }), 'Biology');
+  });
+  test('every file in app/js parses (a syntax error stops the whole page)', () => {
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? walk(path.join(d, f.name)) : f.name.endsWith('.js') ? [path.join(d, f.name)] : []));
+    const bad = walk(path.join(ROOT, 'app/js')).filter((f) => { try { execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' }); return false; } catch { return true; } });
+    assert.deepEqual(bad.map((f) => path.relative(ROOT, f)), []);
   });
   test('no class name with a space is passed to classList (browsers throw)', () => {
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? walk(path.join(d, f.name)) : f.name.endsWith('.js') ? [path.join(d, f.name)] : []));
