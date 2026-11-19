@@ -12,10 +12,14 @@ import { getExam } from './data.js';
 import { mountBell } from './notify.js';
 import { getNavGuard, applyTheme } from './nav.js';
 import { countNew } from './requests.js';
+import { isStudentMode, mountShell, unmountShell, setPlace } from './stshell.js';
 
 const routes = [
-  { re: /^\/?$/, view: () => import('./views/home.js'), nav: 'home' },
-  { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), nav: 'home' },
+  // st: the page students see in the student frame (stshell.js); everyone else gets view
+  { re: /^\/?$/, view: () => import('./views/home.js'), st: () => import('./views/st-today.js'), nav: 'home' },
+  { re: /^\/class\/([^/]+)$/, keys: ['classId'], view: () => import('./views/home.js'), st: () => import('./views/st-class.js'), nav: 'home' },
+  { re: /^\/classes$/, view: () => import('./views/home.js'), st: () => import('./views/st-classes.js'), nav: 'home' },
+  { re: /^\/progress$/, view: () => import('./views/home.js'), st: () => import('./views/st-progress.js'), nav: 'home' },
   { re: /^\/admin$/, view: () => import('./views/admin.js'), nav: 'admin' },
   { re: /^\/overview$/, view: () => import('./views/overview.js'), nav: 'admin' },
   { re: /^\/requests$/, view: () => import('./views/admin-requests.js'), nav: 'admin' },
@@ -105,7 +109,8 @@ async function route() {
   }
   const skTimer = setTimeout(() => { if (token === renderToken && !main.childElementCount) main.innerHTML = SKELETON; }, 120);
   try {
-    const mod = await r.view();
+    const student = isStudentMode();
+    const mod = await (student && r.st ? r.st : r.view)();
     if (token !== renderToken) return;
     main.innerHTML = '';
     const result = await mod.render(main, params, query);
@@ -121,6 +126,7 @@ async function route() {
       cls = params.classId ? mine.find((x) => x.id === params.classId) : params.id ? cloud.classForExam(params.id) : (path === '/' || path === '') && mine.length === 1 ? mine[0] : null;
     }
     applyClassColor(cls?.color);
+    if (student) setPlace({ path, params, query });
     if (cloud.enabled && cloud.currentUser()) main.querySelectorAll('.crumbs a[href="#/"]').forEach((a) => { if (a.textContent.trim() === 'Exams') a.textContent = 'My classes'; });
     if (!query.keepScroll) window.scrollTo(0, 0);
     const h1 = main.querySelector('h1');
@@ -159,6 +165,8 @@ function paintChrome() {
     const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
     nav.insertAdjacentHTML('afterend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
   }
+  // students get the new frame (stshell.js); staff and admins keep this top bar for now
+  if (isStudentMode()) mountShell(); else unmountShell();
   mountBell();
   document.body.classList.toggle('signed-out', cloud.enabled && !u);
   // phones: the same links as a bottom tab bar, within thumb reach
@@ -238,7 +246,7 @@ function warmUp() {
   if (warmed === key) return;
   warmed = key;
   const go = () => {
-    for (const r of routes) r.view().catch(() => {});
+    for (const r of routes) { r.view().catch(() => {}); if (r.st && isStudentMode()) r.st().catch(() => {}); }
     if (cloud.enabled && cloud.currentUser()) for (const c of cloud.myClasses()) for (const id of c.exams || []) getExam(id).catch(() => {});
   };
   if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 6000 }); else setTimeout(go, 3000);

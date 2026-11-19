@@ -44,4 +44,5 @@ Decided by the founder from the clickable "Student Navigation Mockup":
 - **Where every current student feature lives** is on the system map whiteboard ("Student navigation map") and in the mockup's "Where every feature lives" list.
 - **Readiness shows the number and the word together** ("62% · Getting there"), decided by the founder. The word list says so.
 - **Going live in stages:** step 1 puts the new frame (navigation, Today, class tabs, Progress, the Dot, Messages, Settings) in front of every student, with today's screens opening inside it and exams untouched. Then each feature is made flawless in turn, starting with Today's set.
+- **Who gets the new frame first:** students only (on a roster, teaching no class, not an admin). Staff screens move later, journey by journey.
 

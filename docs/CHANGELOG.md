@@ -2,7 +2,17 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: coding practice, and the student design written down
+## Not yet released: the new student navigation (step 1)
+
+Students only. Professors, TAs and admins see no change. Exams are untouched.
+- **A new frame:** a bar on the left on laptops (slim on tablets) with Today, each class by name and Progress, plus Messages and Settings at the bottom; on phones, three tabs at the bottom and a small top bar. A highlight glides to the current place.
+- **Today**, for all classes at once (with a filter per class): the nearest exam as a countdown, readiness as a number with its word ("62% · Getting there"), one Start button for today's set with what's in it, This week (goal: 3 days) and Coming up. Today redraws once when saved progress arrives from the account.
+- **Each class has four tabs:** Study plan (units on the way to the exam, today's stop, graded work as flags; the line traces down to today's stop when it opens), Practice (question sets with Practise, Flashcards and Practice test; coding practice), Notes and Graded work. **Classes** (phones) and **Progress** (readiness per class, mistakes to fix, recent sets) are new pages.
+- **The study buddy:** the Dot hops out of the logo onto Today on the first visit of each day, sits beside the greeting (tap it; its eyes follow the pointer) and appears on empty pages. Settings has **Study buddy** (Dot, Flame or off) and **Motion** (Full or Soft); reduce motion on the device turns motion off.
+- Today's existing screens (practice sets, flashcards, coding, notes, results, settings) open inside the new frame unchanged; they move onto the new look one by one, starting with Today's set.
+- **Tested:** all 71 automated tests (7 new for Today's rules) and the architecture check; a student with one class and with two, on laptop and phone, light and dark: every new page opened with no errors, no sideways scrolling, and axe clean; a professor still gets the old frame.
+
+## 18 November 2026: coding practice, and the student design written down
 
 - **Coding practice is its own kind of practice set** (I-1, I-2). Add a practice set asks: Questions (.md) or Coding (.zip). A coding set needs no question file. Sets can have both; Remove questions turns a mixed set into coding practice (do this on Midterm 3 Practice). Students open a coding set straight onto its assignments: no flashcards, practice tests or quiz readiness. Practice is no longer called "exam" on the Practice page.
 - **The student design, written down** (no change to the site): `docs/DESIGN.md` now has two levels of motion (Full and Soft) and a new section, **The study buddy**: the Dot (default) and the Flame, its rules and its moments, and how a new feature adds one. The word list gains "study plan" and "study buddy".

@@ -974,5 +974,52 @@ console.log('\nMock exams');
     assert.equal(F.number(1234), (1234).toLocaleString());
   });
 }
+{
+  console.log('\nToday (the student home)');
+  const T = await import('../app/js/today.js');
+  const F = await import('../app/js/format.js');
+  const now = new Date(2026, 10, 18, 15, 0).getTime(); // Wed, Nov 18, 3 PM
+  const at = (d, h = 10) => new Date(2026, 10, d, h, 0).getTime();
+  test('days until counts calendar days, not 24-hour blocks', () => {
+    assert.equal(T.daysUntil(at(18, 23), now), 0);
+    assert.equal(T.daysUntil(at(19, 1), now), 1);
+    assert.equal(T.daysUntil(at(24), now), 6);
+    assert.equal(T.daysUntil(at(17), now), -1);
+  });
+  test('readiness word goes with the number', () => {
+    assert.equal(T.readinessWord(0, false), 'Not started');
+    assert.equal(T.readinessWord(62), 'Getting there');
+    assert.equal(T.readinessWord(75), 'Solid');
+  });
+  test('next exam: nearest still to come, open graded work counts, past is ignored', () => {
+    const items = [
+      { classId: 'm', title: 'Midterm 2', at: at(24), kind: 'exam' },
+      { classId: 's', title: 'Quiz 5', at: at(20, 9), kind: 'quiz' },
+      { classId: 'm', title: 'Quiz 3', at: at(10), until: at(10, 11), kind: 'quiz' },
+    ];
+    assert.equal(T.nextExam(items, now).title, 'Quiz 5');
+    const open = [...items, { classId: 'm', title: 'Quiz 4', at: at(18, 14), until: at(18, 16), kind: 'quiz' }];
+    assert.equal(T.nextExam(open, now).title, 'Quiz 4');
+    assert.equal(T.nextExam([], now), null);
+  });
+  test('an exam date on a practice set never shows twice beside graded work that day', () => {
+    const items = [{ classId: 'm', title: 'Midterm 2', at: at(24), kind: 'exam' }, { classId: 'm', title: 'Midterm 2 practice', at: at(24, 0), kind: 'date' }, { classId: 's', title: 'Final', at: at(30, 0), kind: 'date' }];
+    assert.deepEqual(T.comingUp(items, now).map((x) => x.title), ['Midterm 2', 'Final']);
+  });
+  test('week runs Monday to Sunday and marks days with answers', () => {
+    const w = T.weekDays({ '2026-11-16': { answered: 4 }, '2026-11-18': { answered: 0 } }, now, F.dayKey);
+    assert.deepEqual(w.map((d) => d.letter).join(''), 'MTWTFSS');
+    assert.deepEqual(w.map((d) => d.done), [true, false, false, false, false, false, false]);
+    assert.equal(w.findIndex((d) => d.today), 2);
+    assert.equal(w[3].future, true);
+  });
+  test('today summary: minutes left, first task, done only when something was planned', () => {
+    const s = T.todaySummary([{ classId: 's', tasks: [{ key: 'due', minutes: 4, href: '#s', done: false }] }, { classId: 'm', tasks: [{ key: 'mistakes', minutes: 5, href: '#m', done: false }, { key: 'practice', minutes: 15, href: '#p', done: true }] }]);
+    assert.equal(s.minutes, 9); assert.equal(s.first.href, '#s'); assert.equal(s.done, false);
+    assert.equal(T.todaySummary([{ classId: 'm', tasks: [{ key: 'new', minutes: 10, done: true }] }]).done, true);
+    assert.equal(T.todaySummary([{ classId: 'm', tasks: [] }]).done, false);
+  });
+  test('the buddy hops once a day', () => { assert.equal(T.hopDue('2026-11-17', '2026-11-18'), true); assert.equal(T.hopDue('2026-11-18', '2026-11-18'), false); });
+}
 console.log(`\n${failed ? '\x1b[31m' : '\x1b[32m'}${passed} passed, ${failed} failed\x1b[0m\n`);
 process.exit(failed ? 1 : 0);

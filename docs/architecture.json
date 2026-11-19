@@ -15,7 +15,8 @@
         "app/js/roster.js",
         "app/js/seb.js",
         "app/js/requests.js",
-        "app/js/format.js"
+        "app/js/format.js",
+        "app/js/today.js"
       ],
       "mayImport": [
         "core"
@@ -44,7 +45,9 @@
         "app/js/calculator.js",
         "app/js/report.js",
         "app/js/colors.js",
-        "app/js/nav.js"
+        "app/js/nav.js",
+        "app/js/buddy.js",
+        "app/js/stshell.js"
       ],
       "mayImport": [
         "core",

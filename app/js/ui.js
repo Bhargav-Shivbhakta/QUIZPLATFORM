@@ -4,6 +4,7 @@ export { esc };
 // Small inline icons (stroke = currentColor)
 const P = {
   flag: '<path d="M5 21V4m0 0h11l-2 4 2 4H5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M2.5 12h2M19.5 12h2M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
@@ -45,6 +46,10 @@ const P = {
   megaphone: '<path d="M3 10.5v3a1.5 1.5 0 001.5 1.5H7l6 4.5v-15L7 9H4.5A1.5 1.5 0 003 10.5zM17 9a4.5 4.5 0 010 6"/>',
   report: '<path d="M5 21V4m0 0h12l-2.5 4L17 12H5"/><path d="M12 15.5v.01"/>',
 };
+// The Cramming mark: four circles, the top-right one filled (it is also the study buddy, the Dot).
+export function logoMark(cls = '') {
+  return `<svg class="${cls}" viewBox="0 0 28 28" aria-hidden="true"><circle cx="9" cy="9" r="6"/><circle class="logo-dot" cx="19" cy="9" r="6"/><circle cx="9" cy="19" r="6"/><circle cx="19" cy="19" r="6"/></svg>`;
+}
 export function icon(name, cls = '') {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name] || ''}</svg>`;
 }
@@ -142,6 +147,14 @@ export function ring(pct, { size = 120, stroke = 10, label = '', sub = '', tone 
     </svg>
     <div class="ring-text"><strong>${esc(label)}</strong>${sub ? `<span>${esc(sub)}</span>` : ''}</div>
   </div>`;
+}
+
+// The readiness ring on the countdown: the number and its word together (DESIGN › Word list).
+export function bigRing(score, word, cc) {
+  const r = 70, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, score));
+  return `<div class="st-ring cc-${cc}" role="img" aria-label="${v}% ready, ${esc(word)}">
+    <svg viewBox="0 0 156 156" aria-hidden="true"><circle class="st-ring-track" cx="78" cy="78" r="${r}"/><circle class="st-ring-fill" cx="78" cy="78" r="${r}" stroke-dasharray="${c.toFixed(1)}" data-off="${(c * (1 - v / 100)).toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}"/></svg>
+    <span class="st-ring-label"><b>${v}%</b><span>${esc(word)}</span></span></div>`;
 }
 
 export function meter(frac, { tone = '' } = {}) {

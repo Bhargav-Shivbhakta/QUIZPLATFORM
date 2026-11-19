@@ -130,8 +130,9 @@ export function mountBell() {
   wrap.className = 'bell-wrap';
   wrap.innerHTML = `<button class="bell-btn" data-bell aria-expanded="false" aria-controls="bell-panel" aria-label="Notifications">${icon('bell')}<span class="bell-count" hidden>0</span></button>
     <div class="bell-panel" id="bell-panel" data-bell-panel role="region" aria-labelledby="bell-h" hidden></div>`;
-  const chip = document.querySelector('.topbar .account-chip');
-  if (chip) chip.before(wrap); else document.querySelector('.topbar').appendChild(wrap);
+  // the student frame has its own place for the bell; otherwise it sits in the top bar
+  const host = document.querySelector('[data-bell-host]'), chip = document.querySelector('.topbar .account-chip');
+  if (host) host.appendChild(wrap); else if (chip) chip.before(wrap); else document.querySelector('.topbar').appendChild(wrap);
   open = false;
   wrap.querySelector('[data-bell]').addEventListener('click', () => toggle());
   wrap.addEventListener('click', (e) => { if (e.target.closest('[data-bell-close]')) { toggle(false); wrap.querySelector('[data-bell]').focus(); } else if (e.target.closest('.bell-item')) toggle(false); });

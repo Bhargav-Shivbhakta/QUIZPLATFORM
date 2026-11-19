@@ -102,6 +102,30 @@
   --cr-base: 250ms;
   --cr-slow: 450ms;
   --cr-tap: 44px;
+
+  /* Class colours (the admin picks one per class). -band is the bright version used on dark bands. */
+  --cr-class-blue: #2443C4; --cr-class-blue-soft: #EEF1FC; --cr-class-blue-band: #6E8BFF;
+  --cr-class-green: #1D7A4B; --cr-class-green-soft: #E3F3EA; --cr-class-green-band: #5CC48F;
+  --cr-class-purple: #6B3FC4; --cr-class-purple-soft: #EFE8FB; --cr-class-purple-band: #B59CFF;
+  --cr-class-orange: #B8520A; --cr-class-orange-soft: #FDEEDF; --cr-class-orange-band: #FF9F5A;
+  --cr-class-teal: #0B7285; --cr-class-teal-soft: #E0F3F6; --cr-class-teal-band: #4FD1E6;
+  --cr-class-rose: #B42357; --cr-class-rose-soft: #FBE6EE; --cr-class-rose-band: #FF7AA8;
+  --cr-class-gold: #8A6A00; --cr-class-gold-soft: #FBF2D6; --cr-class-gold-band: #F0C94A;
+  --cr-class-slate: #3F4B5B; --cr-class-slate-soft: #E9EDF2; --cr-class-slate-band: #A9B8CC;
+
+  /* The study buddy (DESIGN › The study buddy). The Dot itself is --cr-accent. */
+  --cr-buddy-pupil: #12131A;
+  --cr-buddy-mouth: #0E1440;
+  --cr-buddy-blush: #FF9EB5;
+  --cr-buddy-tongue: #FF8FA8;
+  --cr-buddy-heart: #FF6B8B;
+  --cr-buddy-drop: #8FD3FF;
+  --cr-buddy-spark: #F5B544;
+  --cr-flame-top: #FFD45E;
+  --cr-flame-bottom: #FF6B3D;
+  --cr-flame-core: #FFF0BF;
+  --cr-flame-glow: #FFB547;
+  --cr-flame-ink: #3A1A05;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -113,6 +137,7 @@
     --cr-warn: #F5B544; --cr-warn-soft: #2D2410; --cr-danger: #F28B6B; --cr-badge: #C7361F;
     --cr-band-bg: #000000; --cr-band-surface: #141518;
     --cr-shadow: rgba(0, 0, 0, 0.6);
+    --cr-class-blue: #6E8BFF; --cr-class-blue-soft: #1C2340; --cr-class-green: #5CC48F; --cr-class-green-soft: #15291F; --cr-class-purple: #B59CFF; --cr-class-purple-soft: #271D42; --cr-class-orange: #FF9F5A; --cr-class-orange-soft: #33210F; --cr-class-teal: #4FD1E6; --cr-class-teal-soft: #0F2A30; --cr-class-rose: #FF7AA8; --cr-class-rose-soft: #341823; --cr-class-gold: #F0C94A; --cr-class-gold-soft: #2F2810; --cr-class-slate: #A9B8CC; --cr-class-slate-soft: #1E242C;
   }
 }
 :root[data-theme="dark"] {
@@ -123,4 +148,5 @@
   --cr-warn: #F5B544; --cr-warn-soft: #2D2410; --cr-danger: #F28B6B; --cr-badge: #C7361F;
   --cr-band-bg: #000000; --cr-band-surface: #141518;
   --cr-shadow: rgba(0, 0, 0, 0.6);
+  --cr-class-blue: #6E8BFF; --cr-class-blue-soft: #1C2340; --cr-class-green: #5CC48F; --cr-class-green-soft: #15291F; --cr-class-purple: #B59CFF; --cr-class-purple-soft: #271D42; --cr-class-orange: #FF9F5A; --cr-class-orange-soft: #33210F; --cr-class-teal: #4FD1E6; --cr-class-teal-soft: #0F2A30; --cr-class-rose: #FF7AA8; --cr-class-rose-soft: #341823; --cr-class-gold: #F0C94A; --cr-class-gold-soft: #2F2810; --cr-class-slate: #A9B8CC; --cr-class-slate-soft: #1E242C;
 }

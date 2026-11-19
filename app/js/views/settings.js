@@ -6,6 +6,9 @@ import { listCourses, chosenCourses, courseOptions, saveChoice } from './subject
 import * as cloud from '../cloud.js';
 import { fmtDate } from '../engine.js';
 import { dayKey } from '../format.js';
+import { isStudentMode, mountShell, setPlace } from '../stshell.js';
+import { buddy } from '../buddy.js';
+import { mountBell } from '../notify.js';
 
 export async function render(main) {
   const s = store.getSettings();
@@ -42,6 +45,12 @@ export async function render(main) {
         </fieldset>
       </form>` : ''}
       <form class="setup-form" data-prefs>
+        ${isStudentMode() ? `<fieldset><legend>Study buddy</legend><div class="chip-row buddy-row">
+          ${[['dot', 'The Dot'], ['flame', 'The Flame'], ['off', 'Off']].map(([v, l]) => `<label class="chip buddy-chip"><input type="radio" name="buddy" value="${v}" ${(s.buddy || 'dot') === v ? 'checked' : ''}><span>${v === 'off' ? '' : buddy('happy', { size: 26, kind: v })}${l}</span></label>`).join('')}
+        </div><p class="muted small fieldset-help">Your buddy cheers you on at a few moments: your morning hello, three right in a row, the end of a set. It never appears in exams.</p></fieldset>
+        <fieldset><legend>Motion</legend><div class="chip-row">
+          ${radio('motion', 'full', 'Full', s.motion || 'full')}${radio('motion', 'soft', 'Soft', s.motion || 'full')}
+        </div><p class="muted small fieldset-help">Soft keeps every screen the same with quieter movement. If your device is set to reduce motion, there is none.</p></fieldset>` : ''}
         <fieldset><legend>Theme</legend><div class="chip-row">
           ${radio('theme', 'system', 'Match my device', s.theme)}${radio('theme', 'light', 'Light', s.theme)}${radio('theme', 'dark', 'Dark', s.theme)}
         </div></fieldset>
@@ -124,8 +133,10 @@ export async function render(main) {
     store.saveSettings({
       theme: f.theme.value, textSize: f.textSize.value, feedback: f.feedback.value, readFont: f.readFont.value, contrast: f.contrast.value,
       shuffleChoices: f.shuffleChoices.checked, confirmSubmit: f.confirmSubmit.checked,
+      ...(f.buddy ? { buddy: f.buddy.value, motion: f.motion.value } : {}),
     });
     applyTheme();
+    if (f.buddy && (ev.target.name === 'buddy' || ev.target.name === 'motion')) { mountShell(); mountBell(); setPlace({ path: '/settings' }); }
     toast('Settings saved');
   });
 

@@ -25,6 +25,10 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 | Feature | State | Files | Tests |
 |---|---|---|---|
+| **Student frame (new):** left bar on laptops (slim on tablets), tabs on phones, with Today, each class, Progress, Messages and Settings; old screens open inside it; exams and practice full screen | New, step 1 | `stshell.js`, `css/student.css`, `main.js` | Browser checks at 1280 and 390, light and dark, axe |
+| **Today (new):** one Today for all classes, class filters, the countdown, readiness as number and word, Start today's set, This week, Coming up | New, step 1 | `views/st-today.js`, `views/st-data.js`, `today.js` | 7 unit tests; browser checks |
+| **Class page (new):** Study plan (with the tracing line), Practice, Notes, Graded work; Classes list on phones; Progress page | New, step 1 | `views/st-class.js`, `views/st-classes.js`, `views/st-progress.js` | Browser checks |
+| **Study buddy (new):** the Dot (default) or the Flame or off; morning hop from the logo, tap, eyes follow; Settings: Study buddy and Motion (Full, Soft) | New, step 1 | `buddy.js`, `views/settings.js` | Browser checks |
 | Sign in and pick classes | Live, unpolished | `views/signin.js`, `views/subjects.js`, `views/classes.js` | None |
 | Class home with Next up | Live, unpolished | `views/home.js`, `views/nextup.js` | None |
 | Practice question sets | Live, unpolished | `views/quiz.js`, `views/browse.js`, `parser.js`, `engine.js` | Parser |
