@@ -24,6 +24,12 @@ function nextStep(exam, stats, attempts, asgList, asgProg) {
     const left = session.questionIds.length - Object.keys(session.answers).length;
     return { icon: 'play', title: `Finish your ${MODES[session.mode]?.label.toLowerCase() || 'quiz'}`, sub: `${plural(left, 'question')} left. Your answers so far are saved.`, href: '#/quiz', cta: 'Resume' };
   }
+  // coding practice: the next assignment to finish or start
+  if (!exam.questions.length) {
+    const next = asgList.find((a) => asgProg[a.slug]?.attempts && !asgProg[a.slug]?.done) || asgList.find((a) => !asgProg[a.slug]?.done);
+    if (next) return { icon: 'code', title: asgProg[next.slug]?.attempts ? `Finish "${next.title}"` : `Start "${next.title}"`, sub: asgProg[next.slug]?.attempts ? `${asgProg[next.slug].best} of ${asgProg[next.slug].total} checks passing so far.` : 'Write it in your browser and run the tests as often as you like.', href: `#/code/${e}/${next.slug}`, cta: asgProg[next.slug]?.attempts ? 'Continue' : 'Start coding' };
+    return { icon: 'check', title: 'Every coding assignment is done', sub: 'Open any of them again to practise.', href: `#/assignments/${e}`, cta: 'See assignments' };
+  }
   const seen = exam.questions.filter((q) => stats[q.id]?.seen).length;
   if (!seen) return { icon: 'sparkle', title: 'Start with a quick warm-up', sub: `A mix of questions from across ${exam.title}, with each answer explained as you go.`, href: `#/start/${e}/smart`, cta: 'Start warm-up' };
   const due = dueIds(exam, stats).length;
@@ -75,10 +81,10 @@ export async function studyPanel(examMeta) {
         <a class="btn primary big next-cta" href="${step.href}">${esc(step.cta)} ${icon('right')}</a>
       </div>
       <div class="stat-strip">
-        <a class="strip-item ready" href="#/progress/${e}">
+        ${exam.questions.length ? `<a class="strip-item ready" href="#/progress/${e}">
           ${ring(r.score, { size: 58, stroke: 6, label: r.score + '', tone: toneFor(r.score / 100) })}
           <span><strong>${esc(r.label)}</strong><span class="muted small">Quiz readiness</span></span>
-        </a>
+        </a>` : ''}
         <div class="strip-item"><span class="strip-icon" aria-hidden="true">${icon('check')}</span><span><strong>${week}</strong><span class="muted small">answered this week</span></span></div>
         <div class="strip-item"><span class="strip-icon flame" aria-hidden="true">${icon('flame')}</span><span><strong>${plural(streak, 'day')}</strong><span class="muted small">study streak</span></span></div>
         ${asgList.length ? `<a class="strip-item" href="#/assignments/${e}"><span class="strip-icon" aria-hidden="true">${icon('code')}</span><span><strong>${asgDone} of ${asgList.length}</strong><span class="muted small">assignments done</span></span></a>` : ''}

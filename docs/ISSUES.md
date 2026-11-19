@@ -6,35 +6,23 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Open
 
-### I-2. A new practice set (Midterm 3) shows 300 questions from Midterm 2
+_Nothing open._
 
-- **Reported:** 17 November 2026, by the founder.
-- **Where:** Professor › class › Practice. A practice set for Midterm 3 was created, and it shows the 300 questions of the Midterm 2 practice set.
-- **Cause:** not yet known, because the code alone doesn't show it. Each set's questions are saved under its own ID (`classes/{class}/examFiles/{examId}`), and a new set's ID comes from its name, so two sets shouldn't share questions. Likely causes to check:
-  1. The question file uploaded for Midterm 3 was the Midterm 2 file. The name box fills itself from the file's title, which hides the mix-up.
-  2. Midterm 3 was made by renaming the Midterm 2 set. **Rename** changes only the name students see, not the questions.
-  3. A stale copy of Midterm 2 is being shown.
-- **Next:** repeat the exact steps on the local copy of the site. The founder to say how Midterm 3 was created (Add a practice set, or Rename) and which file was chosen.
-- **Fix, whatever the cause:** before publishing, show which file was chosen and its first questions, and warn when a file matches another set in the class.
+## Fixed
 
 ### I-1. Programming practice can't be created or uploaded where you'd expect
 
-- **Reported:** 17 November 2026, by the founder.
-- **Where:** Professor › class › Practice.
-- **What happens:**
-  1. **Add a practice set** only accepts a question file (.md). There's no way to start a practice set with only programming assignments (a .zip).
-  2. Assignments can only be added to a set that already exists, using its **Add assignments** button.
-  3. That opens a panel at the bottom of the page, below every set, so it reads as a separate menu.
-  4. The panel has no button called "Upload". It has **Choose .zip** and **Choose a folder**, and a **Publish assignments** button that stays greyed out until every reference solution passes its tests. When the zip has no solutions, or a solution fails, it doesn't say clearly why Publish is unavailable.
-- **Cause:** a design gap in `app/js/views/content.js`: the panel is drawn after the list (`data-panel`), and creating a set requires a .md.
-- **Fix:**
-  - One **Add a practice set** that accepts a question file, an assignments .zip, or both.
-  - The panel opens directly under the button that opened it.
-  - Plain labels: **Upload .zip**, then **Publish**.
-  - A clear line saying what's stopping Publish.
-  - A flow check that creates a programming-only set from start to finish.
+- **Reported:** 17 November 2026, by the founder (with screenshots on 18 November).
+- **What:** **Add a practice set** only accepted a question file (.md), so a coding-only set couldn't be made. Coding could only be added to a set that already had questions, from a panel below the whole list. Students then saw every set as a question set: flashcards, timed tests and Smart review, even when the set was meant for coding. The page also called practice "exam" (Delete exam).
+- **Cause:** `app/js/views/content.js` built every set from a .md; the student pages (`exam.js`, `home.js`, `nextup.js`) assumed every set has questions.
+- **Fixed:** 18 November 2026. **Add a practice set** asks first: **Questions** (a .md) or **Coding** (a .zip). A coding set needs only a name and the .zip; **Upload .zip** checks every reference solution, and a line under the panel says exactly what is stopping Publish. A set can have both kinds; **Add questions** and **Add coding** add the other kind, and **Remove questions** turns a mixed set into coding practice. Students open a coding set straight onto its assignments, with no flashcards, practice tests or "quiz readiness"; its card says "Coding practice: 50 programming assignments" and Next up points to the next assignment. Practice is no longer called "exam" on the page. The coding upload moved into `views/content-coding.js`.
+- **Tested:** on the local copy with the fake Firebase: a professor made a coding-only set and a questions set, added coding to the second, removed its questions; a .zip given to the questions panel is refused with a clear message; a student saw both as coding practice and no flashcards link.
 
-## Fixed
+### I-2. A new practice set (Midterm 3) shows 300 questions from Midterm 2
+
+- **Reported:** 17 November 2026, by the founder.
+- **Cause:** found with I-1. A coding-only set couldn't be created, so Midterm 3 Practice was created with a question file (Midterm 2's, 300 questions in 11 topics) and the 50 coding assignments were added to it.
+- **Fixed:** 18 November 2026, with I-1. **To do once the upload is live (founder):** Professor › CS 150 › Practice › Midterm 3 Practice › **Remove questions**. The 50 coding assignments stay; students' code is kept.
 
 ### I-6. The site stays blank on some Macs (older Safari), including during an exam
 

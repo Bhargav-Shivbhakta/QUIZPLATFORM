@@ -85,6 +85,46 @@ Rules:
 - Motion explains: something appears where it came from, a check pops when an answer is right, progress fills. Nothing moves just to move. No tilt, parallax or scroll-jacking.
 - The page never jumps on its own. Move focus with `{ preventScroll: true }` and keep what the reader was looking at in place.
 - Everything respects "reduce motion": it still works, with no movement.
+- **Two levels, the student's choice** (Settings › Motion): **Full** (the default) and **Soft**. The screens are identical; Soft keeps only the quiet movements (pages fading in, the highlight gliding to what you picked, rings and bars filling, the Study plan line) and drops the rest. Reduce motion on the device beats both.
+- **What Full adds, and how often:** the screen you open grows out of what you tapped (the countdown card opens into practice; a class card into its page); the morning tick of the countdown and the ring climbing from yesterday's readiness (once a day); green spreading from where you tapped a right answer and the tick drawing itself; the working writing itself out line by line after a wrong answer; a sweep along the progress bar for three right in a row (once per set); numbers counting up and today's dot dropping into the week at the end of a set; confetti for the weekly goal (once a week); the slow glow behind the countdown.
+- **The Study plan line** traces down to today's stop each time the tab opens (0.9 s in Full, 0.55 s in Soft). It shows where you are, so it plays every time.
+- Two things may move on their own, and only on Today: the glow behind the countdown (very slow, Full only) and the study buddy idling beside the greeting. Nothing else moves unless something changed.
+- **Exams have no motion at all**, at either level: nothing that could distract or differ between students.
+
+## The study buddy
+
+Every student has a study buddy that cheers them on at a few moments. The default is **the Dot**: the filled blue dot of the Cramming logo, come to life. Students can switch to **the Flame**, or turn the buddy off, in Settings › Study buddy. The mockup "Student Navigation Mockup" shows every moment working.
+
+**Rules**
+
+1. **One home.** The buddy lives beside the greeting on Today. Only there does it idle: it breathes, blinks, its eyes follow the pointer, and a tap makes it squish, wink, spin or show a heart (at most once every 2 seconds).
+2. **Moments, not decoration.** Anywhere else it appears only for a moment from the list below, then leaves. At most one appearance per screen.
+3. **Rationed.** The morning hop once a day; the weekly goal once a week; "three in a row" once per set.
+4. **Never guilt.** It celebrates and encourages. It never sulks, nags, looks sad at the student, or mentions a missed day or a streak.
+5. **Never in the way.** It never covers a question, an answer or a button, never makes anyone wait, and a tap skips it.
+6. **Never in exams, never for staff.** No buddy in graded work, in exam mode, or on professor, TA or admin screens.
+7. **Decorative to screen readers.** The buddy is `aria-hidden`; whatever it "says" is ordinary text on the screen.
+8. **Students choose.** Dot (default), Flame or off, kept with their settings. With motion off or reduced, the buddy still appears, standing still.
+
+**Moments**
+
+| Moment | When | What happens | Limit |
+|---|---|---|---|
+| Morning hello | First open of the day, on Today | Full: the Dot hops out of the logo, lands on the Today tab, then jumps beside the greeting and waves; the countdown then ticks over. Soft: it is simply there | Once a day |
+| Tap | Any time, beside the greeting | Squish, wink, spin or a heart | Every 2 seconds at most |
+| Three in a row | Practice, third right answer in a row | Pops in at the corner: "Three in a row!" | Once per set |
+| Done for today | End of the day's set; Today afterwards | Happy, "Nice work" | Once a day |
+| Weekly goal | The set that reaches the weekly goal | A flip, with confetti in the class colours | Once a week |
+| Reading along | Notes with nothing open yet; the tutor waiting | Glasses on | Per screen |
+| Exam day | On Today before an exam (never inside it) | Headband on: "You've prepared for this." | Once that day |
+| Nothing here yet | Empty lists | Calm, eyes closed | Per screen |
+| Thinking | Only when loading takes over a second | Bounces like a loading dot | While loading |
+| Late night | After midnight, on Today | Sleepy: "Sleep helps it stick. See you tomorrow." | Once a night |
+| Something broke | Error screens | "That's on us, not you. Try again." | Per error |
+
+**Adding a feature.** Use a moment from the table. A new moment needs, before it ships: a mood drawn for every buddy (Dot and Flame), a limit, its words checked against the word list, and a row in this table. The drawings are SVG, built from the logo's shapes and the tokens, with no text inside.
+
+**Words.** In the product it is "your study buddy", "the Dot" and "the Flame". Never "mascot", "pet" or "avatar".
 
 ## Icons
 
@@ -227,6 +267,8 @@ One name for each thing, on every screen, in every email and in help text. Code 
 | Say | Means | Don't say |
 |---|---|---|
 | Today | The short plan for today | daily plan, my study |
+| study plan | A class's units on the way to its next exam, with today's stop: the first tab of a class | path, roadmap, module, syllabus |
+| study buddy | The Dot (or the Flame) that cheers a student on at a few moments | mascot, pet, avatar |
 | practice | Anything ungraded. A "set" is one short run of questions: "a 10-question set" | drill, exercise |
 | question bank | All the practice questions for a class or exam | question set, pool |
 | review | Questions coming back before you forget them | spaced review, smart review, SRS (except once, to explain it) |
@@ -234,7 +276,7 @@ One name for each thing, on every screen, in every email and in help text. Code 
 | practice test | Timed and ungraded, like the real exam | mock exam, timed test, random practice test |
 | flashcards | Question on the front, answer on the back | cards, deck |
 | notes | Study notes for a unit | study pages, lesson, reading |
-| readiness | How ready you are for a topic or exam, in words: Solid, Getting there, Not started | score, level, mastery percentage |
+| readiness | How ready you are for a topic or exam: a percentage with its word, always together: "62% · Getting there". The words are Solid, Getting there, Not started | score, level, mastery (and never a percentage without its word) |
 | the tutor | The AI that answers only from the course | chatbot, assistant, AI helper |
 
 **Graded work**
@@ -296,5 +338,5 @@ Everything that carries the Cramming name follows this file, not only the app.
 2. One primary button. Clear title. A real empty, loading and error state.
 3. Works by keyboard, with visible focus and labels on every control.
 4. Checked on a phone and a laptop, in light and dark mode, and axe shows nothing.
-5. Nothing moves the page by itself; reduce motion is respected.
+5. Nothing moves the page by itself; reduce motion is respected; motion follows DESIGN › Motion (Full and Soft), and the study buddy only appears at a moment from its table.
 6. Every word read aloud once.

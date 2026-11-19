@@ -3,10 +3,8 @@
 import { getManifest } from '../data.js';
 import * as cloud from '../cloud.js';
 import { parseExam } from '../parser.js';
-import { readAssignments, solutionProblems, publicAssignments } from '../assignments-core.js';
-import { testJava } from '../java/client.js';
-import { formatErrors } from '../java/index.js';
 import { esc, icon, plural, toast, confirmDialog, modal } from '../ui.js';
+import { codingPanel, loadJSZip, download, emptySource } from './content-coding.js';
 import { fmtDate } from '../engine.js';
 import { dateTime as when } from '../format.js';
 
@@ -14,24 +12,6 @@ const pad = (n) => String(n).padStart(2, '0');
 const toLocalInput = (t) => { if (!t) return ''; const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const fromLocalInput = (v) => { const t = v ? new Date(v).getTime() : NaN; return isNaN(t) ? null : t; };
 const slug = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'exam';
-
-let jszip = null;
-function loadJSZip() {
-  if (window.JSZip) return Promise.resolve(window.JSZip);
-  return jszip ||= new Promise((res, rej) => {
-    const s = document.createElement('script');
-    s.src = 'vendor/jszip.min.js';
-    s.onload = () => res(window.JSZip);
-    s.onerror = () => rej(new Error("Couldn't load the zip reader."));
-    document.head.appendChild(s);
-  });
-}
-function download(name, blob) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-}
 
 export async function render(main, { classId }) {
   const staffClass = cloud.teachingClasses().find((c) => c.id === classId);
@@ -43,9 +23,10 @@ export async function render(main, { classId }) {
   if (!cls) { main.innerHTML = `<section class="page narrow empty-state"><h1>Class not found</h1><a class="btn primary" href="#/">Go home</a></section>`; return; }
 
   let practice = { ...(cls.practice || {}) }; // examId -> { off, dueAt, closeAfterDue }
-  let mode = null; // null | { kind: 'exam', examId? } | { kind: 'asg', examId }
+  let mode = null; // null | { kind: 'choose' } | { kind: 'exam', examId? } | { kind: 'asg', examId? }
   let parsed = null, sourceText = '', fileName = '';
-  let asgCheck = null; // { result, files, problems: Map, running, done }
+  let coding = null; // the coding panel while mode.kind === 'asg'
+  const isCoding = (e) => !e.questionCount && e.assignmentCount > 0;
 
   async function draw() {
     const all = (await getManifest()).exams;
@@ -56,37 +37,40 @@ export async function render(main, { classId }) {
         <nav class="crumbs"><a href="#/">My classes</a><a href="#/class/${encodeURIComponent(classId)}">${esc(cls.name)}</a></nav>
         <header class="inst-head">
           <div><p class="eyebrow">Instructor · ${esc(cls.name)}</p><h1>Practice</h1>
-          <p class="muted">Practice sets are <strong>not graded</strong>: students can try them as often as they like. Upload a question file (.md) for each set, and optionally a .zip of coding practice. Students see changes right away. For exams, quizzes and assignments that count, use <a href="#/timed/${encodeURIComponent(classId)}">Graded work</a>.</p></div>
+          <p class="muted">Practice sets are <strong>not graded</strong>: students can try them as often as they like. A set holds questions (a .md file), coding assignments (a .zip), or both. Students see changes right away. For exams, quizzes and assignments that count, use <a href="#/timed/${encodeURIComponent(classId)}">Graded work</a>.</p></div>
           ${mode ? '' : `<button class="btn primary" data-new-exam>${icon('upload')} Add a practice set</button>`}
         </header>
         ${mode ? '' : listHtml(uploaded, builtIn)}
-        <div data-panel>${mode?.kind === 'exam' ? examPanel(uploaded) : mode?.kind === 'asg' ? asgPanel(uploaded) : ''}</div>
+        <div data-panel>${mode?.kind === 'choose' ? choosePanel() : mode?.kind === 'exam' ? examPanel(uploaded) : mode?.kind === 'asg' ? coding.html() : ''}</div>
       </section>`;
     if (mode?.kind === 'exam' && parsed) showParse();
-    if (mode?.kind === 'asg' && asgCheck) showAsg();
+    if (mode?.kind === 'asg') coding.show();
+    main.querySelector('[data-panel] h2')?.setAttribute('tabindex', '-1');
+    main.querySelector('[data-panel] h2')?.focus({ preventScroll: true });
   }
 
   function listHtml(uploaded, builtIn) {
     if (!uploaded.length && !builtIn.length) {
-      return `<div class="empty-state"><h2>No practice sets yet</h2><p>Click <strong>Add a practice set</strong> and choose its question file (.md). Need the format? Open <a href="#/author">Check a question file</a> for an example and a checker.</p></div>`;
+      return `<div class="empty-state"><h2>No practice sets yet</h2><p>Click <strong>Add a practice set</strong>, then choose questions (a .md file) or coding (a .zip of programming assignments). Need the question format? Open <a href="#/author">Check a question file</a> for an example and a checker.</p></div>`;
     }
     return `<ul class="content-list">
       ${uploaded.map((e) => `
         <li class="content-item">
           <div class="content-main">
             <h2>${esc(e.title)} ${e.active ? '<span class="tag">Current</span>' : ''}${e.archived ? '<span class="tag">Past</span>' : ''}</h2>
-            <p class="muted small">${plural(e.questionCount, 'question')} · ${plural((e.topics || []).length, 'topic')} · timed test of ${e.onExamCount || Math.min(50, e.questionCount)}${e.timeLimit ? ` in ${e.timeLimit} min` : ''} · updated ${esc(fmtDate(e.updatedAt))}${e.updatedBy ? ` by ${esc(e.updatedBy)}` : ''}</p>
-            <p class="small">${icon('code')} ${e.assignmentCount ? plural(e.assignmentCount, 'programming assignment') : '<span class="muted">No programming assignments</span>'}</p>
+            <p class="muted small">${isCoding(e) ? '<span class="tag">Coding practice</span> ' : ''}${e.questionCount ? `${plural(e.questionCount, 'question')} · ${plural((e.topics || []).length, 'topic')} · timed test of ${e.onExamCount || Math.min(50, e.questionCount)}${e.timeLimit ? ` in ${e.timeLimit} min` : ''} · ` : ''}updated ${esc(fmtDate(e.updatedAt))}${e.updatedBy ? ` by ${esc(e.updatedBy)}` : ''}</p>
+            <p class="small">${icon('code')} ${e.assignmentCount ? plural(e.assignmentCount, 'coding assignment') : '<span class="muted">No coding assignments</span>'}</p>
             ${practiceCtl(e)}
           </div>
           <div class="content-actions">
             <a class="btn small" href="#/exam/${encodeURIComponent(e.id)}">Preview</a>
             <button class="btn small" data-rename="${esc(e.id)}" data-title="${esc(e.title)}">${icon('edit')} Rename</button>
-            <button class="btn small" data-replace="${esc(e.id)}">${icon('upload')} Replace questions</button>
-            <button class="btn small" data-dl-md="${esc(e.id)}">${icon('download')} .md</button>
-            <button class="btn small" data-asg="${esc(e.id)}">${icon('code')} ${e.assignmentCount ? 'Replace assignments' : 'Add assignments'}</button>
-            ${e.assignmentCount ? `<button class="btn small" data-dl-zip="${esc(e.id)}">${icon('download')} .zip</button><button class="btn small danger-outline" data-del-asg="${esc(e.id)}">Remove assignments</button>` : ''}
-            <button class="btn small danger-outline" data-del-exam="${esc(e.id)}" data-title="${esc(e.title)}">${icon('trash')} Delete exam</button>
+            <button class="btn small" data-replace="${esc(e.id)}">${icon('upload')} ${e.questionCount ? 'Replace questions' : 'Add questions'}</button>
+            ${e.questionCount ? `<button class="btn small" data-dl-md="${esc(e.id)}">${icon('download')} .md</button>` : ''}
+            <button class="btn small" data-asg="${esc(e.id)}">${icon('code')} ${e.assignmentCount ? 'Replace coding' : 'Add coding'}</button>
+            ${e.assignmentCount ? `<button class="btn small" data-dl-zip="${esc(e.id)}">${icon('download')} .zip</button>` : ''}
+            ${e.assignmentCount && e.questionCount ? `<button class="btn small danger-outline" data-rm-q="${esc(e.id)}" data-title="${esc(e.title)}">Remove questions</button><button class="btn small danger-outline" data-del-asg="${esc(e.id)}">Remove coding</button>` : ''}
+            <button class="btn small danger-outline" data-del-exam="${esc(e.id)}" data-title="${esc(e.title)}">${icon('trash')} Delete practice set</button>
           </div>
         </li>`).join('')}
       ${builtIn.map((e) => `
@@ -140,12 +124,26 @@ export async function render(main, { classId }) {
     main.querySelector(`[data-pr="${CSS.escape(id)}"] ${focus}`)?.focus();
   }
 
+  // ---------- a new set: questions or coding ----------
+  function choosePanel() {
+    return `
+      <section class="upload-panel" aria-labelledby="kind-h">
+        <h2 id="kind-h">Add a practice set</h2>
+        <p class="muted small">What will students practise? You can add the other kind to the same set later.</p>
+        <div class="kind-cards">
+          <button type="button" class="kind-card" data-kind-q><span class="mode-name">${icon('note')} Questions</span><span class="muted small">A question file (.md): multiple choice, numbers and short answers. Students get review, practice tests and flashcards.</span></button>
+          <button type="button" class="kind-card" data-kind-code><span class="mode-name">${icon('code')} Coding</span><span class="muted small">A .zip of programming assignments. Students write and run code against your tests, with no flashcards or quizzes.</span></button>
+        </div>
+        <div class="row end upload-actions"><button class="btn" data-cancel>Cancel</button></div>
+      </section>`;
+  }
+
   // ---------- question file ----------
   function examPanel(uploaded) {
     const target = mode.examId ? uploaded.find((e) => e.id === mode.examId) || { title: mode.title } : null;
     return `
       <section class="upload-panel">
-        <h2>${mode.move ? `Move ${esc(mode.title)} to this page` : target ? `Replace the questions of ${esc(target.title)}` : 'Add a practice set'}</h2>
+        <h2>${mode.move ? `Move ${esc(mode.title)} to this page` : target ? `${target.questionCount === 0 ? 'Add questions to' : 'Replace the questions of'} ${esc(target.title)}` : 'Add a practice set: questions'}</h2>
         ${mode.move ? '<p class="small">Choose the same questions.md that is in GitHub (or an updated one). After publishing, this page manages it and students keep their progress. Its programming assignments need to be added again here as a .zip. You can then delete the exam folder from GitHub.</p>' : ''}
         <p class="muted small">Choose the practice set's question file (.md). It's checked here first; nothing is published until you click Publish.${target ? ' Students keep their progress on questions whose IDs (Q1, Q2…) stay the same.' : ''}</p>
         <div class="dropzone" data-drop="md">
@@ -184,11 +182,11 @@ export async function render(main, { classId }) {
     const btn = main.querySelector('[data-publish-exam]');
     const all = (await getManifest()).exams;
     const title = mode.examId ? all.find((e) => e.id === mode.examId)?.title : (main.querySelector('input[data-exam-title]')?.value.trim() || parsed.meta.title);
-    if (!title) { toast('Give the exam a name', 'bad'); return; }
+    if (!title) { toast('Give the practice set a name', 'bad'); return; }
     let examId = mode.examId;
     if (!examId) {
       examId = `${classId}--${slug(title)}`;
-      if (all.some((e) => e.id === examId)) { toast(`This class already has an exam called "${title}". Use Replace questions on it, or choose another name.`, 'bad'); return; }
+      if (all.some((e) => e.id === examId)) { toast(`This class already has a practice set called "${title}". Use Replace questions on it, or choose another name.`, 'bad'); return; }
     }
     btn.disabled = true; btn.textContent = 'Publishing…';
     try {
@@ -200,105 +198,6 @@ export async function render(main, { classId }) {
     } catch (e) {
       toast("Couldn't publish: " + (e?.code === 'permission-denied' ? "you're not an instructor for this class." : e?.message || e), 'bad');
       btn.disabled = false; btn.innerHTML = `${icon('check')} Publish`;
-    }
-  }
-
-  // ---------- assignments zip ----------
-  function asgPanel(uploaded) {
-    const e = uploaded.find((x) => x.id === mode.examId);
-    return `
-      <section class="upload-panel">
-        <h2>Programming assignments for ${esc(e?.title || '')}</h2>
-        <p class="muted small">Choose a .zip with one folder per assignment (assignment.md, the starter .java file, tests/*.in and *.out, optional checks.txt, and solution/ with your reference solution). Each solution is run against its tests here before anything is published. Solutions are never shown to students. ${e?.assignmentCount ? 'This replaces the current assignments; students keep the code they wrote.' : ''}</p>
-        <div class="dropzone" data-drop="asg">
-          <p class="drop-hint">${icon('upload')} <strong>Drag the .zip or the assignments folder here</strong> <span class="muted">or</span></p>
-          <div class="row center"><label class="btn">Choose .zip<input type="file" accept=".zip,application/zip" data-zip hidden></label><label class="btn">Choose a folder<input type="file" webkitdirectory directory multiple data-asg-folder hidden></label></div>
-          <p class="muted small drop-name" data-file-name>${esc(fileName)}</p>
-        </div>
-        ${e?.assignmentCount ? `<p class="small"><button class="link-btn" data-dl-zip="${esc(e.id)}">Download the current ones as a starting point</button></p>` : ''}
-        <div data-asg-result aria-live="polite"></div>
-        <div class="row end upload-actions"><button class="btn" data-cancel>Cancel</button><button class="btn primary" data-publish-asg disabled>${icon('check')} Publish assignments</button></div>
-      </section>`;
-  }
-  const wanted = (path) => /\.(md|java|in|out|txt)$/i.test(path) && !/(^|\/)(__MACOSX|\.)/.test(path);
-  async function onZip(file) {
-    return checkAssignments(file.name, async () => {
-      const JSZip = await loadJSZip();
-      const zip = await JSZip.loadAsync(file);
-      const files = new Map();
-      for (const f of Object.values(zip.files).filter((f) => !f.dir && wanted(f.name))) files.set(f.name.replace(/\\/g, '/'), await f.async('string'));
-      return files;
-    });
-  }
-  // A folder (dragged in, or chosen with "Choose a folder"): [{ path, file }]
-  async function onFolder(name, list) {
-    return checkAssignments(name, async () => {
-      const files = new Map();
-      for (const { path, file } of list) if (wanted(path)) files.set(path.replace(/\\/g, '/'), await file.text());
-      if (!files.size) throw new Error("that folder has no assignment files in it (assignment.md, .java, tests/*.in and *.out)");
-      return files;
-    });
-  }
-  async function checkAssignments(name, read) {
-    fileName = name;
-    asgCheck = { running: true, problems: new Map(), done: 0 };
-    showAsg();
-    try {
-      const files = await read();
-      const result = readAssignments(files);
-      asgCheck = { result, files, problems: new Map(), done: 0, running: true };
-      showAsg();
-      for (const a of result.assignments) {
-        if (a.solution != null) {
-          const r = await testJava(a.solution, { className: a.cls, tests: a.tests.map(({ name, input, output }) => ({ name, input, output })), checks: a.checks }, a.cls + '.java');
-          const p = r.killed ? ['the reference solution ran too long (infinite loop?)'] : solutionProblems(a, r, formatErrors);
-          asgCheck.problems.set(a.slug, p);
-        }
-        asgCheck.done++;
-        showAsg();
-      }
-      asgCheck.running = false;
-    } catch (e) {
-      asgCheck = { error: e?.message || String(e) };
-    }
-    showAsg();
-  }
-  function showAsg() {
-    const box = main.querySelector('[data-asg-result]');
-    const btn = main.querySelector('[data-publish-asg]');
-    if (!box) return;
-    const c = asgCheck;
-    if (!c) { box.innerHTML = ''; btn.disabled = true; return; }
-    if (c.error) { box.innerHTML = `<p class="bad">Couldn't read ${esc(fileName || 'that')}: ${esc(c.error)}</p>`; btn.disabled = true; return; }
-    if (!c.result) { box.innerHTML = '<p class="muted">Reading the zip…</p>'; btn.disabled = true; return; }
-    const r = c.result;
-    const failing = [...c.problems.values()].some((p) => p.length);
-    const ok = !c.running && !r.errors.length && !failing && r.assignments.length > 0;
-    box.innerHTML = `
-      <div class="parse-result ${ok ? 'pr-good' : c.running ? '' : 'pr-bad'}">
-        <p><strong>${c.running ? `Checking reference solutions… ${c.done} of ${r.assignments.length}` : ok ? `${icon('check')} ${plural(r.assignments.length, 'assignment')} ready` : !r.assignments.length ? `${icon('x')} No assignments found` : `${icon('x')} Fix the problems below, then choose the zip again`}</strong></p>
-        ${!r.assignments.length && !c.running ? '<p class="small">Each assignment needs its own folder with an assignment.md file inside.</p>' : ''}
-        <ul class="asg-check">${r.assignments.map((a) => { const p = c.problems.get(a.slug); return `
-          <li><span class="asg-check-icon ${p ? (p.length ? 'bad' : 'good') : a.solution == null ? 'warn' : ''}">${p ? (p.length ? icon('x') : icon('check')) : a.solution == null ? '!' : '…'}</span>
-            <span><strong>${esc(a.title)}</strong> <span class="muted small">${plural(a.tests.length, 'test')}${a.checks.length ? ` + ${plural(a.checks.length, 'requirement')}` : ''}${a.solution == null ? ' · no solution, tests not verified' : p && !p.length ? ' · solution passes everything' : ''}</span>
-            ${p && p.length ? `<pre class="small">${esc(p.join('\n'))}</pre>` : ''}</span></li>`; }).join('')}</ul>
-        ${r.errors.length ? `<ul class="issue-list bad">${r.errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}
-        ${r.warnings.length ? `<details><summary>${plural(r.warnings.length, 'warning')}</summary><ul class="issue-list">${r.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></details>` : ''}
-      </div>`;
-    btn.disabled = !ok;
-  }
-  async function publishAsg() {
-    const btn = main.querySelector('[data-publish-asg]');
-    btn.disabled = true; btn.textContent = 'Publishing…';
-    try {
-      const files = [...asgCheck.files.entries()].map(([path, text]) => ({ path, text }));
-      await cloud.saveAssignments(classId, mode.examId, { assignments: publicAssignments(asgCheck.result.assignments), files });
-      toast(`${plural(asgCheck.result.assignments.length, 'assignment')} published`, 'good');
-      mode = null; asgCheck = null; fileName = '';
-      draw();
-    } catch (e) {
-      toast("Couldn't publish: " + (e?.message || e), 'bad');
-      btn.disabled = false; btn.innerHTML = `${icon('check')} Publish assignments`;
     }
   }
 
@@ -331,13 +230,24 @@ export async function render(main, { classId }) {
     if (b?.matches('[data-pr-opennow]')) return savePractice(b.closest('[data-pr]'), { opensAt: null });
     if (b?.matches('[data-pr-nodue]')) return savePractice(b.closest('[data-pr]'), { dueAt: null, closeAfterDue: false }, '[data-pr-due]');
     if (!b) return;
-    if ('newExam' in b.dataset) { mode = { kind: 'exam' }; parsed = null; fileName = ''; return draw(); }
+    if ('newExam' in b.dataset) { mode = { kind: 'choose' }; return draw(); }
+    if ('kindQ' in b.dataset) { mode = { kind: 'exam' }; parsed = null; fileName = ''; return draw(); }
+    if ('kindCode' in b.dataset) return openCoding(null);
     if (b.dataset.move) { mode = { kind: 'exam', examId: b.dataset.move, title: b.dataset.title, move: true }; parsed = null; fileName = ''; return draw(); }
     if (b.dataset.replace) { mode = { kind: 'exam', examId: b.dataset.replace }; parsed = null; fileName = ''; return draw(); }
-    if (b.dataset.asg) { mode = { kind: 'asg', examId: b.dataset.asg }; asgCheck = null; fileName = ''; return draw(); }
-    if ('cancel' in b.dataset) { mode = null; parsed = null; asgCheck = null; return draw(); }
+    if (b.dataset.asg) return openCoding(b.dataset.asg);
+    if ('cancel' in b.dataset) { mode = null; parsed = null; coding = null; return draw(); }
     if ('publishExam' in b.dataset) return publishExam();
-    if ('publishAsg' in b.dataset) return publishAsg();
+    if ('publishAsg' in b.dataset) return coding.publish((await getManifest()).exams);
+    if (b.dataset.rmQ) {
+      const e = (await getManifest()).exams.find((x) => x.id === b.dataset.rmQ);
+      if (!e || !(await confirmDialog({ title: `Remove the questions from ${b.dataset.title}?`, body: `<p>The set keeps its ${plural(e.assignmentCount, 'coding assignment')} and becomes coding practice. Students no longer see its ${plural(e.questionCount, 'question')}, flashcards or practice tests. Download the .md first if you want a copy.</p>`, confirm: 'Remove questions', danger: true }))) return;
+      try {
+        await cloud.saveExam(classId, { examId: e.id, meta: { title: e.title, course: e.course, description: e.description, active: e.active, archived: e.archived, order: e.order, examDate: e.examDate }, source: emptySource(e.title), counts: { questions: 0, onExam: 0, topics: [] } });
+        toast(`${e.title} is now coding practice`, 'good');
+      } catch (err) { toast("Couldn't remove the questions: " + (err?.message || err) + '. Check you are an instructor for this class, then try again.', 'bad'); }
+      return draw();
+    }
     if (b.dataset.dlMd) {
       const src = await cloud.examSource(classId, b.dataset.dlMd);
       if (src == null) return toast('No file found', 'bad');
@@ -353,14 +263,20 @@ export async function render(main, { classId }) {
     }
     if (b.dataset.delAsg) {
       if (!(await confirmDialog({ title: 'Remove the programming assignments?', body: '<p>Students will no longer see them. The code students wrote stays saved in their accounts.</p>', confirm: 'Remove', danger: true }))) return;
-      await cloud.deleteAssignments(classId, b.dataset.delAsg); toast('Assignments removed'); return draw();
+      await cloud.deleteAssignments(classId, b.dataset.delAsg); toast('Coding assignments removed'); return draw();
     }
     if (b.dataset.delExam) {
-      if (!(await confirmDialog({ title: `Delete ${b.dataset.title}?`, body: '<p>Students in this class will no longer see this exam or its assignments. Their saved progress stays in their accounts, so uploading it again with the same name brings it back. Download the .md first if you want a copy.</p>', confirm: 'Delete exam', danger: true }))) return;
-      await cloud.deleteExam(classId, b.dataset.delExam); toast('Exam deleted'); return draw();
+      if (!(await confirmDialog({ title: `Delete ${b.dataset.title}?`, body: '<p>Students in this class will no longer see this practice set, its questions or its coding assignments. Their saved progress stays in their accounts, so uploading it again with the same name brings it back. Download the .md and .zip first if you want a copy.</p>', confirm: 'Delete practice set', danger: true }))) return;
+      await cloud.deleteExam(classId, b.dataset.delExam); toast('Practice set deleted'); return draw();
     }
   });
-  main.addEventListener('input', (ev) => { if (ev.target.matches('[data-pr-due]')) ev.target.closest('[data-pr]').querySelector('[data-pr-setdue]').disabled = false; });
+  main.addEventListener('input', (ev) => { if (ev.target.matches('[data-pr-due]')) ev.target.closest('[data-pr]').querySelector('[data-pr-setdue]').disabled = false; if (ev.target.matches('[data-asg-title]')) coding?.show(); });
+  async function openCoding(examId) {
+    const exam = examId ? (await getManifest()).exams.find((x) => x.id === examId) : null;
+    mode = { kind: 'asg', examId };
+    coding = codingPanel({ main, classId, exam, slugId: (t) => `${classId}--${slug(t)}`, onDone: () => { mode = null; coding = null; draw(); } });
+    return draw();
+  }
   main.addEventListener('change', async (ev) => {
     const pr = ev.target.closest('[data-pr]');
     if (pr) {
@@ -372,11 +288,11 @@ export async function render(main, { classId }) {
       return savePractice(pr, {}, ev.target.matches('[data-pr-close]') ? '[data-pr-close]' : '[data-pr-on]');
     }
     if (ev.target.matches('[data-md-file]') && ev.target.files[0]) useMdFile(ev.target.files[0]);
-    if (ev.target.matches('[data-zip]') && ev.target.files[0]) useZipFile(ev.target.files[0]);
+    if (ev.target.matches('[data-zip]') && ev.target.files[0]) coding?.useZip(ev.target.files[0]);
     if (ev.target.matches('[data-asg-folder]') && ev.target.files.length) {
       const list = [...ev.target.files].map((file) => ({ path: file.webkitRelativePath || file.name, file }));
       const top = (list[0]?.path || '').split('/')[0] || 'folder';
-      setName(`${top}/ (folder)`); onFolder(`${top}/ (folder)`, list);
+      coding?.useFolder(`${top}/ (folder)`, list);
     }
     if (ev.target.type === 'file') ev.target.value = ''; // choosing the same file again still works
   });
@@ -384,12 +300,9 @@ export async function render(main, { classId }) {
   // ---------- drag and drop ----------
   const setName = (name) => { const el = main.querySelector('[data-file-name]'); if (el) el.textContent = name; };
   async function useMdFile(f) {
-    if (!/\.(md|markdown|txt)$/i.test(f.name)) { toast(`"${f.name}" isn't a .md file. Drop the exam's question file (questions.md).`, 'bad'); return; }
+    if (/\.zip$/i.test(f.name)) { toast(`"${f.name}" is a .zip. For coding assignments, cancel and choose Coding (or use Add coding on a set).`, 'bad'); return; }
+    if (!/\.(md|markdown|txt)$/i.test(f.name)) { toast(`"${f.name}" isn't a .md file. Choose the set's question file (questions.md).`, 'bad'); return; }
     setName(f.name); onSource(await f.text(), f.name);
-  }
-  function useZipFile(f) {
-    if (!/\.zip$/i.test(f.name)) { toast(`"${f.name}" isn't a .zip. Drop a .zip, or the assignments folder itself.`, 'bad'); return; }
-    setName(f.name); onZip(f);
   }
   // read every file inside a dropped folder (browsers hand folders over as "entries")
   async function readEntry(entry, prefix, out) {
@@ -426,9 +339,8 @@ export async function render(main, { classId }) {
       if (entries.some((e) => e.isDirectory)) {
         const list = [];
         for (const e of entries) await readEntry(e, '', list);
-        const name = entries.length === 1 ? `${entries[0].name}/ (folder)` : `${entries.length} folders`;
-        setName(name); onFolder(name, list);
-      } else if (files[0]) useZipFile(files[0]);
+        coding?.useFolder(entries.length === 1 ? `${entries[0].name}/ (folder)` : `${entries.length} folders`, list);
+      } else if (files[0]) coding?.useZip(files[0]);
     } catch (e) {
       console.error(e);
       toast("Couldn't read what was dropped: " + (e?.message || e) + '. Try the Choose button instead.', 'bad');

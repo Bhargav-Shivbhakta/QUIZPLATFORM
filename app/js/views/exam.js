@@ -7,9 +7,11 @@ import * as cloud from '../cloud.js';
 export async function render(main, { id }) {
   const exam = await getExam(id);
   if (!exam) {
-    main.innerHTML = `<section class="page narrow empty-state"><h1>Exam not found</h1><p>It may have been removed or renamed.</p><a class="btn primary" href="#/">See all exams</a></section>`;
+    main.innerHTML = `<section class="page narrow empty-state"><h1>Practice set not found</h1><p>It may have been removed or renamed.</p><a class="btn primary" href="#/">See all exams</a></section>`;
     return;
   }
+  // coding practice (no questions): the set is its programming assignments, nothing else
+  if (!exam.questions.length && exam.assignmentCount) return (await import('./assignments.js')).render(main, { id });
   const stats = store.getStats(exam.id);
   const attempts = store.getAttempts(exam.id);
   const saved = store.getSaved(exam.id);

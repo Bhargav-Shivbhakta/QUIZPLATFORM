@@ -1988,6 +1988,10 @@ a.more-item:hover .more-name { color: var(--accent); }
 .asg-check-icon.warn { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
 .upload-actions { margin-top: .2rem; }
 .upload-panel { grid-template-columns: minmax(0, 1fr); }
+.kind-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: .8rem; }
+.kind-card { display: flex; flex-direction: column; gap: .35rem; text-align: left; padding: 1rem 1.1rem; border: 2px solid var(--line); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; cursor: pointer; }
+.kind-card:hover, .kind-card:focus-visible { border-color: var(--accent); background: var(--accent-soft); }
+.kind-card .mode-name { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
 .upload-panel > * { min-width: 0; }
 .paste-box textarea { max-width: 100%; box-sizing: border-box; }
 @media (max-width: 400px) { .upload-panel { padding: .9rem .8rem; } }

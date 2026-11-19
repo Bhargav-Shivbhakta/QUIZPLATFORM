@@ -28,12 +28,12 @@ export function examCard(e, { big = false, grouped = false, ready = null, practi
       ${practice ? '<span class="kind-badge kind-practice">Practice</span>' : ''}
       <h2>${esc(e.title)}</h2>
       ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
-      <p class="facts">${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, timed test of ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}</p>
+      <p class="facts">${e.questionCount ? `${plural(e.questionCount, 'question')}, ${plural(e.topics.length, 'topic')}${e.onExamCount ? `, timed test of ${e.onExamCount}${e.timeLimit ? ` in ${e.timeLimit} min` : ''}` : ''}${e.assignmentCount ? `, ${plural(e.assignmentCount, 'coding assignment')}` : ''}` : `Coding practice: ${plural(e.assignmentCount || 0, 'programming assignment')}`}</p>
       ${countdown(e.examDate) ? `<p class="countdown">${esc(countdown(e.examDate))}</p>` : ''}
       ${e.practiceOff ? '<p class="due-line bad"><span class="tag">Off for students</span></p>' : e.dueAt ? `<p class="due-line ${e.pastDue ? 'bad' : ''}">${e.practiceClosed ? 'Closed for students · was due' : e.pastDue ? 'Past due ·' : 'Due'} ${esc(dateTime(e.dueAt))}</p>` : ''}
       ${last ? `<p class="last">Last studied ${esc(fmtDate(last.finishedAt))}${best >= 0 ? ` · Best timed test ${best}%` : ''}</p>` : ''}
     </div>
-    ${big && ready ? (() => { const r = ready; return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
+    ${big && ready && e.questionCount ? (() => { const r = ready; return `<div class="exam-card-side">${ring(r.score, { size: 116, label: r.score + '%', sub: r.label, tone: toneFor(r.score / 100) })}<span class="ring-caption">Quiz readiness</span></div>`; })() : ''}
     <span class="exam-card-go">${big ? 'Start practising' : 'Open'}</span>
   </a>`;
 }

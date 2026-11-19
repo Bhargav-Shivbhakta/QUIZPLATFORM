@@ -2,7 +2,14 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: blank site on older Safari (urgent fix)
+## Not yet released: coding practice, and the student design written down
+
+- **Coding practice is its own kind of practice set** (I-1, I-2). Add a practice set asks: Questions (.md) or Coding (.zip). A coding set needs no question file. Sets can have both; Remove questions turns a mixed set into coding practice (do this on Midterm 3 Practice). Students open a coding set straight onto its assignments: no flashcards, practice tests or quiz readiness. Practice is no longer called "exam" on the Practice page.
+- **The student design, written down** (no change to the site): `docs/DESIGN.md` now has two levels of motion (Full and Soft) and a new section, **The study buddy**: the Dot (default) and the Flame, its rules and its moments, and how a new feature adds one. The word list gains "study plan" and "study buddy".
+- `RULES.md`: four new design rules (D-25 to D-28), 62 in all. `docs/DECISIONS.md`: the student navigation decisions, readiness shown as a number with its word, and going live in stages.
+- **Tested:** all 64 automated tests and the architecture check; the full professor and student flow on the local copy, with screenshots.
+
+## 18 November 2026: blank site on older Safari (urgent fix)
 
 - **The site loads again on older Macs.** On Safari before 16.4, and in Safe Exam Browser on those Macs, www.cramming.net stayed on a dark, empty screen. Two lines of the maths formatting used code that older Safari can't read; they're rewritten (see I-6).
 - If a browser ever can't run Cramming, students now see a plain message saying what to do, not a blank screen.

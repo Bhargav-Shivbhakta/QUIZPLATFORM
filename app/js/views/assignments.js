@@ -1,6 +1,7 @@
 import { getExam, getAssignments } from '../data.js';
 import * as store from '../store.js';
 import { esc, icon, meter, plural } from '../ui.js';
+import * as cloud from '../cloud.js';
 
 export function statusOf(a, prog, examId) {
   const p = prog[a.slug];
@@ -14,10 +15,14 @@ export function statusOf(a, prog, examId) {
 
 export async function render(main, { id }) {
   const exam = await getExam(id);
-  if (!exam) { main.innerHTML = `<section class="page narrow empty-state"><h1>Exam not found</h1><a class="btn primary" href="#/">See all exams</a></section>`; return; }
+  if (!exam) { main.innerHTML = `<section class="page narrow empty-state"><h1>Practice set not found</h1><a class="btn primary" href="#/">See all exams</a></section>`; return; }
   const list = await getAssignments(id);
   const e = encodeURIComponent(exam.id);
-  const crumbs = `<nav class="crumbs"><a href="#/">Exams</a><a href="#/exam/${e}">${esc(exam.title)}</a></nav>`;
+  // a coding-only practice set is this page: its crumbs lead back to the class, not to itself
+  const codingOnly = !exam.questions.length, cls = cloud.enabled ? cloud.classForExam(exam.id) : null;
+  const crumbs = codingOnly
+    ? `<nav class="crumbs"><a href="#/">My classes</a>${cls ? `<a href="#/class/${encodeURIComponent(cls.id)}">${esc(cls.name)}</a>` : ''}</nav>`
+    : `<nav class="crumbs"><a href="#/">My classes</a><a href="#/exam/${e}">${esc(exam.title)}</a></nav>`;
   if (!list.length) {
     main.innerHTML = `<section class="page narrow empty-state">${crumbs}<h1>No programming assignments yet</h1><p>Assignments appear here once they're added for this exam.</p></section>`;
     return;
@@ -33,7 +38,8 @@ export async function render(main, { id }) {
       <header class="asg-head">
         <div>
           ${exam.course ? `<p class="course">${esc(exam.course)}</p>` : ''}
-          <h1>Programming assignments</h1>
+          ${codingOnly && cloud.enabled ? '<span class="kind-badge kind-practice">Coding practice · not graded</span>' : ''}
+          <h1>${codingOnly ? esc(exam.title) : 'Programming assignments'}</h1>
           <p class="muted">Write Java right here and test it instantly. Your code runs in your browser and is saved on this device.</p>
         </div>
         <div class="asg-summary">

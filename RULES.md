@@ -84,6 +84,10 @@ Read this before changing anything in Cramming, whoever you are: the founder, a 
 | D-22 | Emails, downloads, print, the tab and link previews follow the design | DESIGN › Beyond the screen | Review |
 | D-23 | A design change updates tokens.css, DESIGN.md and the Design System page together | DESIGN (top) | Review |
 | D-24 | The screen inventory on the whiteboard is updated when a screen moves | DESIGN › Beyond the screen | Review |
+| D-25 | Students choose Full or Soft motion; big moments are rationed (daily, weekly, per set); exams have no motion | DESIGN › Motion | Review |
+| D-26 | The study buddy appears only at a moment from its table, within its limit; never in exams or on staff screens; never guilt | DESIGN › The study buddy | Review |
+| D-27 | A new buddy moment ships with a mood for every buddy, a limit and a row in the table | DESIGN › The study buddy | Review |
+| D-28 | Students have three places: Today, their classes, Progress. Bottom tabs on phones, a left bar on laptops and tablets; no other layout | DECISIONS › Student navigation | Review |
 
 ### Privacy and security (P)
 

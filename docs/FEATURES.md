@@ -34,7 +34,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 | Timed and random practice tests | Live, unpolished | `views/exam.js`, `views/quiz.js` | None |
 | Graded exams, quizzes and assignments (timed, one attempt) | Live, unpolished | `views/take.js`, `timed.js` | None |
 | Code editor (CodeMirror 6) | Live, unpolished | `java/editor.js` | None |
-| Coding assignments (Java editor, run, tests) | Live, unpolished | `views/code.js`, `views/assignments.js`, `assignments-core.js`, `java/` | Java compiler, assignments |
+| Coding assignments (Java editor, run, tests); a practice set can be coding only | Live, unpolished | `views/code.js`, `views/assignments.js`, `assignments-core.js`, `java/` | Java compiler, assignments |
 | Study pages by unit | Live, unpolished | `views/study.js` | Through the build engine |
 | My study: today, mistake notebook, week plan | Live, unpolished | `views/mystudy.js`, `studyplan.js` | Study plan |
 | Progress | Live, unpolished | `views/progress.js` | None |
@@ -50,7 +50,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 |---|---|---|---|
 | Build my course (five steps) | Live, unpolished | `views/builder.js`, `views/build-run.js`, `views/build-review.js`, `build/engine.js`, `connector/` | Engine, connector, Worker |
 | Course materials read in the browser | Live, unpolished | `materials.js` | Partly |
-| Upload practice question files | Live, unpolished | `views/content.js` | Parser |
+| Practice sets: questions (.md), coding (.zip) or both; Remove questions | Live, unpolished | `views/content.js`, `views/content-coding.js` | Parser; browser flow (I-1) |
 | Check a question file, preview as a student | Live, unpolished | `views/author.js` | Parser |
 | Release dates for practice | Live, unpolished | `views/content.js`, `cloud.js` | None |
 | Graded work: exam, quiz or assignment; setup, extra time, preview | Live, unpolished | `views/timed-admin.js`, `timed.js` | None |

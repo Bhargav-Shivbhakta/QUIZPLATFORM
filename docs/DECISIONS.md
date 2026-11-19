@@ -31,3 +31,17 @@ The whole product uses one look: cool white and near-black, one blue (`#2443C4`,
 
 The Privacy, Terms, How we use AI and Accessibility pages stay as drafts until phase 1 (every existing feature finished on the new look) is done. Then they are rewritten to match what the finished product really collects and does, the accessibility audit is run, and a lawyer reviews them before launch. Why: written now, they would describe features that are still changing.
 
+## 18 November 2026: student navigation, motion and the study buddy
+
+Decided by the founder from the clickable "Student Navigation Mockup":
+
+- **One Today for all classes**, with class filters. A student with one class sees no filters, and Classes opens straight into that class. Everyone lands on Today. Why: students plan by time, not by class; one landing screen to design and test.
+- **Today is the countdown** (direction A): the nearest exam in huge type, readiness as a ring, one Start button.
+- **Each class has four tabs: Study plan, Practice, Notes, Graded work.** The Study plan shows the units on the way to the exam, with today's stop and the exam as a flag (direction B), and its line traces down to today's stop when the tab opens. "Study plan" replaces "Path" because it's what students in the US say.
+- **Navigation:** Today, the classes, Progress. Bottom tabs on phones; a left bar on laptops and tablets (slim on tablets) with each class by name. Messages and Settings sit with the account. No choice of layout. Why: one layout per device, done well.
+- **Motion: Full by default, Soft as a choice** in Settings; nothing in exams. Big moments are rationed (DESIGN › Motion).
+- **The study buddy: the Dot** by default, with the Flame and "off" as choices in Settings. It hops out of the logo onto Today each morning. Its rules and moments are in DESIGN › The study buddy, so new features use it the same way. A trademark search on the names comes before public use.
+- **Where every current student feature lives** is on the system map whiteboard ("Student navigation map") and in the mockup's "Where every feature lives" list.
+- **Readiness shows the number and the word together** ("62% · Getting there"), decided by the founder. The word list says so.
+- **Going live in stages:** step 1 puts the new frame (navigation, Today, class tabs, Progress, the Dot, Messages, Settings) in front of every student, with today's screens opening inside it and exams untouched. Then each feature is made flawless in turn, starting with Today's set.
+
