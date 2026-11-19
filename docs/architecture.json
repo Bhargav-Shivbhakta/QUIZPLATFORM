@@ -333,7 +333,7 @@
     "code": {
       "about": "Things DESIGN.md says go through one place, counted across app/js. Each count may only go down.",
       "inlineStyles": {
-        "max": 36
+        "max": 29
       },
       "jsColours": {
         "max": 18

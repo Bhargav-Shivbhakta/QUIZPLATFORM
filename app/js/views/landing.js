@@ -132,44 +132,12 @@ function markup() {
     </div>
   </section>
 
-  <section class="wrap sec" aria-labelledby="sr-h">
-    <div class="lp-center stack reveal">
-      <p class="lp-eyebrow">Spaced review</p>
-      <h2 id="sr-h" class="h2">Learn it once. Keep it for the exam.</h2>
-      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. Get a question wrong, and its gaps start again.</p>
-    </div>
-    <figure class="card lp-curve reveal" style="margin-left:0;margin-right:0">
-      <p class="axis">How much you remember</p>
-      <div class="scroll" tabindex="0"><svg viewBox="0 0 800 270" role="img" aria-label="Two memory curves over a month. Without review, memory keeps falling. With reviews on day 1, 4, 11 and 27, it climbs back each time and falls more slowly after each review.">
-        <line class="base" x1="0" y1="250" x2="800" y2="250" stroke-width="1.5"/>
-        <path class="without" d="M0 20 C120 170 300 222 800 238" fill="none" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round"/>
-        <path class="with" d="M0 20 C10 50 20 64 27 72 L27 24 C60 56 90 70 107 78 L107 24 C170 56 240 72 293 80 L293 24 C450 48 620 60 720 66 L720 22 C750 25 780 28 800 30" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-        ${[[27, 24], [107, 24], [293, 24], [720, 22]].map(([x, y]) => `<circle class="lp-ring" cx="${x}" cy="${y}" r="7"/><circle class="lp-dot" cx="${x}" cy="${y}" r="6"/>`).join('')}
-      </svg></div>
-      <figcaption class="legend"><span style="display:flex;flex-wrap:wrap;gap:10px 28px"><span><i class="sw"></i>With Cramming's reviews on day 1, 4, 11 and 27</span><span><i class="sw dash"></i>Without review</span></span><span>Day 1 → Day 30. An illustration, not measured data.</span></figcaption>
-      <p class="research">The research: the forgetting curve, first measured by Ebbinghaus in 1885 and replicated by <a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0120644" target="_blank" rel="noopener">Murre and Dros (2015)</a>. Spaced practice beats massed practice across hundreds of experiments (Cepeda and colleagues, 2006, <em>Psychological Bulletin</em>). A review of study methods by Dunlosky and colleagues (2013) rated spaced practice and practice testing the two most useful techniques.</p>
-    </figure>
-  </section>
-
-  <section class="wrap sec split" aria-labelledby="tu-h">
-    <div class="stack reveal">
-      <p class="lp-eyebrow">AI tutor</p>
-      <h2 id="tu-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">AI that stays inside the course.</h2>
-      <p class="lp-lead" style="text-wrap:pretty">Students can connect the AI they already use to their course. It reads only the units the professor has opened, and it switches off while a quiz or exam is running. The professor can turn it off for the whole class with one switch.</p>
-    </div>
-    <div class="card lp-chat lp-lift reveal" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
-      <small>MATH 150 tutor · Quiz 3 is open</small>
-      <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
-      <div class="ai">Quiz 3 is open right now, so I can't help with it. When it closes, I can walk you through the chain rule using your Unit 4 notes.</div>
-    </div>
-  </section>
-
   <section id="professors" class="wrap sec" aria-labelledby="pf-h">
     <div class="lp-panel split reveal">
       <div class="stack">
         <p class="lp-eyebrow">For professors</p>
-        <h2 id="pf-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Your materials in. A complete course out.</h2>
-        <p class="lp-lead" style="text-wrap:pretty">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
+        <h2 id="pf-h" class="h2 lp-h-mid">Your materials in. A complete course out.</h2>
+        <p class="lp-lead">Upload your slides, notes and a past exam. Your own AI drafts notes, practice and quizzes for every unit, checks every answer key twice, then waits for you. Nothing reaches students until you publish it.</p>
         <ul class="lp-checks">${['Built from the materials you upload', 'Every answer key checked twice', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
       </div>
       <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
@@ -180,20 +148,53 @@ function markup() {
     </div>
   </section>
 
-  <section class="wrap sec split" aria-labelledby="da-h">
-    <div class="stack reveal">
-      <p class="lp-eyebrow">For professors · Class dashboard</p>
-      <h2 id="da-h" class="h2" style="font-size:clamp(32px,min(4.4vw,7vh),50px)">Spot who's struggling before the exam.</h2>
-      <p class="lp-lead" style="text-wrap:pretty">See the questions most of your class gets wrong and the students who haven't started, so you can fix a misunderstanding in Tuesday's lecture instead of after the midterm.</p>
-    </div>
-    <div class="card lp-dash lp-lift reveal" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
-      <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
-      <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
-        <small style="font-size:13px;color:var(--ink-3)">Most missed</small>
-        <div class="lp-row"><span>Q7 · The chain rule, nested functions</span><b>64% wrong</b></div><div class="lp-track"><b style="--w:64%"></b></div>
-        <div class="lp-row"><span>Q3 · Limits at infinity</span><b>41% wrong</b></div><div class="lp-track"><b style="--w:41%;opacity:.55"></b></div>
-        <div class="alert">9 students signed in but haven't started Quiz 3.</div>
+  <section class="wrap sec" aria-label="AI tutor and class dashboard">
+    <div class="lp-duo">
+    <div class="stack reveal lp-duo-col">
+      <p class="lp-eyebrow">For students · AI tutor</p>
+      <h2 id="tu-h" class="h2 lp-h-mid">AI that stays inside the course.</h2>
+      <p class="lp-lead">Students can connect the AI they already use to their course. It reads only the units the professor has opened, and it switches off while a quiz or exam is running. The professor can turn it off for the whole class with one switch.</p>
+      <div class="card lp-chat lp-lift" role="img" aria-label="Example chat: a student asks the tutor for a quiz answer while the quiz is open. The tutor declines and offers to go through the topic from the unit notes after the quiz closes.">
+        <small>MATH 150 tutor · Quiz 3 is open</small>
+        <div class="me">Can you just give me the answer to question 2 on Quiz 3?</div>
+        <div class="ai">Quiz 3 is open right now, so I can't help with it. When it closes, I can walk you through the chain rule using your Unit 4 notes.</div>
       </div>
+    </div>
+    <div class="stack reveal lp-duo-col">
+      <p class="lp-eyebrow">For professors · Class dashboard</p>
+      <h2 id="da-h" class="h2 lp-h-mid">Spot who's struggling before the exam.</h2>
+      <p class="lp-lead">See the questions most of your class gets wrong and the students who haven't started, so you can fix a misunderstanding in Tuesday's lecture instead of after the midterm.</p>
+      <div class="card lp-dash lp-lift" role="img" aria-label="Example class dashboard: the two most-missed questions this week, 64 and 41 percent wrong, and 9 students who signed in but have not started the quiz.">
+        <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
+        <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
+          <small style="font-size:13px;color:var(--ink-3)">Most missed</small>
+          <div class="lp-row"><span>Q7 · The chain rule, nested functions</span><b>64% wrong</b></div><div class="lp-track"><b style="--w:64%"></b></div>
+          <div class="lp-row"><span>Q3 · Limits at infinity</span><b>41% wrong</b></div><div class="lp-track"><b style="--w:41%;opacity:.55"></b></div>
+          <div class="alert">9 students signed in but haven't started Quiz 3.</div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <section class="wrap sec" aria-labelledby="sr-h">
+    <div class="split lp-sr">
+    <div class="stack reveal">
+      <p class="lp-eyebrow">Spaced review</p>
+      <h2 id="sr-h" class="h2 lp-h-mid">Learn it once. Keep it for the exam.</h2>
+      <p class="lp-lead">We forget fast at first, then more slowly. Reviewing after growing gaps is one of the best-tested ways to remember, and Cramming sets the gaps for each student: a day, then three, then a week, then sixteen days. Get a question wrong, and its gaps start again.</p>
+    </div>
+    <figure class="card lp-curve reveal">
+      <p class="axis">How much you remember</p>
+      <div class="scroll" tabindex="0"><svg viewBox="0 0 800 270" role="img" aria-label="Two memory curves over a month. Without review, memory keeps falling. With reviews on day 1, 4, 11 and 27, it climbs back each time and falls more slowly after each review.">
+        <line class="base" x1="0" y1="250" x2="800" y2="250" stroke-width="1.5"/>
+        <path class="without" d="M0 20 C120 170 300 222 800 238" fill="none" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round"/>
+        <path class="with" d="M0 20 C10 50 20 64 27 72 L27 24 C60 56 90 70 107 78 L107 24 C170 56 240 72 293 80 L293 24 C450 48 620 60 720 66 L720 22 C750 25 780 28 800 30" fill="none" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${[[27, 24], [107, 24], [293, 24], [720, 22]].map(([x, y]) => `<circle class="lp-ring" cx="${x}" cy="${y}" r="7"/><circle class="lp-dot" cx="${x}" cy="${y}" r="6"/>`).join('')}
+      </svg></div>
+      <figcaption class="legend"><span style="display:flex;flex-wrap:wrap;gap:10px 28px"><span><i class="sw"></i>With Cramming's reviews on day 1, 4, 11 and 27</span><span><i class="sw dash"></i>Without review</span></span><span>Day 1 → Day 30. An illustration, not measured data.</span></figcaption>
+      <p class="research">The research: the forgetting curve, first measured by Ebbinghaus in 1885 and replicated by <a href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0120644" target="_blank" rel="noopener">Murre and Dros (2015)</a>. Spaced practice beats massed practice across hundreds of experiments (Cepeda and colleagues, 2006, <em>Psychological Bulletin</em>). A review of study methods by Dunlosky and colleagues (2013) rated spaced practice and practice testing the two most useful techniques.</p>
+    </figure>
     </div>
   </section>
 
@@ -368,6 +369,7 @@ export async function render(main, params = {}, query = {}) {
       const top = q.getBoundingClientRect().top;
       showQ(null);
       scrollBy(0, q.getBoundingClientRect().top - top);
+      glideTo(q.closest('section'), reduce); // then back up to the question
     }
   });
 

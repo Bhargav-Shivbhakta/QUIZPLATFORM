@@ -420,6 +420,15 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-split-head { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .65fr); gap: clamp(28px, 4vw, 64px); align-items: center; text-align: left; }
 .lp-split-head .stack { align-items: flex-start; }
 .lp-split-head .lp-lead { margin-left: 0; }
+/* side-by-side screens: a heading a step below the big ones */
+.lp .lp-h-mid { font-size: clamp(30px, min(3.8vw, 6.6vh), 50px); line-height: 1.06; letter-spacing: -0.035em; text-wrap: balance; }
+.lp .lp-sr { align-items: center; } .lp .lp-sr > .stack { flex: 1 1 320px; align-items: flex-start; text-align: left; } .lp .lp-sr > figure { flex: 1.5 1 440px; margin: 0; }
+.lp-sr .lp-lead { margin-left: 0; text-wrap: pretty; }
+.lp-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 72px); align-items: stretch; }
+.lp-duo-col { align-items: flex-start; text-align: left; }
+.lp-duo-col .lp-lead { margin-left: 0; text-wrap: pretty; font-size: clamp(16px, min(1.5vw, 2.3vh), 18px); }
+.lp-duo-col > .card { margin-top: auto; width: 100%; }
+@media (max-width: 820px) { .lp-duo { grid-template-columns: 1fr; } }
 .lp-split-head .h2, .lp .lp-h-big { font-size: clamp(42px, min(5.6vw, 9.5vh), 80px); line-height: 1.02; letter-spacing: -0.045em; text-wrap: balance; }
 /* the three points under screens 2 and 3 rise in one by one; the line above each draws from the left */
 .lp.js-anim .points > .reveal { position: relative; border-top-color: transparent; }
