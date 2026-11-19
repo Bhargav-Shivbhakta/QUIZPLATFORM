@@ -12,7 +12,7 @@ const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-h
 const PLUS = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 2v14M2 9h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--accent)"/></svg>';
 
 const MARK = (size) => `<svg class="lp-mark" width="${size}" height="${size}" viewBox="0 0 28 28" aria-hidden="true"><circle class="m1" cx="9" cy="9" r="5.5"/><circle class="m2" cx="19" cy="9" r="5.5"/><circle class="m3" cx="19" cy="19" r="5.5"/><circle class="m4" cx="9" cy="19" r="5.5"/></svg>`;
-const TASKS = [['Try 4 questions again', 4], ['Review 6 questions to keep them fresh', 4], ['Read Unit 4: The chain rule', 15]];
+const TASKS = [['Try 4 questions again', 3], ['Review 6 questions to keep them fresh', 3], ['Read Unit 4: The chain rule', 9]];
 const BUILD = ['Read your materials', 'Draft the course map', 'You approve the map', 'Write notes and practice', 'Check every answer key twice', 'Ready for your review'];
 // The worked solution for the practice question. Maths is typeset with KaTeX (loaded by the page).
 const OPTIONS = [
@@ -88,8 +88,7 @@ function markup() {
   <section id="students" class="wrap sec" aria-labelledby="st-h">
     <div class="lp-center stack reveal">
       <p class="lp-eyebrow">For students</p>
-      <h2 id="st-h" class="h2">Every student knows what to do tonight.</h2>
-      <p class="lp-lead">Each student gets a short plan built from their own mistakes, the questions due for review and this week's unit. Small sessions, most days: the way people remember best.</p>
+      <h2 id="st-h" class="h2 lp-h-big">A clear plan for every student, every day.</h2>
     </div>
     <div class="lp-stage">
       <div class="lp-shot">
@@ -98,11 +97,11 @@ function markup() {
           <div class="lp-winbar" aria-hidden="true"><i></i><i></i><i></i><span>cramming.net</span></div>
           <div class="lp-today" aria-hidden="true">
             <div class="main">
-              <div><p class="meta">Tuesday · MATH 150 · Midterm in 12 days</p><p class="title" data-today-title>Today, about 23 minutes</p></div>
+              <div><p class="meta">Tuesday · MATH 150 · Midterm in 12 days</p><p class="title" data-today-title>Today, about 15 minutes</p></div>
               <div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div>
             </div>
             <div class="side">
-              <div class="lp-note"><small>A note from Ms. Harper</small><span>The chain rule is the key to Tuesday's quiz. Read Unit 4, then try a few reps.</span></div>
+              <div class="lp-note"><small>A note from Ms. Harper</small><span>The chain rule is the key to Friday's quiz. Read Unit 4, then try a few reps.</span></div>
               <div class="lp-note">
                 <small>How ready you are</small>
                 <div class="lp-meter"><span>Limits</span><span>86% · Solid</span></div><div class="lp-track"><b class="ink" style="--w:86%"></b></div>
@@ -112,13 +111,9 @@ function markup() {
           </div>
         </div>
       </div>
-      <div class="lp-phone" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 23 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
+      <div class="lp-phone" aria-hidden="true"><div class="screen"><div class="notch"></div><p class="m">MATH 150</p><p class="t" data-today-title>Today, about 15 minutes</p><div class="lp-tasks" data-tasks>${TASKS.map(task).join('')}</div></div></div>
     </div>
-    <div class="points">${points([
-      ['Built from the course', "Notes and questions come from the professor's own materials, so practice matches what's taught and what's tested."],
-      ['Planned for each student', "Mistakes come first, then what's due for review, then this week's unit. Nobody has to guess where to start."],
-      ['Short enough to happen', 'Three tasks at most, each with its time. Students finish, and come back tomorrow.'],
-    ])}</div>
+    <ul class="lp-ticks">${['From the educator\'s own materials', 'Planned for each student', 'About 15 minutes a day'].map((t) => `<li><i>${CHECK}</i>${t}</li>`).join('')}</ul>
   </section>
 
   <section class="lp-dark" aria-labelledby="pr-h">
@@ -319,7 +314,7 @@ export async function render(main, params = {}, query = {}) {
 
   // demos: Today checks off tasks, Build my course completes steps. They run only on screen.
   const todayTitles = lp.querySelectorAll('[data-today-title]'), taskLists = lp.querySelectorAll('[data-tasks]');
-  const chain = lp.querySelector('[data-chain]'), chainLabel = lp.querySelector('[data-chain-label]');
+  const chains = lp.querySelectorAll('[data-chain]'), chainLabels = lp.querySelectorAll('[data-chain-label]');
   const steps = [...lp.querySelectorAll('.lp-step')], pct = lp.querySelector('[data-build-pct]'), buildBar = lp.querySelector('[data-build-bar]');
   let k = 0;
   const paint = () => {
@@ -328,7 +323,7 @@ export async function render(main, params = {}, query = {}) {
     todayTitles.forEach((el) => (el.textContent = done === 3 ? 'Done for today' : `Today, about ${left} minutes`));
     taskLists.forEach((list) => [...list.children].forEach((row, i) => { row.classList.toggle('done', i < done); row.classList.toggle('next', i === done); }));
     const c = [41, 52, 63, 74][done];
-    chain.style.setProperty('--w', c + '%'); chainLabel.textContent = `${c}% · ${c >= 75 ? 'Solid' : 'Getting there'}`; // readiness: the number and its word
+    chains.forEach((el) => el.style.setProperty('--w', c + '%')); chainLabels.forEach((el) => (el.textContent = `${c}% · ${c >= 75 ? 'Solid' : 'Getting there'}`)); // readiness: the number and its word
     const b = Math.min(k % 9, 6);
     steps.forEach((s, i) => { s.classList.toggle('done', i < b); s.classList.toggle('now', i === b); });
     pct.textContent = b === 6 ? 'Ready' : Math.round((b / 6) * 100) + '%';
