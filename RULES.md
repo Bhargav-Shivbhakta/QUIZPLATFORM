@@ -94,6 +94,8 @@ Read this before changing anything in Cramming, whoever you are: the founder, a 
 | D-32 | Refreshing by the logo is limited to once a minute and never reads more than an ordinary visit | DESIGN › Navigation | Review |
 | D-33 | Links go to pages, buttons do things; addresses are lowercase nouns that never change meaning | DESIGN › Navigation | Review |
 | D-34 | Settings save the moment they change and say "Saved"; no Save button on a settings page | DESIGN › Behaviour | Review |
+| D-35 | Text is whole, human sentences; only the tagline and short labels may be fragments | DESIGN › Words | Review |
+| D-36 | Text is affirmative: no negations, and "attempts" and "to try again", never "mistakes", on student screens (rules and safety warnings excepted) | DESIGN › Words | Review |
 
 ### Privacy and security (P)
 

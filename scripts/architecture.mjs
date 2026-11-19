@@ -135,7 +135,7 @@ for (const n of notes) console.log(`  note  ${n}`);
     inlineStyles: { re: /\bstyle="/g, skip: [], what: 'inline styles', fix: 'use kit parts and classes in app/css (DESIGN.md, The kit)' },
     jsColours: { re: /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![\w-])|\brgba?\(/g, skip: [], what: 'colours written in code', fix: 'use a class or a --cr- token' },
     dateCalls: { re: /\.toLocale(?:Date|Time)?String\(|Intl\.DateTimeFormat/g, skip: ['app/js/format.js'], what: 'dates formatted outside format.js', fix: 'use app/js/format.js (DESIGN.md, Dates, times and numbers)' },
-    drawnIcons: { re: /<svg\b/g, skip: ['app/js/ui.js', 'app/js/buddy.js'], // buddy.js: the study buddy is an illustration, like the logo
+    drawnIcons: { re: /<svg\b/g, skip: ['app/js/ui.js', 'app/js/buddy.js', 'app/js/views/lp-hero.js'], // buddy.js, lp-hero.js: the study buddy is an illustration, like the logo
     what: 'SVG drawings outside the icon set', fix: "use icon('name'); logos, charts and the watermark are allowed" },
   };
   for (const [key, r] of Object.entries(RULES)) {

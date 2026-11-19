@@ -59,3 +59,9 @@ Asked by the founder ("the initials open settings; I just want Sign out… notif
 - **A new Settings page**: grouped cards (account, Studying, Appearance, Your data), switches and segmented controls, saved at once. Adds **Weekly goal** (2 to 5 days), which Today's "This week" uses.
 - The rules are in DESIGN › Navigation and RULES D-29 to D-34, so professor and admin screens follow the same ones when their journeys come.
 
+
+## 18 November 2026: the tagline, and "educator"
+
+- **Tagline: "Small reps. Top grades.™"** It replaces "Cram the right way." The founder didn't want the word "cram" in the tagline. "Reps" (repetitions) fits the product: a few questions a day, and questions coming back before you forget them. A web search found no one using it; a trademark search on it and on "Cramming" comes before spending on the brand.
+- **"Educator" is the general word for anyone who teaches a class.** Raised by the founder's mentor: high-school teachers, lecturers and instructors feel left out by "professor", and professors feel lowered by "instructor". Students see each educator by the name and title they choose; staff screens say "you". Screens change as they move to the new look.
+- **The Dot shows arms and legs when it does something** (planned as named poses with the Today's set deep dive), and gets an introduction for new students.

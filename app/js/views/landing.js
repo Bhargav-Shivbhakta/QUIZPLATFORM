@@ -4,6 +4,7 @@
 // demos only while they're on screen. Everything stops for "Pause motion" and reduced motion.
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
+import { readingDot, playHero } from './lp-hero.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
@@ -43,12 +44,11 @@ const task = ([t, m]) => `<div class="lp-task"><span class="mark">${CHECK}</span
 function markup() {
   return `<div class="lp js-anim">
   ${header(true)}
-  <section class="wrap lp-center lp-hero" aria-labelledby="lp-h1">
-    ${MARK(52)}
-    <p class="kicker">Practice, plans and exams for any course</p>
-    <h1 id="lp-h1">Cram the right way.<sup class="tm" aria-hidden="true">™</sup></h1>
-    <p class="lp-lead">A little every day, ready on exam day. Cramming turns a professor's course materials into daily practice and a study plan for every student.</p>
-    <div class="ctas"><button type="button" class="lp-btn big" data-request>Request access</button><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
+  <section class="wrap lp-center lp-hero lp-intro" aria-labelledby="lp-h1">
+    ${MARK(56)}
+    <h1 id="lp-h1" data-title="Cramming · Small reps. Top grades."><span class="lp-name">Cramming<sup class="tm" aria-hidden="true">™</sup></span> <span class="lp-tag"><span>Small reps.</span> <span>Top grades.<sup class="tm" aria-hidden="true">™</sup></span></span></h1>
+    <p class="lp-lead">Cramming turns an educator's own materials into a few minutes of practice each day. Every student gets a clear plan to follow, so they walk into the exam feeling ready.</p>
+    <div class="ctas"><span class="lp-perch"><button type="button" class="lp-btn big" data-request>Request access</button>${readingDot()}</span><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
     <div class="lp-stage">
       <div class="lp-shot">
         <div class="lp-glow" aria-hidden="true"></div>
@@ -262,12 +262,15 @@ function glideTo(el, reduce) {
 export async function render(main, params = {}, query = {}) {
   await ensureCss();
   document.body.classList.add('landing-mode');
-  document.title = 'Cramming · Cram the right way';
+  document.title = 'Cramming · Small reps. Top grades.';
   main.innerHTML = markup();
   const lp = main.querySelector('.lp');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let paused = reduce;
   const offs = [mountSheet(lp)];
+
+  // the opening: the logo, the name, the tagline, then the Dot's walk to Request access (lp-hero.js)
+  if (!reduce) offs.push(playHero(lp.querySelector('.lp-intro'), lp));
 
   // reveals
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
@@ -357,7 +360,7 @@ export async function render(main, params = {}, query = {}) {
       p.setAttribute('aria-pressed', String(paused));
       p.querySelector('span').textContent = paused ? 'Play motion' : 'Pause motion';
       p.querySelector('[data-pause-icon]').innerHTML = paused ? '<path d="M3 1.5v9l7.5-4.5z"/>' : '<rect x="2" y="1.5" width="2.6" height="9" rx=".8"/><rect x="7.4" y="1.5" width="2.6" height="9" rx=".8"/>';
-      lastT = -1; frame();
+      frame();
     }
   };
   lp.addEventListener('click', onClick);

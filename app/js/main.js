@@ -130,7 +130,8 @@ async function route() {
     if (cloud.enabled && cloud.currentUser()) main.querySelectorAll('.crumbs a[href="#/"]').forEach((a) => { if (a.textContent.trim() === 'Exams') a.textContent = 'My classes'; });
     if (!query.keepScroll) window.scrollTo(0, 0);
     const h1 = main.querySelector('h1');
-    document.title = (h1 ? h1.textContent.trim() + ' · ' : '') + config.siteName;
+    // a page can name its own tab (data-title on the h1), e.g. the landing page's "Cramming · Small reps. Top grades."
+    document.title = h1?.dataset.title || (h1 ? h1.textContent.trim() + ' · ' : '') + config.siteName;
   } catch (e) {
     console.error(e);
     if (token !== renderToken) return;

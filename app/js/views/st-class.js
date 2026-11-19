@@ -89,7 +89,7 @@ function trace(main) {
   const top = first.offsetTop + 24, h = end.offsetTop + 24 - top;
   line.style.top = `${top}px`; line.style.height = `${Math.max(0, h)}px`;
   const m = motionLevel();
-  line.classList.add(m === 'none' ? 'still' : m === 'soft' ? 'go soft' : 'go');
+  line.classList.add(...(m === 'none' ? ['still'] : m === 'soft' ? ['go', 'soft'] : ['go'])); // one class name per argument
   main.querySelectorAll('.st-bar i[data-w]').forEach((i) => { i.style.width = `${i.dataset.w}%`; });
 }
 

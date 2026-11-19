@@ -1030,6 +1030,13 @@ console.log('\nMock exams');
     assert.equal(N.badgeFor('CS', 'CS 210 Data Structures'), '210'); assert.equal(N.badgeFor('Intro', 'Intro to Programming'), 'IN');
     assert.equal(N.classTitle({ course: 'CS 210', name: 'CS 210 Data Structures' }), 'CS 210 Data Structures'); assert.equal(N.classTitle({ course: 'CS150', name: 'Intro to Programming' }), 'CS150 · Intro to Programming'); assert.equal(N.classTitle({ name: 'Biology' }), 'Biology');
   });
+  test('no class name with a space is passed to classList (browsers throw)', () => {
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((f) => (f.isDirectory() ? walk(path.join(d, f.name)) : f.name.endsWith('.js') ? [path.join(d, f.name)] : []));
+    const bad = walk(path.join(ROOT, 'app/js')).flatMap((f) => fs.readFileSync(f, 'utf8').split('\n').map((l, i) => [f, i + 1, l]))
+      .filter(([, , l]) => [...l.matchAll(/classList\.(?:add|remove|toggle|replace)\(([^;]*)/g)].some((m) => [...m[1].matchAll(/'([^'\\]*)'|"([^"\\]*)"/g)].some((q) => /\s/.test(q[1] ?? q[2]))))
+      .map(([f, n]) => `${path.relative(ROOT, f)}:${n}`);
+    assert.deepEqual(bad, []);
+  });
   test('top-level places have no back link; every other page has one way up', () => {
     const cls = { id: 'c1', course: 'CS150', name: 'Intro' };
     const ctx = { classOf: (id) => (id === 'x' ? cls : null), several: true, codingOnly: (id) => id === 'code' };

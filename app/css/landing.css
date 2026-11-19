@@ -55,8 +55,10 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 
 /* hero */
 .lp-hero { padding-top: clamp(28px, 7vh, 88px); gap: clamp(14px, 2.4vh, 22px); }
-.lp-hero .kicker { font-size: 15px; font-weight: 500; color: var(--cr-accent); }
-.lp-hero h1 { font-size: clamp(40px, min(7.2vw, 10.5vh), 84px); line-height: 1.02; font-weight: 700; letter-spacing: -0.04em; text-wrap: balance; max-width: 940px; }
+.lp-hero h1 { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.2vh, 14px); max-width: 940px; font-weight: 700; letter-spacing: -0.04em; }
+.lp-hero .lp-name { font-size: clamp(48px, min(8.4vw, 12vh), 104px); line-height: 1; }
+.lp-hero .lp-tag { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .28em; font-size: clamp(26px, min(4vw, 5.6vh), 48px); line-height: 1.1; letter-spacing: -0.03em; color: var(--cr-accent); perspective: 600px; }
+.lp-hero .lp-tag > span { display: inline-block; }
 .lp-hero .lp-lead { font-size: clamp(17px, min(2vw, 2.7vh), 22px); }
 .lp-hero .ctas { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; justify-content: center; }
 .lp-stage { position: relative; width: min(100%, 1080px, 160vh); margin: clamp(28px, 6vh, 56px) auto 0; }
@@ -274,7 +276,51 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-doc .updated { margin-top: 10px; font-size: 14px; color: var(--cr-ink-3); }
 .lp p a, .lp-doc li a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 .lp sup.tm { font-size: .42em; font-weight: 500; vertical-align: super; line-height: 0; margin-left: .06em; letter-spacing: 0; }
-.lp-hero h1 sup.tm { font-size: .3em; vertical-align: .95em; }
+.lp-hero h1 sup.tm { font-size: .36em; vertical-align: .9em; color: var(--cr-ink-3); }
+.lp-hero .lp-name sup.tm { font-size: .2em; vertical-align: 2.6em; font-weight: 500; }
+
+/* the Dot sits on the Request access button with its laptop (lp-hero.js; decorative, aria-hidden) */
+.lp-perch { position: relative; display: inline-flex; }
+.lp-hero .ctas { margin-top: 30px; } /* room for the Dot above the button */
+.lp-perch .lp-dot { position: absolute; right: 16px; bottom: calc(100% - 24px); overflow: visible; transform-origin: 50% 66.7%; pointer-events: none; }
+.lp-dot .bd-dot { stroke: var(--cr-bg); stroke-width: 5; paint-order: stroke; } /* a ring in the page colour keeps it apart from the blue button */
+.lp-dot .lp-arms path { fill: none; stroke: var(--cr-accent-hover); stroke-width: 5; stroke-linecap: round; }
+.lp-dot .lp-legs path { fill: none; stroke: var(--cr-ink); stroke-width: 4.5; stroke-linecap: round; } /* ink, so they show on the blue button */
+.lp-dot .lp-legs ellipse { fill: var(--cr-ink); }
+.lp-dot .lp-lid { fill: var(--cr-ink); stroke: var(--cr-bg); stroke-width: 2; }
+.lp-dot .lp-base { fill: var(--cr-ink-2); }
+.lp-dot .lp-lid-logo circle { fill: none; stroke: var(--cr-bg); stroke-width: 1; }
+.lp-dot .lp-lid-logo circle.on { fill: var(--cr-accent); stroke: none; }
+.lp-dot g, .lp-dot path { transform-box: fill-box; }
+.lp-dot .lp-legs, .lp-dot .lp-arms path, .lp-dot .lp-laptop, .lp-dot .lp-lid, .lp-dot .lp-lid-logo, .lp-dot .lp-glasses { transition: transform .35s var(--cr-ease), opacity .3s var(--cr-ease); }
+.lp-dot .lp-legs { transform-origin: 50% 0; }
+.lp-dot .lp-lid, .lp-dot .lp-lid-logo { transform-origin: 50% 100%; }
+.lp-dot .lp-arm-down { opacity: 0; }
+/* poses on the way: a ball while hopping; sitting; glasses down; then reading (the default, finished scene) */
+.lp-dot[data-pose="ball"] { opacity: 0; }
+.lp-dot[data-pose="ball"] .lp-legs { transform: scaleY(0); opacity: 0; }
+.lp-dot[data-pose="ball"] .lp-arms path, .lp-dot[data-pose="ball"] .lp-laptop { opacity: 0; }
+.lp-dot:is([data-pose="ball"], [data-pose="sit"]) .lp-glasses { transform: translateY(-20px); }
+.lp-dot:is([data-pose="sit"], [data-pose="glasses"]) .lp-arm-down { opacity: 1; }
+.lp-dot:is([data-pose="sit"], [data-pose="glasses"]) .lp-arm-type { opacity: 0; }
+.lp-dot:is([data-pose="sit"], [data-pose="glasses"]) :is(.lp-lid, .lp-lid-logo) { transform: scaleY(0); }
+.lp-dot:not([data-pose="ball"]):not([data-pose="sit"]):not([data-pose="glasses"]) .lp-pupils { animation: lp-read 3.4s ease-in-out infinite 0.6s; }
+@keyframes lp-read { 0%, 100% { transform: translate(-2.4px, 1px); } 45% { transform: translate(2.4px, 1px); } 55% { transform: translate(2.4px, 2.4px); } 60% { transform: translate(-2.4px, 2.4px); } }
+
+/* the opening; without .play (reduced motion, no JS) everything is simply there */
+.lp-intro .lp-mark circle { fill-opacity: 0; animation: none; transform-box: fill-box; transform-origin: center; transition: fill-opacity .18s ease; }
+.lp-intro:not(.play) .lp-mark .m2, .lp-intro.play .lp-mark circle.on { fill-opacity: 1; }
+.lp-intro.play .lp-mark circle { animation: lp-pop .45s var(--cr-ease) both; }
+.lp-intro.play .lp-mark .m2 { animation-delay: .06s; } .lp-intro.play .lp-mark .m3 { animation-delay: .12s; } .lp-intro.play .lp-mark .m4 { animation-delay: .18s; }
+.lp-intro.play .lp-name { animation: lp-rise .7s var(--cr-ease) .45s both; }
+.lp-intro.play .lp-tag > span { animation: lp-flipup .7s var(--cr-ease) both; transform-origin: 50% 100%; }
+.lp-intro.play .lp-tag > span:first-child { animation-delay: 1s; } .lp-intro.play .lp-tag > span + span { animation-delay: 1.18s; }
+.lp-intro.play .lp-lead { animation: lp-in .7s var(--cr-ease) 1.45s both; }
+.lp-intro.play .ctas { animation: lp-in .7s var(--cr-ease) 1.55s both; }
+.lp.paused .lp-intro * { animation: none !important; }
+@keyframes lp-pop { from { transform: scale(0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(18px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes lp-flipup { from { opacity: 0; transform: rotateX(-80deg) translateY(.3em); } to { opacity: 1; transform: none; } }
 
 /* the logo's four circles fill one after another, like a day's tasks being done */
 .lp-mark circle { fill: var(--cr-accent); fill-opacity: 0; stroke: var(--cr-ink); stroke-width: 1.3; }

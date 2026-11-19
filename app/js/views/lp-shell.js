@@ -21,7 +21,7 @@ export function header(onLanding) {
     <div class="wrap">
       <a class="lp-brand" href="#/" ${onLanding ? 'data-top' : ''} aria-label="Cramming home">${LOGO}<span>Cramming<sup class="tm" aria-hidden="true">™</sup></span></a>
       <nav class="lp-nav" aria-label="Main">
-        <a class="link hide-sm" href="${to('professors')}" data-jump="professors">Professors</a>
+        <a class="link hide-sm" href="${to('professors')}" data-jump="professors">Educators</a>
         <a class="link hide-sm" href="${to('students')}" data-jump="students">Students</a>
         <a class="link hide-sm" href="${to('faq')}" data-jump="faq">Questions</a>
         <a class="link" href="#/signin">Sign in</a>
@@ -34,7 +34,7 @@ export function header(onLanding) {
 
 export function footer() {
   return `<footer class="lp-foot"><div class="wrap">
-    <span>© ${new Date().getFullYear()} Cramming™ · Cram the right way.™ Cramming and Cram the right way are trademarks of Cramming.</span>
+    <span>© ${new Date().getFullYear()} Cramming™ · Small reps. Top grades.™ Cramming and Small reps. Top grades. are trademarks of Cramming.</span>
     <nav aria-label="Policies"><a href="#/privacy">Privacy</a><a href="#/terms">Terms</a><a href="#/ai">How we use AI</a><a href="#/accessibility">Accessibility</a></nav>
   </div></footer>`;
 }

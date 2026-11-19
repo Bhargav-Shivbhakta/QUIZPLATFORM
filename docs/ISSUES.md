@@ -8,6 +8,11 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 Found in the navigation audit (18 November 2026). None blocks students; each is fixed in the journey step that owns the screen.
 
+### I-13. Negative words and "mistakes" in what people read
+
+- **What:** the new rules (DESIGN › Words, D-35 and D-36) ask for whole, affirmative sentences and "attempts" / "to try again" instead of "mistakes". The landing page has about 35 negative words, and the student screens say "mistake(s)" 16 times ("Mistakes to fix", "Fix them", "My mistakes").
+- **Fix:** the landing page screen by screen (from screen 2); the student screens with the Today's set deep dive.
+
 ### I-7. Words that break the word list on older screens
 
 - **What:** "Quiz readiness" (7 places; the word is "readiness"), "Smart review" and "Random practice test" on the practice set page, and "programming assignment" (14), "Java program" (6) and "Coding assignments" for ungraded coding practice (the words are "coding assignment" for graded and "coding practice" for ungraded).
@@ -31,6 +36,20 @@ Found in the navigation audit (18 November 2026). None blocks students; each is 
 - **To do (founder, optional):** Admin › each class › fill in **Course** (for example CS150) for classes made without it.
 
 ## Fixed
+
+### I-12. Pause motion on the landing page caused an error
+
+- **Found:** 18 November 2026, while testing the new first screen.
+- **What:** clicking **Pause motion** threw "lastT is not defined" (a leftover from an earlier version of the scroll code), so the button's label changed but the error reached the console and the error reporter.
+- **Fixed:** 18 November 2026. The leftover line is gone; the browser check now clicks Pause motion and expects no errors.
+
+### I-11. "Failed to execute 'add' on 'DOMTokenList'" when Motion is Soft
+
+- **Reported:** 18 November 2026, by the founder (error message on screen).
+- **What:** with **Motion: Soft** in Settings, opening a class's Study plan showed the error "The token provided ('go soft') contains HTML space characters" and the line didn't draw.
+- **Cause:** `st-class.js` passed two class names as one ("go soft") to `classList.add`, which browsers refuse. Full motion passed one name, so the first tests (all on Full) missed it.
+- **Fixed:** 18 November 2026. Each name is passed on its own. A new automated test fails on any class name with a space passed to `classList` anywhere in the app.
+- **Tested:** the new test fails on the old line and passes on the fix; in the browser, Soft and Full both open the Study plan with no error.
 
 ### I-1. Programming practice can't be created or uploaded where you'd expect
 

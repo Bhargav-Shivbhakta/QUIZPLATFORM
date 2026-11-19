@@ -2,7 +2,21 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: one navigation, a new Settings page
+## Not yet released: the new tagline and the landing page's first screen
+
+- **New tagline: "Small reps. Top grades.™"** It replaces "Cram the right way." in the landing headline, the browser tab, the footer trademark line and the description search engines show.
+- **The first screen opens with the name:** the logo's blue goes once round its four circles, **Cramming** rises and "Small reps. Top grades." flips up under it.
+- **The Dot is on the landing page:** it pops out of the logo, lands on "Cramming", hops onto "Top", then sits on **Request access**, legs over the edge, pulls its reading glasses down and reads on a little laptop with the Cramming logo (about 6 seconds, once). Reduced motion and Pause motion show the finished scene.
+- **Fixed:** clicking **Pause motion** on the landing page caused an error (I-12).
+- The small line "Practice, plans and exams for any course" is gone; the description now says what the product does in one go.
+- **Tested:** all automated tests; laptop and phone, light and dark, and with reduced motion: no errors, axe clean on the first screen, the tab reads "Cramming · Small reps. Top grades."
+
+## Not yet released: fix for the Study plan with Soft motion
+
+- With **Motion: Soft** in Settings, opening a class showed "Failed to execute 'add' on 'DOMTokenList'" and the Study plan line didn't draw. Fixed (I-11).
+- **Tested:** a new automated test fails on any class name with a space given to `classList` anywhere in the app (it caught the old line); in the browser, Soft and Full both open the Study plan with no error.
+
+## 18 November 2026: one navigation, a new Settings page
 
 Students only.
 - **Settings is in the bar** under Progress (and is the fourth tab on phones). Your initials now open a small menu with your name, email and **Sign out**.
@@ -13,7 +27,7 @@ Students only.
 - **A new Settings page**: your account and classes, Save now, Sign out; Studying (study buddy, weekly goal, show answers, shuffle, ask before submitting); Appearance (theme, text size, motion, easier reading, high contrast); Your data (backup, restore, start a set over, erase). Changes save at once. **Weekly goal** (2 to 5 days) is new and Today's "This week" follows it.
 - A real gear icon for Settings (it looked like Today's sun) and a sign-out icon.
 - New classes made without a Course get it from their name ("CS 210 Data Structures" → CS210).
-- **Tested:** all automated tests (navigation rules: badges, class names, back links) and the architecture check; three classes on a laptop, a tablet and a phone, light and dark: every place and an old page opened with no errors, no sideways scrolling, axe clean; account menu opens and closes with Escape; double-click refresh read 10 documents the first time and none the second; each setting saved and applied (goal 5 shows "0 of 5 days" on Today).
+- **Tested:** all automated tests (navigation rules: badges, class names, back links and the architecture check; three classes on a laptop, a tablet and a phone, light and dark: every place and an old page opened with no errors, no sideways scrolling, axe clean; account menu opens and closes with Escape; double-click refresh read 10 documents the first time and none the second; each setting saved and applied (goal 5 shows "0 of 5 days" on Today).
 
 ## 18 November 2026: students see professors' changes within a minute
 

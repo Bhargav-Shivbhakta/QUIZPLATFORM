@@ -112,6 +112,7 @@ Every student has a study buddy that cheers them on at a few moments. The defaul
 |---|---|---|---|
 | Morning hello | First open of the day, on Today | Full: the Dot hops out of the logo, lands on the Today tab, then jumps beside the greeting and waves; the countdown then ticks over. Soft: it is simply there | Once a day |
 | Tap | Any time, beside the greeting | Squish, wink, spin or a heart | Every 2 seconds at most |
+| Welcome | The landing page, after the logo's blue goes once round and the name and tagline appear | The Dot pops out of the logo, lands on "Cramming", hops onto "Top", sits on Request access (legs over the edge), pulls its glasses down and reads on a laptop; its eyes then read along slowly. Reduced motion or Pause motion: the finished scene | Once per visit |
 | Three in a row | Practice, third right answer in a row | Pops in at the corner: "Three in a row!" | Once per set |
 | Done for today | End of the day's set; Today afterwards | Happy, "Nice work" | Once a day |
 | Weekly goal | The set that reaches the weekly goal | A flip, with confetti in the class colours | Once a week |
@@ -267,18 +268,22 @@ Database errors become plain reasons in one place (`cloud.js`), not in each scre
 - No jargon: "spaced review", not "SRS"; "sign in", not "authenticate".
 - US spelling: practice, color (in text), center.
 - Numbers as digits: "4 min", "12 days".
+- **Whole sentences that sound like a person.** Every line a reader sees is a complete sentence with a subject and a verb, written the way a kind person would say it out loud. No fragments ("Practice built from your class, a few minutes a day."), because a reader might not fill in the missing half. The tagline ("Small reps. Top grades.") and short labels on buttons, tabs and headings are the only exceptions.
+- **Affirmative, always.** Say what is true and what to do, never what isn't: "Every question you've tried, you last got right" rather than "No mistakes"; "Ready when you are" rather than "Nothing to show yet". Avoid "not", "no", "never", "don't", "can't", "fail" and "wrong" in text people read, unless a rule or a safety warning needs them (an exam's rules, a delete confirmation).
+- **Attempts, never mistakes.** A question a student answered incorrectly is a question **to try again**; their tries are **attempts**. Never "mistake", "error" or "wrong answer" on a student's screen.
+- **Connect.** Write to the person reading, about what they want: feeling ready, a calm exam day, students who keep up. Features come second, in service of that.
 
 ### The word list
 
-One name for each thing, on every screen, in every email and in help text. Code may keep older names (`instructor`, `timed`) where data depends on them; the words people see follow this list. Today the app mixes "instructor" (100 times), "professor" (88) and "teacher" (51); each screen is brought in line when it moves to the new look.
+One name for each thing, on every screen, in every email and in help text. Code may keep older names (`instructor`, `timed`) where data depends on them; the words people see follow this list. Today the app mixes "professor" (about 110 times), "instructor" (100) and "teacher" (50); each screen moves to "educator", names and "you" when it moves to the new look.
 
 **People**
 
 | Say | Means | Don't say |
 |---|---|---|
-| professor | The person who runs a course. A school set up as a high school says **teacher** instead, everywhere | instructor, faculty, lecturer (except on the Request access role list) |
+| educator | Anyone who runs a course: professors, lecturers, instructors, TAs who teach, high-school teachers. Students see each educator by the name and title they choose ("Prof. Alvarez", "Ms. Lee"); staff screens say "you". Where one word for all of them is needed (landing page, help, emails, admin lists), it is **educator**. Decided 18 November 2026 | professor, instructor, teacher, faculty, lecturer as the general word (they stay as roles on the Request access list and as people's own titles) |
 | TA | A teaching assistant, limited to their sections. Spell out "teaching assistant" once on a form | assistant, grader |
-| course staff | Professors and TAs together | instructors, team |
+| course staff | The educators and TAs of a class together | instructors, team |
 | student | Anyone taking the class | learner, user, pupil |
 | admin | Runs Cramming for a school or the platform | administrator, superuser |
 
@@ -319,6 +324,8 @@ One name for each thing, on every screen, in every email and in help text. Code 
 | coding assignment | A graded program with tests | programming assignment, lab, project |
 | coding practice | A practice set of ungraded programs to write and test in the browser | programming practice, Java programs |
 | attempt | One go at graded work | submission, try |
+| to try again | A question the student last answered incorrectly; "Try them again" is the action | mistakes, wrong answers, errors, "Fix them" |
+| attempt | One go at a question, a set or a practice test | try (as a noun), mistake |
 | access code | The code a professor reads out to start an exam | password, PIN |
 
 **Actions**
