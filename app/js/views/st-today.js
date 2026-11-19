@@ -22,6 +22,7 @@ export function fillRings(root, delayMs = 0) {
 const greeting = (h) => (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening');
 
 export async function render(main, params, query = {}) {
+  await cloud.freshClassContent();
   clearClassData();
   const mine = cloud.myClasses();
   const all = await Promise.all(mine.map((c) => classData(c).catch(() => null)));

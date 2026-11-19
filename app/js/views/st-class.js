@@ -21,6 +21,7 @@ const word = (w) => `<span class="st-word st-word-${w === 'Solid' ? 'solid' : w 
 export async function render(main, { classId }, query = {}) {
   const cls = cloud.myClasses().find((c) => c.id === classId);
   if (!cls) { main.innerHTML = '<section class="st-page"><h1>Class not found</h1><p>You\'re not on the roster for this class.</p><p><a class="st-btn" href="#/">Go to Today</a></p></section>'; return; }
+  await cloud.freshClassContent();
   clearClassData();
   const [d, ann] = await Promise.all([classData(cls), announcementBanners(cls.id, { staff: false }).catch(() => '')]);
   const tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'plan';

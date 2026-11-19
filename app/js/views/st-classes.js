@@ -9,6 +9,7 @@ import { classData, clearClassData } from './st-data.js';
 export async function render(main) {
   const mine = cloud.myClasses();
   if (mine.length === 1) { location.replace(`#/class/${encodeURIComponent(mine[0].id)}`); return; }
+  await cloud.freshClassContent();
   clearClassData();
   const data = (await Promise.all(mine.map((c) => classData(c).catch(() => null)))).filter(Boolean);
   const now = cloud.trueNow();

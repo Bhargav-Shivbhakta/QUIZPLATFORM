@@ -256,6 +256,14 @@ async function loadClassContent() {
     for (const e of r.exams) cloudExams.push({ ...e, id: e.examId, cloud: true, classId: r.id, course: e.course || r.cls?.course || '' });
   }
   refreshManifest();
+  contentAt = Date.now();
+}
+// Student pages call this before drawing, so a professor's change (a set renamed, questions removed)
+// shows up on the student's next click instead of up to 10 minutes later.
+// Reads: 1 class document + the class's practice sets, per class, at most once a minute.
+let contentAt = 0;
+export async function freshClassContent(maxAgeMs = 60000) {
+  if (user && Date.now() - contentAt > maxAgeMs) { try { await loadClassContent(); } catch (e) { console.warn('class content not refreshed', e); } }
 }
 export const classExamEntries = () => cloudExams;
 export async function reloadClassContent() { if (user) { await loadClassContent(); emit(); } }

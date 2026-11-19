@@ -2,7 +2,12 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
-## Not yet released: the new student navigation (step 1)
+## Not yet released: students see professors' changes within a minute
+
+- Student pages (Today, a class, Classes, Progress) fetch the class's latest practice sets when what they have is more than a minute old. Before, a student with Cramming open kept seeing a set as it was when they signed in, for up to 10 minutes (seen with Midterm 3 Practice still showing 300 questions after they were removed).
+- **Tested:** all automated tests; on the local copy, a student with the class open saw the 300 questions, the professor removed them, and the student's next click a minute later showed only the coding practice, with their code and test results kept.
+
+## 18 November 2026: the new student navigation (step 1)
 
 Students only. Professors, TAs and admins see no change. Exams are untouched.
 - **A new frame:** a bar on the left on laptops (slim on tablets) with Today, each class by name and Progress, plus Messages and Settings at the bottom; on phones, three tabs at the bottom and a small top bar. A highlight glides to the current place.

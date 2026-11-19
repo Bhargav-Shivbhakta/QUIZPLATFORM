@@ -12,6 +12,7 @@ import { classData, clearClassData, redrawAfterFirstSync } from './st-data.js';
 
 const e = encodeURIComponent;
 export async function render(main) {
+  await cloud.freshClassContent();
   clearClassData();
   const data = (await Promise.all(cloud.myClasses().map((c) => classData(c).catch(() => null)))).filter(Boolean);
   const activity = store.getActivity(), now = cloud.trueNow();
