@@ -114,10 +114,13 @@ export function mountScenes(lp, reduce) {
     }
     if (n === 8) { reps.classList.remove('pour'); reps.classList.add('won'); }
   };
+  // Pause motion: the plant stops in bloom with the week complete, not caught half-grown
+  const mo = new MutationObserver(() => { if (!reps || !lp.classList.contains('paused')) return; clearTimeout(grow); n = 8; reps.classList.remove('pour'); reps.classList.add('won'); show(7); });
+  mo.observe(lp, { attributes: true, attributeFilter: ['class'] });
   const io = new IntersectionObserver((es) => es.forEach((e) => {
     e.target.classList.toggle('playing', e.isIntersecting);
     if (e.target === reps) { clearInterval(timer); if (e.isIntersecting) { tick(); timer = setInterval(tick, 650); } }
   }), { threshold: 0.4 });
   scenes.forEach((s) => io.observe(s));
-  return () => { io.disconnect(); clearInterval(timer); clearTimeout(grow); clearInterval(clock); };
+  return () => { io.disconnect(); mo.disconnect(); clearInterval(timer); clearTimeout(grow); clearInterval(clock); };
 }

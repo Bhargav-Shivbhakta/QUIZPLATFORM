@@ -5,7 +5,7 @@
 import { ensureCss, header, footer } from './lp-shell.js';
 import { mountSheet } from './lp-request.js';
 import { readingDot, playHero } from './lp-hero.js';
-import { nightSpot, repsSpot, guardSpot, mountScenes } from './lp-scenes.js'; import { liveMarkup, mountLive } from './lp-live.js'; import { mountPaging } from './lp-paging.js'; import { subjectsMarkup, mountSubjects } from './lp-subjects.js';
+import { nightSpot, repsSpot, guardSpot, mountScenes } from './lp-scenes.js'; import { liveMarkup, mountLive } from './lp-live.js'; import { mountPaging, glideTo } from './lp-paging.js'; import { subjectsMarkup, mountSubjects } from './lp-subjects.js';
 
 const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="#fff" stroke-width="3.2"/></svg>';
 const TICK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12l5 5L20 7" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"/></svg>';
@@ -259,16 +259,6 @@ function markup() {
 </div>`;
 }
 
-// Eased scroll to a section, so a jump glides instead of flashing the whole page past (snapping paused meanwhile).
-function glideTo(el, reduce) {
-  const head = 53, y = el.getBoundingClientRect().top + scrollY - head;
-  if (reduce) { scrollTo(0, y); return; }
-  const from = scrollY, dist = y - from, dur = Math.min(1400, 600 + Math.abs(dist) * 0.12), t0 = performance.now();
-  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2), root = document.documentElement.style; root.scrollSnapType = 'none';
-  const step = (now) => { const t = Math.min(1, (now - t0) / dur); scrollTo(0, from + dist * ease(t)); if (t < 1) requestAnimationFrame(step); else root.scrollSnapType = ''; };
-  requestAnimationFrame(step);
-}
-
 export async function render(main, params = {}, query = {}) {
   await ensureCss();
   document.body.classList.add('landing-mode');
@@ -323,7 +313,8 @@ export async function render(main, params = {}, query = {}) {
     pct.textContent = b === 6 ? 'Ready' : Math.round((b / 6) * 100) + '%';
     buildBar.style.setProperty('--w', Math.round((b / 6) * 100) + '%');
   };
-  if (reduce) k = 6 * 9 + 6; // a finished state for people who turned motion off
+  const STILL = 33; // with motion off or paused: the plan with one task done, the course built
+  if (reduce) k = STILL;
   paint();
   const visible = new Set();
   const vio = new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? visible.add(e.target) : visible.delete(e.target))));
@@ -362,19 +353,20 @@ export async function render(main, params = {}, query = {}) {
       const top = q.getBoundingClientRect().top;
       showQ(null);
       scrollBy(0, q.getBoundingClientRect().top - top);
-      glideTo(q.closest('section'), reduce); // then back up to the question
+      glideTo(q.closest('section'), paused); // then back up to the question
     }
   });
 
   // section links glide; the pause button stops every animation
   const onClick = (e) => {
     const j = e.target.closest('[data-jump]'), top = e.target.closest('[data-top]');
-    if (j) { e.preventDefault(); const el = lp.querySelector('#' + j.dataset.jump); if (el) glideTo(el, reduce); }
-    else if (top) { e.preventDefault(); glideTo(lp, reduce); }
+    if (j) { e.preventDefault(); const el = lp.querySelector('#' + j.dataset.jump); if (el) glideTo(el, paused); }
+    else if (top) { e.preventDefault(); glideTo(lp, paused); }
     const p = e.target.closest('[data-pause]');
     if (p) {
       paused = !paused;
       lp.classList.toggle('paused', paused);
+      if (paused) { k = STILL; paint(); } // a still that tells the story, not a frame caught mid-way
       p.setAttribute('aria-pressed', String(paused));
       p.querySelector('span').textContent = paused ? 'Play motion' : 'Pause motion';
       p.querySelector('[data-pause-icon]').innerHTML = paused ? '<path d="M3 1.5v9l7.5-4.5z"/>' : '<rect x="2" y="1.5" width="2.6" height="9" rx=".8"/><rect x="7.4" y="1.5" width="2.6" height="9" rx=".8"/>';
@@ -383,7 +375,7 @@ export async function render(main, params = {}, query = {}) {
   };
   lp.addEventListener('click', onClick);
   if (reduce) { lp.classList.add('paused'); const p = lp.querySelector('[data-pause]'); p.hidden = true; }
-  if (query.to) { const el = lp.querySelector('#' + CSS.escape(query.to)); if (el) setTimeout(() => glideTo(el, reduce), 150); }
+  if (query.to) { const el = lp.querySelector('#' + CSS.escape(query.to)); if (el) setTimeout(() => glideTo(el, paused), 150); }
 
   return () => { offs.forEach((f) => f()); document.body.classList.remove('landing-mode'); };
 }

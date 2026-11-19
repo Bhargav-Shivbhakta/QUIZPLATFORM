@@ -2,6 +2,20 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 19 November 2026: one swipe, one screen; Try again stays put; a meaningful pause; stronger subject questions
+
+- **One swipe moves exactly one screen.** A trackpad swipe keeps sending momentum for a second or more, and an uneven tail was being read as a second swipe, so the page moved two screens. A second screen now needs a second swipe: the first must die down and the deltas pick up again, or there must be a short pause. A spinning mouse wheel also moves one screen per spin. Tested with realistic swipes (a build-up and a long, uneven tail), two swipes close together, a spinning wheel and a single notch.
+- **Try again on the practice question stays on the question.** Its glide back up and the paging were separate, so the small scroll a trackpad click makes counted as a swipe and moved on to the next screen. Every glide on the page (the header links, Try again, paging) now goes through one place (`glideTo` in `views/lp-paging.js`), and nothing else starts while one is running.
+- **Pause motion shows a meaningful still.** Paused, screen 3's plant shows the full week in bloom, the For students plan shows one task done, and Build my course shows the course ready (before, they froze wherever they were: a bare sprout, 0%, nothing ticked). Screens still move one at a time while paused, instantly instead of gliding.
+- **Stronger subject questions,** at the level a university course sets:
+  - Mathematics: the area under one arch of sin x (2), drawn and shaded.
+  - Physics: how high a 2 kg block sliding at 3 m/s rises up a frictionless ramp (h = v² ÷ 2g ≈ 0.46 m; the mass cancels).
+  - Chemistry: balance the combustion of propane, C₃H₈ + 5O₂ → 3CO₂ + 4H₂O, with live carbon, hydrogen and oxygen counts.
+  - Psychology: research methods: the independent variable in a spacing study.
+  - Engineering: two resistors in parallel (4 Ω and 12 Ω across 12 V: 4 A), with current flowing through both branches.
+  - Business: the current ratio from a balance sheet (90 ÷ 60 = 1.5).
+  - Every wrong option names the real slip (for example, 12 ÷ 16 treats the resistors as if in series).
+
 ## 19 November 2026: one type scale, quicker paging, and every screen fits
 
 - **One type scale on every screen:** every screen's heading is the same size (up to 68 px, scaling with the window), every lead line the same (up to 20 px), every point title 18 px and every point 16 px. Before, sizes drifted from screen to screen (Privacy and Graded exams had become smaller).

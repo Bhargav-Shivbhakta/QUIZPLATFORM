@@ -709,3 +709,16 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-fq-h { text-align: center; margin: 0 auto; }
 .lp-duo-col > .card { font-size: 15px; }
 @media (max-height: 760px) { .lp-duo-col > .card, .lp-live, .lp-pair .lp-pts, #problem .points, .lp-dark .lp-q { zoom: .9; } }
+/* subjects: the ramp, the propane equation and the balance sheet */
+.sj-ramp { fill: var(--cr-soft-2); stroke: var(--cr-line-2); stroke-width: 2; stroke-linejoin: round; }
+.sj-ghost { fill: none; stroke: var(--cr-accent); stroke-width: 2; stroke-dasharray: 4 3; }
+.sj-dim { stroke: var(--cr-right); stroke-width: 2; } .sj-h { fill: var(--cr-right); }
+.sj-eq { flex-wrap: nowrap; gap: 3px; font-size: clamp(14px, 1.25vw, 18px); }
+@media (max-width: 1100px) { .sj-eq { flex-wrap: wrap; } }
+.sj-term { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.sj-eq .sj-co button { width: 24px; height: 24px; font-size: 14px; }
+.sj-eq .sj-co b { min-width: 16px; }
+.sj-bs { display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto); column-gap: 24px; font-size: 14px; }
+.sj-bs > div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--cr-line); }
+.sj-bs b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sj-bs .sj-bs-h { border-bottom: 1.5px solid var(--cr-line-2); font-size: 12.5px; font-weight: 700; color: var(--cr-ink-3); text-transform: uppercase; letter-spacing: .06em; }

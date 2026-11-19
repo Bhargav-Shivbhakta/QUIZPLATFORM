@@ -35,20 +35,22 @@ const SD = `<svg class="sj-art" viewBox="0 0 320 200" role="img" aria-label="Sup
   <path class="sj-ceiling" d="M40 140 H300"/><text class="sj-lbl sj-ceiling-l" x="298" y="134" text-anchor="end">Price ceiling</text>
   <g class="sj-show"><path class="sj-gap" d="M106 140 H218"/><path class="sj-guide" d="M106 140 V180 M218 140 V180"/><text class="sj-lbl" x="106" y="194" text-anchor="middle">Qs</text><text class="sj-lbl" x="218" y="194" text-anchor="middle">Qd</text><text class="sj-gap-l" x="162" y="132" text-anchor="middle">Shortage</text></g>
 </svg>`;
-const CIRCUIT = `<svg class="sj-art" viewBox="0 0 320 200" role="img" aria-label="A circuit: a 12 volt battery and a 4 ohm resistor in a loop, with an ammeter.">
-  <path class="sj-wire" d="M70 88 V44 H136 M196 44 H250 V86 M250 114 V156 H70 V112"/>
-  <path class="sj-flow sj-show" d="M70 88 V44 H250 V156 H70 Z"/>
-  <path class="sj-plate" d="M54 94 H86"/><path class="sj-plate-s" d="M62 106 H78"/><text class="sj-lbl sj-big" x="40" y="104" text-anchor="end">12 V</text>
-  <path class="sj-wire" d="M136 44 l5 -9 l10 18 l10 -18 l10 18 l10 -18 l10 18 l5 -9"/><text class="sj-lbl sj-big" x="166" y="24" text-anchor="middle">4 Ω</text>
-  <circle class="sj-meter" cx="250" cy="100" r="14"/><text class="sj-lbl sj-big" x="250" y="105" text-anchor="middle">A</text><text class="sj-lbl sj-big sj-amp" x="272" y="105" data-win="3 A">?</text>
+const ZIG = (x) => `M${x} 72 l-8 5 l16 11 l-16 11 l16 11 l-16 11 l16 11 l-8 6`;
+const CIRCUIT = `<svg class="sj-art" viewBox="0 0 320 200" role="img" aria-label="A circuit: a 12 volt battery feeding a 4 ohm and a 12 ohm resistor in parallel, with an ammeter in the main wire.">
+  <path class="sj-wire" d="M60 88 V40 H96 M124 40 H250 V72 M250 138 V170 H60 V112 M170 40 V72 M170 138 V170"/>
+  <path class="sj-flow sj-show" d="M60 88 V40 H250 V170 H60 Z M170 40 V170"/>
+  <path class="sj-wire" d="${ZIG(170)}"/><path class="sj-wire" d="${ZIG(250)}"/>
+  <path class="sj-plate" d="M44 94 H76"/><path class="sj-plate-s" d="M52 106 H68"/><text class="sj-lbl sj-big" x="36" y="104" text-anchor="end">12 V</text>
+  <text class="sj-lbl sj-big" x="184" y="110">4 Ω</text><text class="sj-lbl sj-big" x="264" y="110">12 Ω</text>
+  <circle class="sj-meter" cx="110" cy="40" r="14"/><text class="sj-lbl sj-big" x="110" y="45" text-anchor="middle">A</text><text class="sj-lbl sj-big sj-amp" x="110" y="18" text-anchor="middle" data-win="4 A">?</text>
 </svg>`;
 const AREA = (() => {
-  const X = (x) => 40 + x * 200, Y = (y) => 166 - y * 34, pts = (a, b) => Array.from({ length: 25 }, (_, i) => a + ((b - a) * i) / 24).map((x) => `${X(x).toFixed(1)} ${Y(3 * x * x).toFixed(1)}`);
-  return `<svg class="sj-art" viewBox="0 0 320 180" role="img" aria-label="Graph of y equals 3 x squared, with the area under it from 0 to 1 shaded.">
-  <path class="sj-area" d="M${X(0)} ${Y(0)} L${pts(0, 1).join(' L')} L${X(1)} ${Y(0)} Z"/>
-  <path class="sj-axis" d="M40 14 V166 H300"/><path class="sj-curve" d="M${pts(0, 1.2).join(' L')}"/>
-  ${[0, 1].map((x) => `<text class="sj-lbl" x="${X(x)}" y="178" text-anchor="middle">${x}</text>`).join('')}<text class="sj-lbl" x="${X(1.2) + 4}" y="22">y = 3x²</text>
-  <text class="sj-big sj-area-l" x="${X(0.72)}" y="150" text-anchor="middle" data-win="Area = 1">Area = ?</text>
+  const X = (x) => 40 + (x * 240) / Math.PI, Y = (y) => 160 - y * 120, pts = (a, b) => Array.from({ length: 33 }, (_, i) => a + ((b - a) * i) / 32).map((x) => `${X(x).toFixed(1)} ${Y(Math.sin(x)).toFixed(1)}`);
+  return `<svg class="sj-art" viewBox="0 0 320 180" role="img" aria-label="Graph of y equals sine x from 0 to pi, with the area under the curve shaded.">
+  <path class="sj-area" d="M${X(0)} ${Y(0)} L${pts(0, Math.PI).join(' L')} Z"/>
+  <path class="sj-axis" d="M40 20 V160 H300"/><path class="sj-curve" d="M${pts(0, Math.PI).join(' L')}"/>
+  ${[['0', 0], ['π/2', Math.PI / 2], ['π', Math.PI]].map(([t, x]) => `<text class="sj-lbl" x="${X(x)}" y="176" text-anchor="middle">${t}</text>`).join('')}<text class="sj-lbl" x="${X(Math.PI / 2) + 18}" y="34">y = sin x</text>
+  <text class="sj-big sj-area-l" x="${X(Math.PI / 2)}" y="128" text-anchor="middle" data-win="Area = 2">Area = ?</text>
 </svg>`;
 })();
 const DOTS = [4, 5, 5, 6, 6, 6, 7, 7, 8, 30], xOf = (v) => 24 + v * 8.7;
@@ -58,10 +60,12 @@ const PLOT = `<svg class="sj-art" viewBox="0 0 320 170" role="img" aria-label="D
   <g class="sj-show"><path class="sj-med" d="M${xOf(6)} 40 V130"/><text class="sj-lbl sj-med-l" x="${xOf(6) - 4}" y="34" text-anchor="end">Median 6</text>
   <path class="sj-mean" d="M${xOf(8.4)} 54 V130"/><text class="sj-lbl sj-mean-l" x="${xOf(8.4) + 4}" y="50">Mean 8.4</text></g>
 </svg>`;
-const BALL = `<svg class="sj-art" viewBox="0 0 320 150" role="img" aria-label="A 2 kilogram ball rolling at 3 metres per second.">
-  <path class="sj-axis" d="M20 128 H300"/><path class="sj-speed" d="M40 88 h34 M30 102 h44 M44 116 h30"/>
-  <g class="sj-roll"><circle class="sj-ball" cx="110" cy="102" r="26"/><text class="sj-ball-t" x="110" y="107" text-anchor="middle">2 kg</text>
-  <path class="sj-arrow" d="M146 102 H196 m-10 -8 l10 8 l-10 8"/><text class="sj-lbl sj-big" x="204" y="107">3 m/s</text></g>
+const RAMP = `<svg class="sj-art" viewBox="0 0 320 150" role="img" aria-label="A 2 kilogram block sliding at 3 metres per second toward a frictionless ramp.">
+  <path class="sj-axis" d="M14 128 H306"/><path class="sj-ramp" d="M166 128 L286 68 V128 Z"/>
+  <rect class="sj-ball" x="40" y="94" width="36" height="34" rx="6"/><text class="sj-ball-t" x="58" y="116" text-anchor="middle">2 kg</text>
+  <path class="sj-arrow" d="M86 108 H130 m-10 -8 l10 8 l-10 8"/><text class="sj-lbl sj-big" x="86" y="88">3 m/s</text>
+  <g class="sj-show"><rect class="sj-ghost" x="-14" y="-22" width="28" height="22" rx="5" transform="translate(240 91) rotate(-26.6)"/>
+  <path class="sj-guide" d="M252 86 H304"/><path class="sj-dim" d="M300 88 V126 M295 88 H305 M295 126 H305"/><text class="sj-lbl sj-big sj-h" x="300" y="58" text-anchor="end">h ≈ 0.46 m</text></g>
 </svg>`;
 const WEEK = `<svg class="sj-art" viewBox="0 0 320 112" role="img" aria-label="Two study plans with the same total time: a short session each day, or one long session the night before the exam.">
   ${['M', 'T', 'W', 'T', 'F'].map((d, i) => `<text class="sj-lbl" x="${108 + i * 44}" y="14" text-anchor="middle">${d}</text>`).join('')}
@@ -81,22 +85,22 @@ const S = [
 }</pre>
     <div class="sj-row"><span class="sj-chips">${['n', 'i', '1'].map((v) => `<button type="button" class="sj-chip" data-fill="${v}">${v}</button>`).join('')}</span><button type="button" class="sj-run" data-run disabled>Run tests</button></div>
     <ul class="sj-tests">${[1, 3, 5, 0].map((n) => `<li data-n="${n}"><i></i><code>sum(${n})</code> <span>is ${n * (n + 1) / 2}</span></li>`).join('')}</ul>`) },
-  { id: 'math', name: 'Mathematics', html: () => card('MATH 150 · Integrals', `Evaluate ${tex(String.raw`\int_0^1 3x^2\,dx`)}`, `
-    ${AREA}<form class="sj-row sj-num" data-num="1"><label class="sr-only" for="sj-m">Your answer</label><input id="sj-m" inputmode="decimal" autocomplete="off" placeholder="Your answer"><button type="submit" class="sj-run">Check</button></form>
-    <div class="sj-win sj-show">${tex(String.raw`\int_0^1 3x^2\,dx = \Big[x^3\Big]_0^1 = 1 - 0 = 1`)}</div>`),
-    note: ['Correct. The shaded area is exactly 1.', 'Almost. The antiderivative of 3x² is x³; evaluate it from 0 to 1.'] },
+  { id: 'math', name: 'Mathematics', html: () => card('MATH 150 · Integrals', `Find the shaded area: ${tex(String.raw`\int_0^{\pi} \sin x\,dx`)}`, `
+    ${AREA}<form class="sj-row sj-num" data-num="2"><label class="sr-only" for="sj-m">Your answer</label><input id="sj-m" inputmode="decimal" autocomplete="off" placeholder="Your answer"><button type="submit" class="sj-run">Check</button></form>
+    <div class="sj-win sj-show">${tex(String.raw`\int_0^{\pi} \sin x\,dx = \Big[-\cos x\Big]_0^{\pi} = 1 + 1 = 2`)}</div>`),
+    note: ['Correct. The area under one arch of sin x is exactly 2.', 'Almost. An antiderivative of sin x is −cos x; evaluate it from 0 to π.'] },
   { id: 'stats', name: 'Statistics', html: () => card('STAT 119 · Center and spread', 'One score is 30. Which measure barely moves because of it?', PLOT + opts([['Mean', 0, 'Almost. The mean is pulled up to 8.4 by the 30.'], ['Median', 1, 'Correct. The median stays at 6: it depends on the middle, not the extremes.'], ['Range', 0, 'Almost. The range jumps to 26 because of the 30.']])) },
-  { id: 'phys', name: 'Physics', html: () => card('PHYS 195 · Energy', 'What is the ball&#39;s kinetic energy?', BALL + opts([['6 J', 0, 'Almost. 6 is the momentum, mv. Kinetic energy is ½mv².'], ['9 J', 1, 'Correct. KE = ½mv² = ½ × 2 × 3² = 9 J.'], ['18 J', 0, 'Almost. Remember the ½ in ½mv².']])) },
-  { id: 'chem', name: 'Chemistry', html: () => card('CHEM 200 · Reactions', 'Hydrogen burns in oxygen to make water. Balance the equation.', `
-    <div class="sj-eq">${[['H', '<sub>2</sub>'], ['O', '<sub>2</sub>'], ['H', '<sub>2</sub>O']].map(([a, b], i) => `<span class="sj-co"><button type="button" data-co="${i}" data-d="-1" aria-label="Fewer">−</button><b data-cv="${i}">1</b><button type="button" data-co="${i}" data-d="1" aria-label="More">+</button></span><span class="sj-f">${a}${b}</span>${i === 0 ? '<span class="sj-op">+</span>' : i === 1 ? '<span class="sj-op">→</span>' : ''}`).join('')}</div>
-    <div class="sj-atoms"><span data-atom="H"></span><span data-atom="O"></span></div>`) },
+  { id: 'phys', name: 'Physics', html: () => card('PHYS 195 · Energy', 'The block slides onto a frictionless ramp. How high does it rise before it stops? Use g = 9.8 m/s².', RAMP + opts([['0.15 m', 0, 'Almost. Square the speed: kinetic energy is ½mv², so h = v² ÷ 2g.'], ['0.46 m', 1, 'Correct. ½mv² = mgh, so h = v² ÷ 2g = 9 ÷ 19.6 ≈ 0.46 m. The mass cancels.'], ['0.92 m', 0, 'Almost. Keep the ½: h = v² ÷ 2g, not v² ÷ g.']])) },
+  { id: 'chem', name: 'Chemistry', html: () => card('CHEM 200 · Combustion', 'Propane burns in oxygen. Balance the equation with the smallest whole numbers.', `
+    <div class="sj-eq">${['C<sub>3</sub>H<sub>8</sub>', 'O<sub>2</sub>', 'CO<sub>2</sub>', 'H<sub>2</sub>O'].map((f, i) => `<span class="sj-term"><span class="sj-co"><button type="button" data-co="${i}" data-d="-1" aria-label="Fewer">−</button><b data-cv="${i}">1</b><button type="button" data-co="${i}" data-d="1" aria-label="More">+</button></span><span class="sj-f">${f}</span></span>${['<span class="sj-op">+</span>', '<span class="sj-op">→</span>', '<span class="sj-op">+</span>', ''][i]}`).join('')}</div>
+    <div class="sj-atoms"><span data-atom="C"></span><span data-atom="H"></span><span data-atom="O"></span></div>`) },
   { id: 'bio', name: 'Biology', html: () => card('BIO 101 · The cell <span class="sj-step" data-step>Part 1 of 3</span>', 'What is the part the arrow points to?', CELL + '<div data-bio-opts></div>') },
   { id: 'econ', name: 'Economics', html: () => card('ECON 101 · Markets', 'A price ceiling is set below the equilibrium price. What follows?', SD + opts([['A shortage', 1, 'Correct. At the capped price, buyers want Qd but sellers offer only Qs.'], ['A surplus', 0, 'Almost. A surplus follows a price floor above equilibrium.'], ['No change', 0, 'Almost. A ceiling below P* changes both quantities.']])) },
-  { id: 'psych', name: 'Psychology', html: () => card('PSY 101 · Memory', 'True or false: the same study time spread over five days beats doing it all the night before.', WEEK + opts([['True', 1, 'Correct. This is the spacing effect, one of the best-replicated findings on learning.'], ['False', 0, 'Almost. Spreading practice out wins across hundreds of experiments.']])) },
-  { id: 'eng', name: 'Engineering', html: () => card('EE 210 · Circuits', 'What current does the ammeter read?', CIRCUIT + opts([['0.33 A', 0, 'Almost. Current is voltage divided by resistance: 12 ÷ 4.'], ['3 A', 1, 'Correct. I = V ÷ R = 12 ÷ 4 = 3 A.'], ['48 A', 0, 'Almost. Divide the voltage by the resistance.']])) },
-  { id: 'bus', name: 'Business', html: () => card('ACCT 201 · The balance sheet', 'Select all the current assets, then check.', `
-    <div class="sj-opts sj-multi">${[['Cash', 1], ['Inventory', 1], ['Accounts receivable', 1], ['Equipment', 0]].map(([t, ok]) => `<button type="button" class="sj-opt" aria-pressed="false" data-ok="${ok}">${t}</button>`).join('')}</div>
-    <button type="button" class="sj-run" data-check>Check</button>`) },
+  { id: 'psych', name: 'Psychology', html: () => card('PSY 210 · Research methods', 'Both groups study for 100 minutes. A week later, the spaced group scores higher. What is the independent variable?', WEEK + opts([['How the study time is spread out', 1, 'Correct. It is the one thing the researchers changed between the groups; the score is the dependent variable.'], ['The test score a week later', 0, 'Almost. The score is what the study measures: the dependent variable.'], ['The 100 minutes of study', 0, 'Almost. The total time is held the same for both groups: a controlled variable.']])) },
+  { id: 'eng', name: 'Engineering', html: () => card('EE 210 · Circuits', 'The resistors are in parallel. What current does the ammeter read?', CIRCUIT + opts([['0.75 A', 0, 'Almost. 12 ÷ 16 treats the resistors as if in series. In parallel, 1/R = 1/4 + 1/12.'], ['3 A', 0, 'Almost. That is the 4 Ω branch alone; the 12 Ω branch adds another 1 A.'], ['4 A', 1, 'Correct. The branches draw 3 A and 1 A, so the ammeter reads 4 A (R = 3 Ω).']])) },
+  { id: 'bus', name: 'Business', html: () => card('ACCT 201 · Ratios', 'What is the company&#39;s current ratio?', `
+    <div class="sj-bs" role="table" aria-label="Balance sheet, in thousands of dollars">${[['Assets', ''], ['Cash', '30'], ['Accounts receivable', '25'], ['Inventory', '35'], ['Equipment', '120'], ['Liabilities', ''], ['Accounts payable', '40'], ['Short-term loan', '20'], ['Long-term loan', '80']].map(([t, v]) => (v ? `<div role="row"><span role="cell">${t}</span><b role="cell">$${v}k</b></div>` : `<div role="row" class="sj-bs-h"><span role="columnheader">${t}</span></div>`)).join('')}</div>
+    ${opts([['0.64', 0, 'Almost. Leave out the long-term loan: only liabilities due within a year count. 90 ÷ 60.'], ['1.5', 1, 'Correct. Current assets 90 ÷ current liabilities 60 = 1.5.'], ['3.5', 0, 'Almost. Equipment is a long-term asset. Current assets are 30 + 25 + 35 = 90.']])}`) },
   { id: 'more', name: 'And more', html: () => card('HIST 110 · Written answer', 'Explain one cause of the First World War. <span class="sj-who">Marked by the educator and TAs</span>', `
     <blockquote class="sj-essay">The alliance system turned a regional conflict into a world war: when Austria-Hungary declared war on Serbia, Russia, Germany, France and Britain were drawn in by their treaties within a week.</blockquote>
     <div class="sj-row"><span class="sj-lbl-t">Your mark, out of 5</span><span class="sj-chips" role="group" aria-label="Mark out of 5">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" class="sj-chip" data-mark="${n}">${n}</button>`).join('')}</span></div>`) },
@@ -137,13 +141,12 @@ export function mountSubjects(root) {
   };
   // chemistry: the atoms on each side update with every press
   const chem = (c) => {
-    const v = [...c.querySelectorAll('[data-cv]')].map((b) => Number(b.textContent));
-    const H = [2 * v[0], 2 * v[2]], O = [2 * v[1], v[2]], even = H[0] === H[1] && O[0] === O[1];
-    c.querySelector('[data-atom="H"]').textContent = `H: ${H[0]} on the left, ${H[1]} on the right`;
-    c.querySelector('[data-atom="O"]').textContent = `O: ${O[0]} on the left, ${O[1]} on the right`;
-    c.querySelectorAll('[data-atom]').forEach((el, i) => el.classList.toggle('ok', i === 0 ? H[0] === H[1] : O[0] === O[1]));
-    if (even) out(v.join(',') === '2,1,2' ? 'Balanced. 2H₂ + O₂ → 2H₂O.' : `Balanced. The smallest whole numbers are 2, 1 and 2.`, true);
-    else { box.classList.remove('solved'); const o = c.querySelector('.sj-out'); o.textContent = ''; }
+    const [a, b, x, y] = [...c.querySelectorAll('[data-cv]')].map((el) => Number(el.textContent));
+    const atoms = { C: [3 * a, x], H: [8 * a, 2 * y], O: [2 * b, 2 * x + y] };
+    Object.entries(atoms).forEach(([k, [l, r]]) => { const el = c.querySelector(`[data-atom="${k}"]`); el.textContent = `${k}: ${l} left, ${r} right`; el.classList.toggle('ok', l === r); });
+    const even = Object.values(atoms).every(([l, r]) => l === r);
+    if (even) out([a, b, x, y].join(',') === '1,5,3,4' ? 'Balanced. C₃H₈ + 5O₂ → 3CO₂ + 4H₂O.' : 'Balanced, though not in the smallest whole numbers: they are 1, 5, 3 and 4.', [a, b, x, y].join(',') === '1,5,3,4');
+    else { box.classList.remove('solved'); const o = c.querySelector('.sj-out'); o.textContent = ''; c.querySelector('.sj-again').hidden = true; }
   };
   // biology: three parts, one after another
   const bio = (c, k) => {
@@ -162,12 +165,6 @@ export function mountSubjects(root) {
     if (t.dataset.mark) {
       box.querySelectorAll('[data-mark]').forEach((b) => b.classList.toggle('on', b === t));
       return out(`Marked ${t.dataset.mark} of 5. The student sees it when you release the grades.`, true);
-    }
-    if (t.matches('.sj-multi .sj-opt')) { t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true')); return; }
-    if (t.matches('[data-check]')) {
-      const picks = [...box.querySelectorAll('.sj-multi .sj-opt')], ok = picks.every((b) => (b.getAttribute('aria-pressed') === 'true') === (b.dataset.ok === '1'));
-      picks.forEach((b) => b.classList.toggle('right', ok && b.dataset.ok === '1'));
-      return out(ok ? 'Correct. Each is cash, or turns into cash within a year.' : 'Almost. Current assets turn into cash within a year; equipment is used for many years.', ok);
     }
     if (t.matches('.sj-opt')) {
       const ok = t.dataset.ok === '1';
@@ -198,7 +195,7 @@ export function mountSubjects(root) {
     }
     if (t.dataset.co) {
       const b = box.querySelector(`[data-cv="${t.dataset.co}"]`);
-      b.textContent = String(Math.min(6, Math.max(1, Number(b.textContent) + Number(t.dataset.d))));
+      b.textContent = String(Math.min(9, Math.max(1, Number(b.textContent) + Number(t.dataset.d))));
       chem(box);
     }
   });
