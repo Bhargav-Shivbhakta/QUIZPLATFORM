@@ -2,6 +2,17 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 19 November 2026: the new student bar
+
+- **One bar, three parts (DESIGN › Navigation).** The logo stays at the top, your name stays at the bottom, and only the middle moves. It shows Today and your classes; open a class and it slides over to that class's card and its four sections: Ready, Learn, Practice and Graded work.
+- **The logo goes back.** One click inside a class slides back to your classes; anywhere else it opens Today. A double click refreshes, at most once a minute, as before.
+- **Switch class from the class card.** Click the card at the top of a class to see your other classes under "Switch to".
+- **Your name opens Me.** It now opens a panel over a blurred page with My progress, Settings and Sign out. Nothing behind it works until you close it (Close, Escape or a click outside), and focus goes back to your name.
+- **Collapse.** The round handle on the bar's edge, or ⌘ + \ (Ctrl + \ on Windows), shrinks it to a rail of icons and remembers your choice. In the rail each class shows its subject over its number ("CS" over "150"), so MATH 150 and CS 150 never look alike. Tablets always get the rail.
+- **Class pages:** the tabs are renamed to match the bar (Study plan → Ready, Notes → Learn), in the bar's order. On laptops and tablets they live only in the bar; phones still show them at the top of the page. "Practise" is now spelled "Practice" everywhere a student sees it.
+- **Not shown yet:** Search, Inbox, Calendar and Grades are planned for this bar and stay hidden until they work. Progress and Settings moved from the bar into Me. Phones keep their bottom tabs for now.
+- **Tested:** 75 tests and the architecture check pass. Rendered at 1440, 900 and 390 wide with the switcher open, the bar collapsed, back from a class, and Me open; no script errors.
+
 ## 19 November 2026: clearer words, a real chemistry question, the Dot at the door
 
 - **Screen 1:** the lead now ends "so they go into the exam prepared" (it said "walk into the exam feeling ready", which not every student does).

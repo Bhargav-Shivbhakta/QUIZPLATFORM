@@ -14,6 +14,8 @@ Change a value in `tokens.css` first, then update this file and the artifact in 
 
 ## Principles
 
+**The north star (19 November 2026): declutter the student's mind.** Cramming exists to clear a student's head and help them focus on what is actually needed next. Every screen is simple and elegant, in the spirit of Apple's products but copying no one, Apple included: zero clutter, nothing on screen that the student doesn't need right now. When in doubt, take something away.
+
 1. **One clear next step per screen.** One primary button. Everything else is secondary or a link.
 2. **Practice feels like practice.** Timers, answer sheets and Finish buttons appear only in graded or timed work the student chose.
 3. **Feedback at once.** An answer is checked and explained within 400 ms, with no page jump.
@@ -179,33 +181,48 @@ Every screen uses one of four templates. A screen doesn't invent its own width, 
 
 ## Navigation
 
-One frame, the same on every page, so a student never has to look for the way around. Code: `app/js/stshell.js` (the frame) and `app/js/navmap.js` (where each page sits, tested). Students have it now; professors and admins move to the same rules in their own journeys.
+One frame, the same on every page, so a student never has to look for the way around. Locked on 19 November 2026 after the working mockup (design canvas "Cramming Navigation Explorations", page "Working mockup"). Code: `app/js/stshell.js` (the frame) and `app/js/navmap.js` (where each page sits, tested). Students have it now; educators and admins move to the same frame in their own journeys.
 
-**The four places.** Today, Classes, Progress, Settings. They are always one tap away and are the only top-level pages.
+**The bar (laptop).** Three parts, top to bottom:
 
-| | Phone (below 640px) | Tablet (640 to 1023px) | Laptop (1024px and up) |
-|---|---|---|---|
-| Places | Bottom tabs: Today, Classes (or the class, with one class), Progress, Settings | Slim left bar: icons and class badges | Left bar with labels; the student can make it slim |
-| Logo | Top left | Top of the bar | Top of the bar |
-| Notifications (bell) | Top right | Top right | Top right |
-| Account (initials) | Top right, after the bell | Foot of the bar | Foot of the bar |
+1. **Fixed at the top: the Cramming logo and search.** They never move. One click on the logo goes back: inside a class, to the main bar and Today; on the main bar, to Today. Two clicks refresh (at most once a minute, "Up to date"). Search finds anything; inside a class it says "Search Calculus I" and searches that class. (Search appears when it is built: hidden until it works.)
+2. **The middle slides.** The main bar holds Today, Inbox and Calendar, then *Your classes* (educators: *Teaching*). Click a class and the middle slides over to that class's own bar: a class card at the top (its colour, name, course and educator; tap it to switch to another class), then its sections. Only this middle part moves.
+3. **Fixed at the bottom: your name.** It opens **Me**, a panel over the page: everything behind it blurs and nothing else works until it closes (click outside, Close, or Escape).
+
+**Collapse.** A round handle on the bar's edge (and ⌘ + \) folds the bar into a 72 px rail and opens it again; the choice is remembered on that device, and tablets start collapsed. Folded, nothing disappears: the logo, search, places and sections become icons with their names on hover, and each class becomes a coloured badge with its subject over its number ("CS" over "150"), never the number alone, since MATH 150 and CS 150 would look alike. Expanded, each class shows its code (CS 150) after its name.
+
+**Sections in a class.** Students: Ready, Learn, Practice, Graded work, Grades; then Q&A and Class info (Phase 3) and My group (Phase 4). Educators: Overview, Build, Practice, Graded work, Insights, People, Class settings; then Grading (Phase 2), Gradebook and Q&A (Phase 3), Live class (Phase 4). The full plan, with every section's switch, is in the feature doc "Every feature in the market", section 20.
+
+| | Phone (below 640px) | Tablet and laptop (640px and up) |
+|---|---|---|
+| Places | Bottom tabs: Today, Classes, Progress, Settings (to be redesigned, phone second) | The bar above |
+| A class's sections | Tabs at the top of the class page | In the bar, under the class card |
+| Account | Initials top right, opening Me | Your name at the foot of the bar, opening Me |
+| Notifications | The bell, top right | The bell, top right, until Inbox arrives |
 
 **The rules**
 
-1. **One way up.** Every page that isn't a place has exactly one back link, top left, naming where it goes: "‹ Classes", "‹ CS150", "‹ Midterm 2 Practice". It always goes to the page the current one belongs to, never "the last page". The four places have none. `backFor()` decides it; a new route adds a line there and a test.
-2. **The highlight shows where you are.** The place you're in (and the class, inside a class) is marked with `aria-current="page"`. A practice set highlights its class.
-3. **Inside a page, tabs.** A class has four: Study plan, Practice, Notes, Graded work. Tabs change the address (`?tab=practice`) so back links and shared links land on the same tab. Never more than five tabs; never tabs inside tabs.
-4. **Focus pages leave the frame.** Practice sets, practice tests, exams, flashcards and the code editor fill the screen with a slim bar: Exit on the left, the set name, progress on the right. Exit goes where the set was opened from, and asks first only when work would be lost.
-5. **Settings is a place, not a menu.** The account menu (initials) holds only who you are and Sign out. Everything a student can change lives on the Settings page.
-6. **Notifications live in one corner.** The bell is top right on every frame page, with its count. Nothing else goes in that corner.
-7. **Class badges are the course number** ("150", "210"), so two classes of the same subject never look alike; letters only when a course has no number. The full name is in the label and the tooltip. A class is named with `classTitle()` so nothing is said twice ("CS 210 Data Structures", not "CS 210 · CS 210 Data Structures").
-8. **The logo goes to Today; a double tap refreshes.** A double tap or double click on the logo checks for new class content and saves anything waiting, at most once a minute ("Up to date", then "Already up to date"). It never reloads the page and never reads more than an ordinary visit.
-9. **One name per place.** The tab, the bar, the page title (`<h1>`) and the browser tab use the same word: Today, Classes, Progress, Settings. A class page's title is its `classTitle()`.
-10. **No dead ends.** Every empty, error or not-found page has a way back to a place, and says what to do next.
-11. **Links go, buttons do.** Moving to another page is a link (`<a href="#/…">`), so it opens in a new tab and works with the keyboard and screen readers. Doing something (save, start, sign out) is a button.
-12. **Addresses are nouns, lowercase, stable.** `#/class/<id>`, `#/exam/<id>`, `#/progress/<id>`. A route never changes meaning; when one is renamed the old one forwards to it.
+1. **Two levels in the bar, never more:** a place, then a section. Anything deeper is a switch at the top of the page (Practice: Sets · Try again · Review · Flashcards · Practice tests).
+2. **The bar drills into a class.** The class gets the whole middle of the bar; the logo always leads back out.
+3. **Hidden until it works.** A place, section or switch appears only when its first feature ships. No "coming soon", no empty tabs.
+4. **Focused work is full screen.** Practice sets, practice tests, exams, flashcards, the code editor, grading and the projector hide the bar: a slim bar with Exit, the name and progress.
+5. **One way up.** Every page that isn't a place or a section has exactly one back link, top left, naming where it goes. `backFor()` decides it; a new route adds a line there and a test.
+6. **The highlight shows where you are.** The place, the class and the section are marked with `aria-current="page"`.
+7. **Panels over the page are modal.** Me, the class switcher's list and every sheet: what's behind blurs, only the panel works, Escape closes it, focus returns to what opened it.
+8. **Addresses are nouns, lowercase, stable.** `#/class/<id>?tab=practice`. A route never changes meaning; a renamed one forwards to the new one.
+9. **Links go, buttons do.** Moving to another page is a link; doing something is a button.
+10. **No dead ends.** Every empty, error or not-found page says what to do next and links back to a place.
 
-**Adding a page.** Pick its place (which page it belongs to), add the route and its line in `backFor()` with a test, give it one `<h1>` in the page header, and check it at 390 and 1280 wide. It needs no other navigation of its own.
+**Every page**
+
+11. **The same anatomy:** a context line (the class, small), the title, the switch if there is one, then the content.
+12. **Never empty.** Every page says what will appear and offers one thing to do now.
+13. **Teach first, then show the source.** Content is explained in Cramming; the educator's slide or page is cited underneath and opens in place.
+14. **Class colour is a stripe, never a fill.** It marks which class you're in.
+15. **Cards hold one object; lists hold many.** No card inside a card.
+16. **One name per thing,** from the word list: Ready, Learn, Practice, Graded work, Grades are never called anything else.
+
+**Adding a page.** Pick its section, add the route and its line in `backFor()` with a test, give it one `<h1>`, and check it at 390 and 1280 wide. It needs no navigation of its own.
 
 ## Parts
 

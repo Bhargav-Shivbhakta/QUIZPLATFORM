@@ -57,20 +57,20 @@ export async function render(main, params, query = {}) {
   const rolled = hopNow && exam && /^\d+$/.test(big) ? `<b class="st-roll go"><span class="st-reel"><span>${Number(big) + 1}</span><span>${big}</span></span></b>` : `<b>${esc(big)}</b>`;
   const chips = [mistakes ? `<span class="st-hchip"><b>${mistakes}</b> to fix</span>` : '', due ? `<span class="st-hchip"><b>${due}</b> coming back</span>` : '', fresh ? `<span class="st-hchip"><b>${fresh}</b> new</span>` : ''].join('');
   const start = sum.first ? `<a class="st-btn st-btn-light" href="${sum.first.href}">Start today's ${sum.minutes} minutes</a>` : '';
-  const practiseMore = shown[0] ? `<a class="st-btn st-btn-light" href="#/class/${encodeURIComponent(shown[0].cls.id)}?tab=practice">Practise more</a>` : '';
+  const practiceMore = shown[0] ? `<a class="st-btn st-btn-light" href="#/class/${encodeURIComponent(shown[0].cls.id)}?tab=practice">Practice more</a>` : '';
   const openExam = exam && exam.until && exam.at <= now && now < exam.until ? `<a class="st-btn st-btn-ghost" href="${exam.href}">Go to ${esc(exam.title)}</a>` : '';
   const hero = sum.done
     ? `<section class="st-hero cc-${cc}" aria-label="Today">
         <div class="st-hero-main"><p class="st-eyebrow">${icon('check')} Done for today</p><div class="st-big st-big-done">${buddy('happy', { size: 60, cls: 'bd-idle' })}<b>Nice work${firstName ? `, ${esc(firstName)}` : ''}.</b></div>
           <p class="st-when">${exam ? `${esc(exam.title)} ${big === 'Today' || big === 'Now' ? 'is today' : `is in ${big} ${Number(big) === 1 ? 'day' : 'days'}`}. ` : ''}Tomorrow's set is ready in the morning.</p></div>
         ${examData && examData.sets.length ? bigRing(examData.ready, examData.word, cc) : ''}
-        <div class="st-go">${practiseMore}${openExam}</div></section>`
+        <div class="st-go">${practiceMore}${openExam}</div></section>`
     : exam || sum.left ? `<section class="st-hero cc-${cc}" aria-label="${exam ? `${esc(exam.title)} countdown` : 'Today'}">
         <div class="st-hero-main"><p class="st-eyebrow">${eyebrow}</p><div class="st-big">${rolled}${unit ? `<span>${esc(unit)}</span>` : ''}</div><p class="st-when">${esc(when)}</p></div>
         ${examData && examData.sets.length ? bigRing(examData.ready, examData.word, cc) : ''}
         ${after[0] && exam ? `<p class="st-then"><span class="st-cdot cc-${classColor(data.find((d) => d.cls.id === after[0].classId)?.cls)}" aria-hidden="true"></span>Then <b>${esc(after[0].title)}</b> · ${esc(weekday(after[0].at, new Date(now)))}</p>` : ''}
-        <div class="st-go">${start || practiseMore}${openExam}${chips ? `<div class="st-hchips">${chips}</div>` : ''}</div></section>`
-    : `<section class="st-hero cc-${cc}" aria-label="Today"><div class="st-hero-main"><p class="st-eyebrow">Today</p><div class="st-big st-big-done">${buddy('calm', { size: 56, cls: 'bd-idle' })}<b>You're up to date.</b></div><p class="st-when">Nothing is waiting. Practise anything you like, or come back when the next unit opens.</p></div><div class="st-go">${practiseMore}</div></section>`;
+        <div class="st-go">${start || practiceMore}${openExam}${chips ? `<div class="st-hchips">${chips}</div>` : ''}</div></section>`
+    : `<section class="st-hero cc-${cc}" aria-label="Today"><div class="st-hero-main"><p class="st-eyebrow">Today</p><div class="st-big st-big-done">${buddy('calm', { size: 56, cls: 'bd-idle' })}<b>You're up to date.</b></div><p class="st-when">Nothing is waiting. Practice anything you like, or come back when the next unit opens.</p></div><div class="st-go">${practiceMore}</div></section>`;
 
   const week = weekDays(store.getActivity(), now, dayKey);
   const GOAL = Math.min(5, Math.max(2, Number(store.getSettings().weekGoal) || 3));

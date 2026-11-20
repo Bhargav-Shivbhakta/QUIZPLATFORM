@@ -1,13 +1,18 @@
-// The student frame (DESIGN › Navigation): Today, the classes, Progress and Settings.
-// Laptops get a bar on the left (slim on tablets); phones get tabs at the bottom.
-// Every size has a top bar: the one way up (back) on the left, Messages (the bell) on the right.
-// Your initials open a small account menu (who you are, Sign out). Staff and admins keep the old top bar.
-// The frame is drawn once and stays; pages swap inside #main, and the highlight glides to the place.
+// The student frame (DESIGN › Navigation, locked 19 Nov). One bar on the left with three parts:
+//  - fixed top: the logo. One click goes back (inside a class: to all your classes; elsewhere: to Today),
+//    a double click refreshes. Search joins it here once search is built.
+//  - a middle that slides: the main list (Today, your classes) and, inside a class, that class's list
+//    (a class card that switches class, then Ready, Learn, Practice, Graded work).
+//  - fixed foot: your name, which opens the Me panel over a blurred page.
+// The bar collapses to a rail (the round handle or ⌘ + \); in the rail a class shows its subject over its
+// number ("CS" over "150"). Tablets always get the rail; phones get tabs at the bottom and a top bar.
+// Places that are planned but not built (Inbox, Calendar, Search, Grades) stay hidden until they ship.
+// Staff and admins keep the old top bar.
 import * as cloud from './cloud.js';
 import * as store from './store.js';
 import { esc, icon, logoMark, toast, confirmDialog } from './ui.js';
 import { motionLevel } from './buddy.js';
-import { badgeFor, backFor, classTitle } from './navmap.js';
+import { backFor, classTitle, codeParts } from './navmap.js';
 import { getManifest } from './data.js';
 
 // Students only: on at least one roster, teaching none, not an admin.
@@ -18,6 +23,17 @@ export function isStudentMode() {
 }
 export const classColor = (c) => (c?.color && /^[a-z]+$/.test(c.color) ? c.color : 'blue');
 const LOGO = logoMark('st-logo-mark');
+const e = encodeURIComponent;
+
+// A class's sections, in order: [tab in st-class.js, label, icon]. Grades joins when it is built.
+const SECTIONS = [['plan', 'Ready', 'target'], ['notes', 'Learn', 'learn'], ['practice', 'Practice', 'edit'], ['graded', 'Graded work', 'graded']];
+// Which section a page inside a class belongs to.
+function sectionOf(path, query) {
+  if (/^\/class\//.test(path)) return SECTIONS.some(([k]) => k === query.tab) ? query.tab : 'plan';
+  if (/^\/(study|mystudy)\//.test(path)) return 'notes';
+  if (/^\/(exam|cards|browse|start|assignments)\//.test(path)) return 'practice';
+  return 'graded';
+}
 
 function who() {
   const u = cloud.currentUser();
@@ -25,6 +41,10 @@ function who() {
   const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
   return { u, name, avatar: u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials) };
 }
+// The badge: subject over number, white on the class colour.
+const badge = (c) => { const p = codeParts(c.course, c.name); return `<span class="st-badge" aria-hidden="true"><b>${esc(p.subject || '?')}</b>${p.number ? `<b>${esc(p.number)}</b>` : ''}</span>`; };
+const nameOf = (c) => { const p = codeParts(c.course, c.name), n = String(c.name || '').trim(); const lead = p.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*'); return (lead && n.replace(new RegExp(`^${lead}\\s*[:·-]?\\s*`, 'i'), '')) || n || p.code; };
+const codeOf = (c) => codeParts(c.course, c.name).code;
 
 export function mountShell() {
   document.documentElement.dataset.motion = motionLevel();
@@ -32,84 +52,94 @@ export function mountShell() {
   const { u, name, avatar } = who(), mine = cloud.myClasses();
   const slim = store.get('sideSlim', false), several = mine.length > 1;
   unmountShell(true);
-  const brand = `<a class="st-brand" href="#/" title="Today. Double-click to refresh" aria-label="Cramming, Today">${LOGO}<span>Cramming</span></a>`;
-  const me = (cls) => `<button type="button" class="st-me ${cls}" data-st-menu aria-haspopup="menu" aria-expanded="false" aria-label="Account: ${esc(name)}"><span class="st-avatar">${avatar}</span><span class="st-lbl">${esc(u.displayName || u.email)}<span class="st-sub">${esc(u.email)}</span></span></button>`;
-  // after the "Skip to content" link, which must stay the first thing on the page
-  const skip = document.querySelector('body > .skip');
+  const me = (cls) => `<button type="button" class="st-me ${cls}" data-st-me aria-haspopup="dialog" aria-expanded="false" aria-label="You: ${esc(name)}" title="${esc(name)}"><span class="st-avatar">${avatar}</span><span class="st-lbl">${esc(name)}</span></button>`;
+  const skip = document.querySelector('body > .skip'); // "Skip to content" must stay first on the page
   (skip || document.body).insertAdjacentHTML(skip ? 'afterend' : 'afterbegin', `
     <aside class="st-side ${slim ? 'slim' : ''}" id="st-side" aria-label="Cramming">
-      <div class="st-side-top">${brand}
-        <button type="button" class="st-collapse" data-st-slim aria-expanded="${!slim}" aria-label="${slim ? 'Show labels' : 'Hide labels'}">${icon('left')}</button></div>
-      <nav class="st-nav" aria-label="Main"><span class="st-ind" aria-hidden="true"></span>
-        <a class="st-item" href="#/" data-st="today" title="Today">${icon('sun')}<span class="st-lbl">Today</span></a>
-        <p class="st-label"><span>${several ? 'Classes' : 'Your class'}</span></p>
-        ${mine.map((c) => `<a class="st-item st-cls cc-${classColor(c)}" href="#/class/${encodeURIComponent(c.id)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-badge" aria-hidden="true">${esc(badgeFor(c.course, c.name))}</span><span class="st-lbl">${esc(c.course || c.name)}<span class="st-sub">${esc(c.course && classTitle(c) !== c.name ? c.name : c.term || '')}</span></span></a>`).join('')}
-        <p class="st-label"><span>You</span></p>
-        <a class="st-item" href="#/progress" data-st="progress" title="Progress">${icon('chart')}<span class="st-lbl">Progress</span></a>
-        <a class="st-item" href="#/settings" data-st="settings" title="Settings">${icon('settings')}<span class="st-lbl">Settings</span></a>
-      </nav>
+      <button type="button" class="st-handle" data-st-slim aria-expanded="${!slim}" aria-label="${slim ? 'Open the bar' : 'Collapse the bar'}" title="${slim ? 'Open the bar' : 'Collapse the bar'} (⌘ + \\)">${icon(slim ? 'right' : 'left')}</button>
+      <div class="st-side-top"><button type="button" class="st-brand" data-st-logo>${LOGO}<span>Cramming</span></button></div>
+      <div class="st-slide"><div class="st-track">
+        <nav class="st-pane st-pane-main" aria-label="Main">
+          <a class="st-item" href="#/" data-st="today" title="Today">${icon('sun')}<span class="st-lbl">Today</span></a>
+          <p class="st-label"><span>${several ? 'Your classes' : 'Your class'}</span></p>
+          ${mine.map((c) => `<a class="st-item st-cls cc-${classColor(c)}" href="#/class/${e(c.id)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}
+        </nav>
+        <nav class="st-pane st-pane-class" aria-label="This class" inert></nav>
+      </div></div>
       <div class="st-side-foot">${me('st-me-side')}</div>
     </aside>
     <header class="st-top" id="st-top">
-      <div class="st-top-left">${brand.replace('class="st-brand"', 'class="st-brand st-brand-top"')}<a class="st-back" href="#/" hidden>${icon('left')}<span></span></a></div>
+      <div class="st-top-left"><a class="st-brand st-brand-top" href="#/" aria-label="Cramming, Today">${LOGO}<span>Cramming</span></a><a class="st-back" href="#/" hidden>${icon('left')}<span></span></a></div>
       <div class="st-top-right"><div class="st-bell" data-bell-host></div>${me('st-me-top')}</div>
     </header>
-    <div class="st-menu" id="st-menu" role="menu" aria-label="Account" hidden>
-      <div class="st-menu-who"><span class="st-avatar">${avatar}</span><span><strong>${esc(u.displayName || '')}</strong><span class="st-sub">${esc(u.email)}</span></span></div>
-      <button type="button" role="menuitem" class="st-menu-item" data-st-signout>${icon('logout')} Sign out</button>
+    <div class="st-mepanel" id="st-mepanel" hidden>
+      <button type="button" class="st-scrim" data-st-close tabindex="-1" aria-label="Close"></button>
+      <section class="st-medlg" role="dialog" aria-modal="true" aria-labelledby="st-me-name">
+        <div class="st-menu-who"><span class="st-avatar">${avatar}</span><span><strong id="st-me-name">${esc(u.displayName || name)}</strong><span class="st-sub">${esc(u.email)}</span></span></div>
+        <a class="st-menu-item" href="#/progress" data-st-go>${icon('chart')} My progress</a>
+        <a class="st-menu-item" href="#/settings" data-st-go>${icon('settings')} Settings</a>
+        <button type="button" class="st-menu-item" data-st-signout>${icon('logout')} Sign out</button>
+        <button type="button" class="st-btn st-btn-ghost st-sm st-me-close" data-st-close>Close</button>
+      </section>
     </div>
     <nav class="st-tabs" id="st-tabs" aria-label="Main"><span class="st-tind" aria-hidden="true"></span>
       <a href="#/" data-st="today">${icon('sun')}<span>Today</span></a>
-      <a href="${several ? '#/classes' : `#/class/${encodeURIComponent(mine[0].id)}`}" data-st="classes">${icon('book')}<span>${several ? 'Classes' : 'Class'}</span></a>
+      <a href="${several ? '#/classes' : `#/class/${e(mine[0].id)}`}" data-st="classes">${icon('book')}<span>${several ? 'Classes' : 'Class'}</span></a>
       <a href="#/progress" data-st="progress">${icon('chart')}<span>Progress</span></a>
       <a href="#/settings" data-st="settings">${icon('settings')}<span>Settings</span></a>
     </nav>`);
-  document.querySelector('[data-st-slim]').addEventListener('click', (e) => {
-    const side = document.getElementById('st-side'), on = !side.classList.contains('slim');
-    side.classList.toggle('slim', on); store.set('sideSlim', on);
-    e.currentTarget.setAttribute('aria-expanded', String(!on));
-    e.currentTarget.setAttribute('aria-label', on ? 'Show labels' : 'Hide labels');
-    glide(false);
-  });
-  document.querySelectorAll('.st-brand').forEach((b) => b.addEventListener('dblclick', (e) => { e.preventDefault(); refreshApp(b); }));
-  document.querySelectorAll('[data-st-menu]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(b); }));
-  document.querySelector('[data-st-signout]').addEventListener('click', async () => {
-    toggleMenu(null);
+  shownClass = null;
+  const side = document.getElementById('st-side');
+  side.querySelector('[data-st-slim]').addEventListener('click', () => setSlim(!side.classList.contains('slim')));
+  const logo = side.querySelector('[data-st-logo]');
+  // e.detail counts the clicks: the second click of a double click does nothing, the dblclick refreshes
+  logo.addEventListener('click', (ev) => { if (ev.detail < 2) logoBack(); });
+  logo.addEventListener('dblclick', () => refreshApp(logo));
+  document.querySelector('.st-brand-top').addEventListener('dblclick', (ev) => { ev.preventDefault(); refreshApp(ev.currentTarget); });
+  side.querySelector('.st-pane-class').addEventListener('click', onClassPane);
+  document.querySelectorAll('[data-st-me]').forEach((b) => b.addEventListener('click', () => openMe(b)));
+  const panel = document.getElementById('st-mepanel');
+  panel.addEventListener('click', (ev) => { if (ev.target.closest('[data-st-close], [data-st-go]')) closeMe(); });
+  panel.querySelector('[data-st-signout]').addEventListener('click', async () => {
+    closeMe();
     if (await confirmDialog({ title: 'Sign out?', body: '<p>Your progress is saved to your account. It is removed from this browser, so the next person on this device starts fresh.</p>', confirm: 'Sign out' })) await cloud.signOut();
   });
   addEventListener('resize', onResize);
-  document.addEventListener('click', closeMenuOutside);
-  document.addEventListener('keydown', menuKeys);
+  document.addEventListener('keydown', keys);
 }
 export function unmountShell(keepClass) {
-  for (const id of ['st-side', 'st-top', 'st-tabs', 'st-menu']) document.getElementById(id)?.remove();
+  for (const id of ['st-side', 'st-top', 'st-tabs', 'st-mepanel', 'st-menu']) document.getElementById(id)?.remove();
   removeEventListener('resize', onResize);
-  document.removeEventListener('click', closeMenuOutside);
-  document.removeEventListener('keydown', menuKeys);
+  document.removeEventListener('keydown', keys);
+  document.body.classList.remove('st-me-open');
   if (!keepClass) document.body.classList.remove('st');
 }
 let rt;
 function onResize() { clearTimeout(rt); rt = setTimeout(() => glide(false), 120); }
 
-// ---------- the account menu ----------
-let menuFrom = null;
-function toggleMenu(btn) {
-  const menu = document.getElementById('st-menu'); if (!menu) return;
-  const open = !!btn && (menu.hidden || menuFrom !== btn);
-  document.querySelectorAll('[data-st-menu]').forEach((b) => b.setAttribute('aria-expanded', String(open && b === btn)));
-  menu.hidden = !open;
-  if (!open) { menuFrom?.focus({ preventScroll: true }); menuFrom = null; return; }
-  menuFrom = btn;
-  const r = btn.getBoundingClientRect(), up = r.top > innerHeight / 2;
-  menu.style.left = `${Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, up ? r.left : r.right - menu.offsetWidth))}px`;
-  menu.style.top = up ? 'auto' : `${r.bottom + 8}px`;
-  menu.style.bottom = up ? `${innerHeight - r.top + 8}px` : 'auto';
-  menu.querySelector('[role="menuitem"]').focus({ preventScroll: true });
+// ---------- collapse: the round handle or ⌘ + \ (laptops; tablets always have the rail) ----------
+function setSlim(on) {
+  const side = document.getElementById('st-side'); if (!side) return;
+  side.classList.toggle('slim', on); store.set('sideSlim', on);
+  const h = side.querySelector('[data-st-slim]'), say = on ? 'Open the bar' : 'Collapse the bar';
+  h.setAttribute('aria-expanded', String(!on)); h.setAttribute('aria-label', say); h.title = `${say} (⌘ + \\)`;
+  h.innerHTML = icon(on ? 'right' : 'left');
+  closeSwitcher();
 }
-function closeMenuOutside(e) { const m = document.getElementById('st-menu'); if (m && !m.hidden && !m.contains(e.target)) toggleMenu(null); }
-function menuKeys(e) { const m = document.getElementById('st-menu'); if (e.key === 'Escape' && m && !m.hidden) toggleMenu(null); }
+function keys(ev) {
+  if (ev.key === 'Escape') { if (!document.getElementById('st-mepanel')?.hidden) { closeMe(); return; } closeSwitcher(true); }
+  if (ev.key === 'Tab' && document.body.classList.contains('st-me-open')) trap(ev);
+  if (ev.key === '\\' && (ev.metaKey || ev.ctrlKey) && innerWidth >= 1024 && !document.body.matches('.focus-mode, .exam-locked')) {
+    ev.preventDefault(); setSlim(!document.getElementById('st-side')?.classList.contains('slim'));
+  }
+}
 
-// ---------- double-click the logo: refresh ----------
+// ---------- the logo: one click back, two clicks refresh ----------
+function logoBack() {
+  const side = document.getElementById('st-side');
+  if (side?.classList.contains('in-class')) { showPane(false); side.querySelector('.st-pane-main [aria-current]')?.focus({ preventScroll: true }); return; }
+  if (location.hash.replace(/^#/, '') !== '/') location.hash = '#/';
+}
 // Fetches the latest classes and practice sets and saves anything waiting, at most once a minute, so it
 // can never run up the database's reads and writes (a full page reload costs about ten times more).
 let lastRefresh = 0;
@@ -126,6 +156,69 @@ async function refreshApp(brand) {
   finally { setTimeout(() => brand.classList.remove('st-refreshing'), 600); }
 }
 
+// ---------- the middle: which list shows ----------
+function showPane(inClass) {
+  const side = document.getElementById('st-side'); if (!side) return;
+  side.classList.toggle('in-class', inClass);
+  side.querySelector('.st-pane-main').inert = inClass;
+  side.querySelector('.st-pane-class').inert = !inClass;
+  const logo = side.querySelector('[data-st-logo]');
+  logo.title = `${inClass ? 'All your classes' : 'Today'}. Double-click to refresh`;
+  logo.setAttribute('aria-label', inClass ? 'Cramming: back to all your classes' : 'Cramming: Today');
+  if (!inClass) closeSwitcher();
+}
+let shownClass = null;
+function drawClassPane(cls) {
+  const pane = document.querySelector('.st-pane-class'); if (!pane) return;
+  shownClass = cls.id;
+  const others = cloud.myClasses().filter((c) => c.id !== cls.id);
+  pane.setAttribute('aria-label', nameOf(cls));
+  pane.innerHTML = `
+    <button type="button" class="st-classcard cc-${classColor(cls)}" data-st-switch aria-expanded="false" ${others.length ? 'aria-controls="st-switch"' : 'disabled'} title="${esc(classTitle(cls))}${others.length ? ': switch class' : ''}">
+      <span class="st-cstripe" aria-hidden="true"></span>${badge(cls)}<span class="st-lbl"><b>${esc(nameOf(cls))}</b><span class="st-sub">${esc([codeOf(cls), cls.term].filter(Boolean).join(', '))}</span></span>${others.length ? icon('chev', 'st-chev') : ''}</button>
+    ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="#/class/${e(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}</div>` : ''}
+    <span class="st-gap" aria-hidden="true"></span>
+    ${SECTIONS.map(([k, l, ic]) => `<a class="st-item" href="#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
+}
+function onClassPane(ev) {
+  const sw = ev.target.closest('[data-st-switch]');
+  if (sw) { const list = document.getElementById('st-switch'); if (list) { list.hidden = !list.hidden; sw.setAttribute('aria-expanded', String(!list.hidden)); } return; }
+  if (ev.target.closest('.st-switch-item')) closeSwitcher();
+}
+function closeSwitcher(focus) {
+  const list = document.getElementById('st-switch'); if (!list || list.hidden) return;
+  list.hidden = true;
+  const sw = document.querySelector('[data-st-switch]'); sw?.setAttribute('aria-expanded', 'false');
+  if (focus) sw?.focus({ preventScroll: true });
+}
+
+// ---------- Me: a panel over a blurred page; nothing else works until it closes ----------
+let meFrom = null;
+function openMe(btn) {
+  const panel = document.getElementById('st-mepanel'); if (!panel) return;
+  meFrom = btn;
+  panel.classList.toggle('from-top', btn.classList.contains('st-me-top'));
+  panel.hidden = false;
+  document.body.classList.add('st-me-open');
+  for (const id of ['main', 'st-side', 'st-top', 'st-tabs']) { const el = document.getElementById(id); if (el) el.inert = true; }
+  btn.setAttribute('aria-expanded', 'true');
+  panel.querySelector('.st-menu-item').focus({ preventScroll: true });
+}
+function closeMe() {
+  const panel = document.getElementById('st-mepanel'); if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  document.body.classList.remove('st-me-open');
+  for (const id of ['main', 'st-side', 'st-top', 'st-tabs']) { const el = document.getElementById(id); if (el) el.inert = false; }
+  meFrom?.setAttribute('aria-expanded', 'false');
+  meFrom?.focus({ preventScroll: true }); meFrom = null;
+}
+function trap(ev) {
+  const items = [...document.querySelectorAll('#st-mepanel .st-medlg a, #st-mepanel .st-medlg button')];
+  const first = items[0], last = items[items.length - 1];
+  if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+  else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+}
+
 // ---------- where you are ----------
 let current = 'today';
 export async function setPlace({ path, params = {}, query = {} }) {
@@ -136,17 +229,22 @@ export async function setPlace({ path, params = {}, query = {} }) {
   else if (path === '/classes') key = 'classes';
   else if (path === '/settings') key = 'settings';
   const cid = params.classId || (params.id ? cloud.classForExam(params.id)?.id : null) || query.class;
-  if (!key && cid && mine.some((c) => c.id === cid)) key = `class:${cid}`;
+  const cls = cid ? mine.find((c) => c.id === cid) : null;
+  if (!key && cls) key = `class:${cid}`;
   current = key;
+  if (cls && shownClass !== cls.id) drawClassPane(cls);
+  showPane(!!cls && key.startsWith('class:'));
+  const sec = cls ? sectionOf(path, query) : '';
+  document.querySelectorAll('[data-sec]').forEach((a) => { if (a.dataset.sec === sec) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   document.querySelectorAll('[data-st]').forEach((a) => {
     const on = a.dataset.st === key || (a.dataset.st === 'classes' && (key === 'classes' || key.startsWith('class:')));
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
+  closeMe();
   glide(true);
   // the one way up (DESIGN › Navigation)
   const exams = await getManifest().then((m) => m.exams).catch(() => []);
   const set = params.id ? exams.find((x) => x.id === params.id) : null;
-  const cls = cid ? mine.find((c) => c.id === cid) : null;
   const back = backFor(path, { ...params, className: cls ? cls.course || cls.name : '', setTitle: set?.title }, {
     classOf: (id) => cloud.classForExam(id), several: mine.length > 1,
     codingOnly: (id) => { const x = exams.find((y) => y.id === id); return !!x && !x.questionCount && x.assignmentCount > 0; },
@@ -154,21 +252,20 @@ export async function setPlace({ path, params = {}, query = {} }) {
   const a = document.querySelector('.st-back');
   if (!a) return;
   a.hidden = !back;
+  // a class's own pages need no back link on laptops and tablets: the bar is already there
+  document.getElementById('st-top')?.classList.toggle('in-bar', /^\/class\/[^/]+$/.test(path));
   document.getElementById('st-top')?.classList.toggle('has-back', !!back);
   if (back) { a.href = back.href; a.querySelector('span').textContent = back.label; a.setAttribute('aria-label', `Back to ${back.label}`); }
 }
-// The highlight glides to the current place (the same gesture everywhere).
+// The phone tabs' highlight glides to the current place.
 function glide(animate) {
-  const move = (ind, cur, how) => {
-    if (!ind) return;
-    ind.classList.toggle('on', !!cur);
-    if (!cur) return;
-    if (!animate) ind.style.transition = 'none';
-    how(ind, cur);
-    if (!animate) { void ind.offsetHeight; ind.style.transition = ''; }
-  };
-  move(document.querySelector('.st-ind'), document.querySelector('.st-nav [aria-current="page"]'), (ind, cur) => { ind.style.transform = `translateY(${cur.offsetTop}px)`; ind.style.height = `${cur.offsetHeight}px`; });
-  move(document.querySelector('.st-tind'), document.querySelector('.st-tabs [aria-current="page"]'), (ind, cur) => { ind.style.transform = `translateX(${cur.offsetLeft}px)`; ind.style.width = `${cur.offsetWidth}px`; });
+  const ind = document.querySelector('.st-tind'), cur = document.querySelector('.st-tabs [aria-current="page"]');
+  if (!ind) return;
+  ind.classList.toggle('on', !!cur);
+  if (!cur) return;
+  if (!animate) ind.style.transition = 'none';
+  ind.style.transform = `translateX(${cur.offsetLeft}px)`; ind.style.width = `${cur.offsetWidth}px`;
+  if (!animate) { void ind.offsetHeight; ind.style.transition = ''; }
 }
 export const place = () => current;
 

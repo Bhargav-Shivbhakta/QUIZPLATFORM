@@ -1029,6 +1029,8 @@ console.log('\nMock exams');
     assert.equal(N.badgeFor('CS150'), '150'); assert.equal(N.badgeFor('CS 210'), '210'); assert.equal(N.badgeFor('MATH 150A'), '150A');
     assert.equal(N.badgeFor('', 'Biology'), 'BI'); assert.equal(N.badgeFor(''), '?');
     assert.equal(N.badgeFor('CS', 'CS 210 Data Structures'), '210'); assert.equal(N.badgeFor('Intro', 'Intro to Programming'), 'IN');
+    assert.deepEqual(N.codeParts('CS150'), { subject: 'CS', number: '150', code: 'CS 150' }); assert.deepEqual(N.codeParts('MATH 150A'), { subject: 'MATH', number: '150A', code: 'MATH 150A' });
+    assert.deepEqual(N.codeParts('CS', 'CS 210 Data Structures'), { subject: 'CS', number: '210', code: 'CS 210' }); assert.equal(N.codeParts('', 'Biology').subject, 'BIOL'); assert.equal(N.codeParts('', 'Biology').number, '');
     assert.equal(N.classTitle({ course: 'CS 210', name: 'CS 210 Data Structures' }), 'CS 210 Data Structures'); assert.equal(N.classTitle({ course: 'CS150', name: 'Intro to Programming' }), 'CS150 · Intro to Programming'); assert.equal(N.classTitle({ name: 'Biology' }), 'Biology');
   });
   test('every file in app/js parses (a syntax error stops the whole page)', () => {

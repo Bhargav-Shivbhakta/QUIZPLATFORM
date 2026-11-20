@@ -45,6 +45,9 @@ const P = {
   flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.4-5.4 3.9-7.8.4 1.7 1.3 2.8 2.6 3.4.3-2.9 1.8-5.4 3.6-7.4.5 3.5 4.9 6.2 4.9 11.6 0 3.7-3.1 6.4-8.5 6.4z"/>',
   sparkle: '<path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/>',
   megaphone: '<path d="M3 10.5v3a1.5 1.5 0 001.5 1.5H7l6 4.5v-15L7 9H4.5A1.5 1.5 0 003 10.5zM17 9a4.5 4.5 0 010 6"/>',
+  chev: '<path d="M6.5 9.5l5.5 5.5 5.5-5.5"/>',
+  learn: '<path d="M3.5 5.5c3-1 6-1 8.5 1 2.5-2 5.5-2 8.5-1v13.5c-3-1-6-1-8.5 1-2.5-2-5.5-2-8.5-1zM12 6.5v13.5"/>',
+  graded: '<path d="M6 3h9l4 4v14H6zM15 3v4h4M9 13.5l2 2 4-4"/>',
   report: '<path d="M5 21V4m0 0h12l-2.5 4L17 12H5"/><path d="M12 15.5v.01"/>',
 };
 // The Cramming mark: four circles, the top-right one filled (it is also the study buddy, the Dot).

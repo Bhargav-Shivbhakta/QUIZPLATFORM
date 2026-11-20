@@ -14,6 +14,17 @@ export function badgeFor(course, name) {
   return (String(course || name || '').match(/[A-Za-z]+/)?.[0] || '?').slice(0, 2).toUpperCase();
 }
 
+// The class badge in the collapsed bar: the subject over the number ("CS" over "150"), because the same
+// number in two subjects (MATH 150, CS 150) must never look alike. → { subject, number, code }
+// code is how the class is written in one line ("CS 150"); a part is '' when the course has none.
+export function codeParts(course, name) {
+  const pick = (s) => String(s || '').match(/([A-Za-z]{1,5})\s*-?\s*(\d+[A-Za-z]?)/);
+  const m = pick(course) || pick(name);
+  if (m) { const subject = m[1].toUpperCase(), number = m[2].slice(0, 4).toUpperCase(); return { subject, number, code: `${subject} ${number}` }; }
+  const subject = (String(course || name || '').match(/[A-Za-z]+/)?.[0] || '').slice(0, 4).toUpperCase();
+  return { subject, number: '', code: String(course || '').trim() };
+}
+
 // A class's full name: "CS150 · Intro to Programming", but just "CS 210 Data Structures" when the name
 // already starts with the course, so nothing is said twice.
 export function classTitle(c) {

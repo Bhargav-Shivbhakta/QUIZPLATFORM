@@ -65,3 +65,40 @@ Asked by the founder ("the initials open settings; I just want Sign out… notif
 - **Tagline: "Small reps. Top grades.™"** It replaces "Cram the right way." The founder didn't want the word "cram" in the tagline. "Reps" (repetitions) fits the product: a few questions a day, and questions coming back before you forget them. A web search found no one using it; a trademark search on it and on "Cramming" comes before spending on the brand.
 - **"Educator" is the general word for anyone who teaches a class.** Raised by the founder's mentor: high-school teachers, lecturers and instructors feel left out by "professor", and professors feel lowered by "instructor". Students see each educator by the name and title they choose; staff screens say "you". Screens change as they move to the new look.
 - **The Dot shows arms and legs when it does something** (planned as named poses with the Today's set deep dive), and gets an introduction for new students.
+
+
+## 19 November 2026: AI across the whole platform, in stages
+
+The goal is AI built fully into Cramming, for students and educators. It comes in stages, so the privacy promise on the landing page ("Student work is never sent to an AI") stays true at every step, and the budget stays at zero until schools pay.
+
+1. **Now: bring your own AI.** Educators build courses with their own Claude or ChatGPT; students connect their own AI to the course tutor. Free, and no student work goes to an AI.
+2. **Next (free): Cloudflare Workers AI, course material only.** We already run Cloudflare Workers; its free plan gives 10,000 neurons a day (open models such as Llama, Mistral and Gemma). First feature: "Explain it another way" on a practice question, sending only the question and its worked answer, never who the student is or what they answered. Every answer is saved and shared, so each question costs once; a daily cap shows "Back tomorrow" instead of a bill; labelled as AI-written; each educator turns it on or off per course.
+3. **Once schools pay: AI in the platform for everyone.** Students: hints on their own answers, the tutor inside Cramming, a personal study coach. Educators: drafting questions, AI-suggested grading of written answers and code, class insights. Run through the school's own AI (ChatGPT Edu, Gemini, Copilot) or a paid API under a data agreement. Before any student work goes to an AI: the landing page, Privacy and How we use AI are rewritten, the school agrees, and educators keep every decision that counts (RULES P-6).
+
+Not used for student data: free AI tiers whose providers may use what is sent to improve their products (the free Gemini API, for one).
+
+
+## 19 November 2026: declutter the student's mind (the north star)
+
+- **The goal of every screen is to declutter the student's mind** and help them focus on what is actually needed. Simple and elegant, in the spirit of Apple's products, but our own: we copy no one, Apple included. Zero clutter: if the student doesn't need it right now, it isn't on the screen.
+- **The step 1 student frame is rejected** (left bar on laptops, four tabs on phones): it looks like any other app. Navigation is redesigned laptop first, then phone, against this goal. A "shelf of class spines and a top capsule" mockup was also rejected. `navmap.js` (where each page sits, where Back goes) stays; only the frame around it changes.
+- Recorded in DESIGN › Principles as the north star.
+
+## 19 November 2026: Today is never empty, and the Dot studies with students
+
+- **Student feedback: Today felt empty.** Decluttered is not empty: a page that says "nothing here" feels dead. Rule: Today always has something worth doing (the best optional step when nothing is due) and something worth knowing (the student's own week, classes and progress). No boxes that say "nothing yet".
+- **Today, Classes, no dashboard.** Today is home (what to do now, across classes); each class page holds its material. The separate Progress page folds into these two.
+- **Students love the Dot and want it to study with them.** The Dot is present more often across the platform, doing its small things (poses, reactions, studying beside you), always calm: never sad, never guilt. Planned in depth as its own piece of work, after the Today layout.
+
+## 19 November 2026: better than every tool a course uses today
+
+- **The goal:** Cramming does every job that Canvas, Gradescope, Quizlet and the other course tools do (courseware, polls, discussion, coding, proctoring, requests), and does each one better, in one place. Not a plug-in beside Canvas: the course's home.
+- **Navigation is planned for all of it now,** today's features and future ones, before screens are redesigned. The research (who does what, and what Cramming has) is in the chat of 19 November 2026; the information architecture follows from it.
+- **Still true:** declutter the student's mind; Today is never empty; the Dot studies with students.
+
+## 19 November 2026: the frame is built for Phase 4 now, filled over time
+
+- **One left bar for everyone**, designed for every feature through Phase 4: search, Live now (only while an exam or poll runs), Today, Inbox, Calendar, then the classes. The open class lists its sections under its name; the others stay one line. Your name at the bottom opens Me.
+- **Students' class sections:** Ready, Learn, Practice, Graded work, Grades (Phase 1); Q&A and Class info (Phase 3); My group (Phase 4). Past classes (Phase 3).
+- **Educators' class sections:** Overview, Build, Practice, Graded work, Insights, People, Class settings (Phase 1); Grading (Phase 2); Gradebook and Q&A (Phase 3); Live class (Phase 4). Past terms (Phase 3). Admin console for school admins.
+- **An item stays hidden until its phase ships,** so students only see what works and the frame never has to be redesigned. Mockups: the design canvas "Cramming Navigation Explorations", page "The frame at Phase 4".

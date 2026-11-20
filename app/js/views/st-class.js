@@ -15,7 +15,8 @@ import { classData, clearClassData, redrawAfterFirstSync } from './st-data.js';
 import { resumeBanner } from './home.js';
 import { announcementBanners, bindAnnouncements } from './announce.js';
 
-const TABS = [['plan', 'Study plan'], ['practice', 'Practice'], ['notes', 'Notes'], ['graded', 'Graded work']];
+// the same four as the class's list in the bar (stshell.js); on phones they show as tabs at the top
+const TABS = [['plan', 'Ready'], ['notes', 'Learn'], ['practice', 'Practice'], ['graded', 'Graded work']];
 const e = encodeURIComponent;
 const word = (w) => `<span class="st-word st-word-${w === 'Solid' ? 'solid' : w === 'Getting there' ? 'there' : 'none'}">${esc(w)}</span>`;
 
@@ -67,7 +68,7 @@ function planTab(d) {
   d.dates.filter((x) => daysUntil(x.at, now) >= 0 && !d.graded.some((g) => daysUntil(g.at, x.at) === 0)).forEach((x) => later.push({ kind: 'exam', at: x.at, title: x.title, meta: weekday(x.at) }));
   later.sort((a, b) => a.at - b.at);
   const open = d.tasks.filter((t) => !t.done), mins = open.reduce((n, t) => n + t.minutes, 0);
-  const todayNode = { kind: open.length ? 'now' : 'fin', title: open.length ? `Today · ${mins} minutes` : 'Today · done', meta: open.length ? open.map((t) => t.title).join(' · ') : 'Nothing waiting. Practise anything you like.', href: open[0]?.href, mins };
+  const todayNode = { kind: open.length ? 'now' : 'fin', title: open.length ? `Today · ${mins} minutes` : 'Today · done', meta: open.length ? open.map((t) => t.title).join(' · ') : 'Nothing waiting. Practice anything you like.', href: open[0]?.href, mins };
   const all = [...nodes, todayNode, ...later];
   const first = !store.get(`seenPlan:${cls.id}`, false); store.set(`seenPlan:${cls.id}`, true);
   const bubble = (x) => (x.kind === 'done' || x.kind === 'fin' ? icon('check') : x.kind === 'exam' ? icon('flag') : x.kind === 'now' ? String(x.mins) : esc(String(x.n ?? '')));
@@ -77,7 +78,7 @@ function planTab(d) {
     <section class="st-card" aria-labelledby="plan-h"><h2 id="plan-h" class="sr-only">Study plan</h2><div class="st-plan-wrap" data-plan><span class="st-trace" aria-hidden="true"></span><ol class="st-plan">
       ${all.map((x) => `<li class="st-node ${x.kind} ${x.kind === 'now' && first ? 'pulse' : ''}"><span class="st-bubble" aria-hidden="true">${bubble(x)}</span>
         <div class="st-node-body"><h3>${x.href && x.kind !== 'now' ? `<a href="${x.href}">${esc(x.title)}</a>` : esc(x.title)}</h3><p class="st-muted st-small">${esc(x.meta)}</p>
-        ${x.kind === 'now' ? `<a class="st-btn st-sm" href="${x.href}">Start</a>` : x.kind === 'fin' ? `<a class="st-btn st-btn-ghost st-sm" href="#/class/${e(cls.id)}?tab=practice">Practise more</a>` : ''}</div></li>`).join('')}
+        ${x.kind === 'now' ? `<a class="st-btn st-sm" href="${x.href}">Start</a>` : x.kind === 'fin' ? `<a class="st-btn st-btn-ghost st-sm" href="#/class/${e(cls.id)}?tab=practice">Practice more</a>` : ''}</div></li>`).join('')}
     </ol></div></section>
     <div class="st-stack">${ready}${!d.units.length && !d.sets.length && !d.coding.length ? `<section class="st-card st-empty">${buddy('calm', { size: 72 })}<h3>Nothing here yet</h3><p class="st-muted">Your professor hasn't opened any practice or notes for this class yet.</p></section>` : ''}</div></div>`;
 }
@@ -98,7 +99,7 @@ function practiceTab(d) {
   const { cls } = d;
   const qs = d.sets.map((s) => `<li class="st-row"><div class="st-grow"><a class="st-row-title" href="#/exam/${e(s.id)}">${esc(s.title)}</a><span class="st-muted st-small">${plural(s.questions, 'question')}${s.mistakes ? ` · ${plural(s.mistakes, 'mistake')} to fix` : ''}${s.due ? ` · ${s.due} coming back` : ''}</span></div>
       <span class="st-ready">${s.seen ? `${s.score}% · ` : ''}${word(s.word)}</span>
-      <span class="st-row-acts"><a class="st-btn st-sm" href="#/exam/${e(s.id)}">Practise</a><a class="st-btn st-btn-ghost st-sm" href="#/cards/${e(s.id)}">Flashcards</a>${s.questions >= 5 ? `<a class="st-btn st-btn-ghost st-sm" href="#/start/${e(s.id)}/exam">Practice test</a>` : ''}</span></li>`).join('');
+      <span class="st-row-acts"><a class="st-btn st-sm" href="#/exam/${e(s.id)}">Practice</a><a class="st-btn st-btn-ghost st-sm" href="#/cards/${e(s.id)}">Flashcards</a>${s.questions >= 5 ? `<a class="st-btn st-btn-ghost st-sm" href="#/start/${e(s.id)}/exam">Practice test</a>` : ''}</span></li>`).join('');
   const code = d.coding.map((c) => `<li class="st-row"><div class="st-grow"><a class="st-row-title" href="#/${c.onlyCoding ? 'exam' : 'assignments'}/${e(c.id)}">${esc(c.onlyCoding ? c.title : `${c.title}: coding`)}</a><span class="st-muted st-small">${plural(c.total, 'coding assignment')} · ${c.done} done</span></div>
       <span class="st-ready">${c.done === c.total ? word('Solid') : c.started ? word('Getting there') : word('Not started')}</span>
       <span class="st-row-acts"><a class="st-btn st-sm" href="#/${c.onlyCoding ? 'exam' : 'assignments'}/${e(c.id)}">${c.started ? 'Continue' : 'Start coding'}</a></span></li>`).join('');
