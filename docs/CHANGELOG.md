@@ -2,6 +2,27 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 19 November 2026: clearer words, a real chemistry question, the Dot at the door
+
+- **Screen 1:** the lead now ends "so they go into the exam prepared" (it said "walk into the exam feeling ready", which not every student does).
+- **Screen 3:** the third point now says "every student, even in a large lecture, gets a plan of their own", so small classes are included too.
+- **Subjects:** the line under the heading is now "Code that runs, equations to balance, diagrams to label. Each subject gets questions in its own form." (it promised that anything works). A small bold line, "Pick a subject and try a question.", sits above the subject buttons.
+- **Chemistry:** the balancing question (high-school level, and its counters didn't say whether it was balanced) is replaced by a titration curve: acetic acid titrated with sodium hydroxide, three marked points, "At which point does the pH equal the pKa?". The curve is calculated from the chemistry (25 mL of 0.10 M acetic acid, pKa 4.76, 0.10 M NaOH): A ≈ 2.9, B = 4.76, C ≈ 8.7. Each wrong point explains why.
+- **Psychology:** the timing now agrees. The question says the test is a week later, and the chart had labelled the second group "Night before", stretched across two days. The groups are now Spaced (20 minutes, Monday to Friday) and Massed (100 minutes on Friday), with the same test a week later. The second option is now "The score on the test".
+- **Privacy and access:** the Dot now checks who comes in at a locked door, instead of standing still (DESIGN › the Dot: "At the door").
+- **And more (Subjects):** the history card now shows that written answers are graded by hand: "Graded by hand" in its tag, "Grade it yourself, out of 5.", and on grading, which answers grade themselves and that students see the grade on release.
+- **Class dashboard:** the line under "See what to reteach, early." is now a whole sentence: "See which questions your class finds hardest and who is yet to start, so you can reteach a concept in the next lecture, well before the midterm."
+- **For educators:** "Works with Claude or ChatGPT, on your own account" (Gemini's custom connectors aren't open to most accounts yet).
+- **Questions educators ask** (was "Questions professors ask"), every answer checked against the app: no promise that the AI is free on every plan; Cramming builds the notes, practice and quizzes; preview as a student; "Does it work with our learning platform?" replaces the Canvas-only question; student data names everyone who can read it (including the school's Cramming admins) and says university storage is on the roadmap; courses list the question types that exist today (no equation tools yet), with Java now and Python, JavaScript, SQL and C++ on the way.
+- **The end:** the tagline, "Small reps. Top grades.™", now returns as a quiet line above "Bring Cramming to your class.", and the lead is shorter: "We're setting up a few courses by hand this term."
+- **Sign-in page centred again.** The landing page's one-screen rule (`.lp > section` stacks its content in a column) had pushed the sign-in card to the left on wide windows; `.lp > section.lp-signin` centres it. Its note now says "your educator".
+- **Professors' live exam table fixed.** Its rows had broken into wrapping pieces: the table used the class names `st-row` and `st-pill`, which the new student screens (student.css, loaded after app.css) also use, for a wrapping flex row and a coloured pill. The table now uses its own names (`live-row`, `live-pill`, `lv-*`). The status no longer doubles up ("Ended: Ended by the professor" is now "Ended by staff"). Lesson: `st-` names belong to the student screens only.
+- Tested: every card and the scene at 1440×900 and on a phone (no overlapping words), each answer right and wrong, the paused still. Full check of the whole page at 390×844, 820×1180, 1275×696, 1440×900, 1536×864 and 1920×1080, light and dark: every screen fits, no sideways scroll or clipped text, no script errors, axe clean; one swipe per screen down all 13 screens, back up, and paused. The sign-in page at 1800 wide and the live table rendered with the real stylesheets. 75 tests pass.
+
+## 19 November 2026: room to read the explanation
+
+- **The practice explanation can be read in full.** After an answer, the explanation makes the practice screen taller than the window. Scrolling down now moves through it normally and stops at the end of the screen (Try again in view), even with a strong swipe; the next swipe moves on to the next screen. Scrolling up stops at the question the same way. Every other screen still moves one swipe, one screen. Tested at 1440×900 and 1275×696 with a gentle swipe, a strong swipe, mouse-wheel notches, scrolling back up and Try again.
+
 ## 19 November 2026: one swipe, one screen; Try again stays put; a meaningful pause; stronger subject questions
 
 - **One swipe moves exactly one screen.** A trackpad swipe keeps sending momentum for a second or more, and an uneven tail was being read as a second swipe, so the page moved two screens. A second screen now needs a second swipe: the first must die down and the deltas pick up again, or there must be a short pause. A spinning mouse wheel also moves one screen per spin. Tested with realistic swipes (a build-up and a long, uneven tail), two swipes close together, a spinning wheel and a single notch.

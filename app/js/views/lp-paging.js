@@ -4,7 +4,7 @@
 // or more, is ignored; a second screen needs a second swipe (the deltas pick up again) or a pause.
 // Every glide on the page goes through glideTo here, so nothing else can start a second one meanwhile
 // (the header links, Try again on the practice question).
-// A screen taller than the window scrolls normally until its end, then pages on. Touch and the
+// A screen taller than the window scrolls normally until its end and stops there; the next swipe pages on. Touch and the
 // scrollbar keep the browser's own scrolling (CSS snaps them into place).
 // Pause motion: screens still move one at a time, instantly. Reduced motion: the page scrolls freely.
 
@@ -34,22 +34,30 @@ export function mountPaging(lp, reduce) {
   if (reduce) return () => {};
   const screens = [...lp.querySelectorAll(':scope > section')];
   const still = () => lp.classList.contains('paused');
-  let blocking = false, free = false, last = 0, acc = 0, recent = [], peak = 0, fell = false;
+  let blocking = false, free = null, last = 0, acc = 0, recent = [], peak = 0, fell = false;
 
   // where one step up or down goes: a number (a page position), 'free' (inside a tall screen: scroll
   // normally) or null (nothing further: scroll normally)
+  let here = null; // the screen target() last looked at
   const target = (down) => {
     const vh = innerHeight, fit = vh - HEAD + SLACK;
     let i = screens.length - 1;
     while (i >= 0 && screens[i].getBoundingClientRect().top > HEAD + 2) i--;
     if (i < 0) return null;
-    const r = screens[i].getBoundingClientRect();
+    here = screens[i];
+    const r = here.getBoundingClientRect();
     if (down ? r.height > fit && r.bottom > vh + 2 : r.top < HEAD - 2 && r.height > fit) return 'free';
     if (!down && r.top < HEAD - 2) return scrollY + r.top - HEAD; // back to the top of this screen
     const next = screens[i + (down ? 1 : -1)];
     if (!next) return null; // past the last screen: the footer scrolls normally
     const n = next.getBoundingClientRect();
     return scrollY + (!down && n.height > fit ? n.bottom - vh : n.top - HEAD); // a tall screen above: arrive at its end
+  };
+  const hold = (e, dy) => { // keeps a normal scroll inside the free screen
+    const r = free.getBoundingClientRect(), room = dy > 0 ? Math.max(0, r.bottom - innerHeight) : Math.min(0, r.top - HEAD);
+    if (dy > 0 ? dy <= room : dy >= room) return;
+    e.preventDefault();
+    if (Math.abs(room) >= 1) scrollBy(0, room);
   };
   const go = (y) => { blocking = true; peak = 0; fell = false; glideToY(y, still()); };
 
@@ -63,12 +71,14 @@ export function mountPaging(lp, reduce) {
     peak = Math.max(peak, d); if (d < peak * 0.5) fell = true;
     const before = recent.slice(0, -3), lately = recent.slice(-3), avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
     const fresh = gap > QUIET || (fell && before.length >= 3 && avg(lately) > avg(before) * 2 && d > 24);
-    if (free) { if (!fresh) return; free = false; } // a swipe that began inside a tall screen stays a normal scroll
+    // a swipe that began inside a tall screen (the practice question with its explanation open) scrolls
+    // normally, but stops at that screen's end (or top): reading on never carries into the next screen
+    if (free) { if (!fresh) { hold(e, e.deltaY * unit); return; } free = null; }
     if (state.gliding || performance.now() < state.until) { e.preventDefault(); return; } // mid-glide: nothing else starts
     if (blocking) { if (!fresh) { e.preventDefault(); return; } blocking = false; }
     const t = target(e.deltaY > 0);
     if (t === null) return;
-    if (t === 'free') { free = true; return; }
+    if (t === 'free') { free = here; hold(e, e.deltaY * unit); return; }
     e.preventDefault();
     if (gap > 200) acc = 0;
     acc += e.deltaY * unit;

@@ -20,7 +20,7 @@ export async function render(main) {
         <p class="lp-signin-lead">Use the Google account your school gave you. Students and course staff sign in the same way.</p>
         <div data-error></div>
         <button type="button" class="lp-btn big lp-google" data-signin>${GOOGLE_G}<span>${LABEL}</span></button>
-        <p class="lp-signin-note">We never see your password. Can't get in? Use the school email your professor has on the class roster.</p>
+        <p class="lp-signin-note">We never see your password. Can't get in? Use the school email your educator has on the class roster.</p>
         <hr>
         <p class="lp-signin-new">Teaching a course that isn't on Cramming yet? <button type="button" class="lp-link" data-request>Request access</button></p>
         <details class="lp-saved">

@@ -511,7 +511,7 @@ async function examPage(main, cls, tid, query) {
     const answeredN = (test.questions || []).filter((q) => answered(q, a.answers?.[q.id])).length;
     const base = { deadline: dl, exits, warns, awaySec, answeredN, beat: ms(a.beatAt), win };
     if (a.status === 'submitted') return { ...base, st: 'submitted', label: a.endedReason === 'time-up' ? 'Time ran out (submitted)' : 'Submitted' };
-    if (a.status === 'ended') return { ...base, st: 'ended', label: 'Ended: ' + (EXIT_LABEL[a.endedReason] || a.endedReason || 'left the exam') };
+    if (a.status === 'ended') return { ...base, st: 'ended', label: a.endedReason === 'professor-ended' ? 'Ended by staff' : 'Ended: ' + (EXIT_LABEL[a.endedReason] || a.endedReason || 'left the exam') };
     if (now > dl + 30000) return { ...base, st: 'timeup', label: 'Time up (last save kept)' };
     if (now - ms(a.beatAt) > 5 * 60000) return { ...base, st: 'lost', label: 'No contact for ' + Math.round((now - ms(a.beatAt)) / 60000) + ' min' };
     return { ...base, st: 'working', label: 'Working' };
@@ -571,9 +571,9 @@ async function examPage(main, cls, tid, query) {
         <tbody>${shown.map((r) => {
           const a = r.a;
           const left = a && a.status === 'open' ? r.deadline - now : null;
-          return `<tr class="st-row row-${r.st}">
+          return `<tr class="live-row row-${r.st}">
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
-            <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
+            <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
             <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${hmm(r.win.closesAt)}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
@@ -623,7 +623,7 @@ async function examPage(main, cls, tid, query) {
         <thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Score</th>${qs.map((q, i) => `<th scope="col" title="${esc(q.label)}">${i + 1}<span class="muted small block">${esc(String(q.label).slice(0, 10))}</span></th>`).join('')}</tr></thead>
         <tbody>${rows.sort((x, y) => String(x.p.name || '').localeCompare(String(y.p.name || ''))).map((r) => { const gr = r.a && g.get(r.a.uid); return `<tr>
           <th scope="row">${esc(r.p.name || r.p.email)}<span class="muted small block">${esc(r.p.section || '')}</span></th>
-          <td data-label="Status"><span class="st-pill st-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span></td>
+          <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span></td>
           <td data-label="Score">${gr ? `<strong>${r1(gr.total)}</strong> <span class="muted small">/ ${r1(gr.max)}</span>` : '–'}</td>
           ${qs.map((q) => { const p = gr?.perQ?.[q.id]; return `<td data-label="${esc(q.label)}">${gr ? `<button class="cell-btn ${p?.pts == null ? 'need' : p.pts >= q.points ? 'full' : p.pts > 0 ? 'part' : 'zero'}" data-cell="${esc(r.a.uid)}|${esc(q.id)}">${p?.pts == null ? 'Grade' : r1(p.pts)}</button>` : ''}</td>`; }).join('')}
         </tr>`; }).join('')}</tbody>
@@ -804,7 +804,7 @@ async function examPage(main, cls, tid, query) {
       title: r.p.name || r.p.email, wide: true,
       body: (earlierOf(r.p.email).length ? `<div class="earlier"><h3>Earlier ${earlierOf(r.p.email).length === 1 ? 'attempt' : 'attempts'}</h3><ul>${earlierOf(r.p.email).map((x, k) => `<li><strong>Attempt ${k + 1}</strong>: ${x.submittedAt ? `submitted ${when(ms(x.submittedAt))}` : 'finished'} · ${r1((test.questions || []).filter((q) => answered(q, x.answers?.[q.id])).length)} of ${(test.questions || []).length} answered${x.grade?.total != null ? ` · score ${r1(x.grade.total)} of ${r1(test.totalPoints)}` : ''} <span class="muted small">(new attempt given by ${esc(x.archivedBy || 'staff')} ${when(x.archivedAt)})</span>
           <details><summary>See attempt ${k + 1}'s answers</summary><ol class="saved-answers">${(test.questions || []).map((q) => { const v = x.answers?.[q.id]; return `<li><strong>${esc(q.label)}</strong><div>${!answered(q, v) ? '<span class="muted">No answer</span>' : q.options ? esc((Array.isArray(v) ? v : [v]).map((i) => q.options[i]).join(' · ')) : q.type === 'code' ? `<pre class="code-view small" tabindex="0"><code>${esc(v)}</code></pre>` : esc(v)}</div></li>`; }).join('')}</ol></details></li>`).join('')}</ul><p class="muted small">Only the latest attempt is graded. Earlier answers are kept here for your records.</p></div>` : '') + (!a ? `<p>${esc(r.p.email)} hasn't started ${earlierOf(r.p.email).length ? 'the new attempt yet' : 'this exam'}.</p>` : `
-        <p class="muted small">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''} · <span class="st-pill st-${r.st}">${esc(r.label)}</span></p>
+        <p class="muted small">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''} · <span class="live-pill lv-${r.st}">${esc(r.label)}</span></p>
         <dl class="kv"><dt>Started</dt><dd>${when(ms(a.startedAt))}</dd><dt>Must finish by</dt><dd>${when(r.deadline)}${a.extraMin ? ` (includes ${a.extraMin} extra min)` : ''}</dd><dt>Last saved</dt><dd>${when(r.beat)} · ${plural(a.saves || 0, 'save')}</dd>${a.submittedAt ? `<dt>Finished</dt><dd>${when(ms(a.submittedAt))}</dd>` : ''}<dt>Device</dt><dd>${a.device ? `${esc(a.device.browser)} on ${esc(a.device.os)}${a.device.seb ? ' (Safe Exam Browser)' : ''}${a.device.screen ? ` · screen ${esc(a.device.screen)}` : ''}` : '–'}</dd><dt>Answered</dt><dd>${r.answeredN} of ${qs.length}</dd></dl>
         <h3>What happened</h3>
         <ol class="timeline">${[{ t: ms(a.startedAt), type: 'started' }, ...(a.events || [])].map((e) => `<li class="${LEAVES.includes(e.type) || e.type === 'professor-ended' ? 'bad' : ''}"><span class="muted small">${clock(e.t)}</span> ${esc(e.type === 'started' ? 'Started the exam' : e.type === 'reopened' ? `Let back in by ${e.by || 'the professor'}${e.add ? ` (+${e.add} min)` : ''}` : e.type === 'time-added' ? `${e.add} minutes added by ${e.by || 'the professor'}` : EXIT_LABEL[e.type] || e.type)}${e.warning ? ` <strong>(warning ${e.warning} of ${test.warnings || e.warning})</strong>` : ''}${e.awayMs ? ` <span class="muted small">after ${Math.round(e.awayMs / 1000)} s</span>` : ''}${e.detail ? ` <span class="muted small">${esc(e.detail)}</span>` : ''}</li>`).join('')}</ol>

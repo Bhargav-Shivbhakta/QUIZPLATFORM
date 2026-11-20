@@ -32,12 +32,12 @@ const tex = (src) => {
   return `<span class="lp-math-plain">${src.replace(/\\(dfrac|frac)\{([^}]*)\}\{([^}]*)\}/g, '($2) / ($3)').replace(/\\sqrt\{([^}]*)\}/g, '√$1').replace(/\\(qquad|quad)/g, '  ').replace(/\\times/g, '×').replace(/\\Longrightarrow/g, '⇒').replace(/[{}\\]/g, '')}</span>`;
 };
 const FAQ = [
-  ['Do I have to pay for the AI?', 'No. Build my course runs on your own Claude, ChatGPT or Gemini account. A large course can be built in parts to stay within free plan limits.'],
-  ['How much of my time does it take?', 'You upload your materials and approve the course map, and the AI drafts the rest. Your time goes into reviewing, which you can do one unit at a time.'],
-  ['Can I use questions I already have?', 'Yes. Upload a question file and Cramming checks it, shows you any problems, and publishes only when you say so.'],
-  ['Does it work with Canvas?', 'Rosters come from a Canvas export, and scores export in the file Canvas imports. A direct Canvas connection is on our roadmap.'],
-  ['Where does student data go?', "Into Cramming's database on Google Firebase, readable only by the student and the staff of their class. Student work is never sent to an AI."],
-  ['Which courses does it suit?', 'Any course where students learn by answering questions: multiple choice, true or false, numbers, short and written answers. Computer science, mathematics and statistics get extra tools: equations, number answers and Java programming with automatic tests.'],
+  ['Do I have to pay for the AI?', "Cramming adds no AI cost. Build my course runs on the AI account you already have, such as Claude or ChatGPT. A large course can be built in parts to stay within your plan's limits."],
+  ['How much of my time does it take?', 'You upload your materials and approve the course map, and Cramming builds the notes, practice and quizzes. Your time goes into reviewing, one unit at a time, before you publish.'],
+  ['Can I use questions I already have?', 'Yes. Upload a question file and Cramming checks it, shows you any problems, lets you preview it as a student, and publishes only when you say so.'],
+  ['Does it work with our learning platform?', 'Yes. Class lists come in from a spreadsheet your platform exports, and scores go back as a spreadsheet it imports, with a ready-made file for Canvas. Direct connections are on our roadmap.'],
+  ['Where does student data go?', "Into Cramming's secure database on Google Firebase. Only the student, their class's educators and TAs, and your school's Cramming admins can see it. Student work is never sent to an AI. Storing data in your university's own systems is on our roadmap."],
+  ['Which courses does it suit?', 'Any course where students learn by answering questions: multiple choice, select all that apply, true or false, numbers, short answers, and written answers you grade by hand. Programming courses get Java with automatic tests, with Python, JavaScript, SQL and C++ on the way.'],
 ];
 const points = (list) => list.map(([h, p], i) => `<div class="reveal" style="--d:${i * 0.08}s"><h3>${h}</h3><p>${p}</p></div>`).join('');
 const pts = (list) => `<ul class="lp-pts">${list.map(([h, p]) => `<li><i aria-hidden="true"></i><div><b>${h}</b><span>${p}</span></div></li>`).join('')}</ul>`;
@@ -50,7 +50,7 @@ function markup() {
     <div class="lp-hero-top">
     ${MARK(56)}
     <h1 id="lp-h1" data-title="Cramming · Small reps. Top grades."><span class="lp-name">Cramming<sup class="tm" aria-hidden="true">™</sup></span> <span class="lp-tag"><span>Small reps.</span> <span>Top grades.<sup class="tm" aria-hidden="true">™</sup></span></span></h1>
-    <p class="lp-lead">Cramming turns an educator's own materials into a few minutes of practice each day. Every student gets a clear plan to follow, so they walk into the exam feeling ready.</p>
+    <p class="lp-lead">Cramming turns an educator's own materials into a few minutes of practice each day. Every student gets a clear plan to follow, so they go into the exam prepared.</p>
     <div class="ctas"><span class="lp-perch"><button type="button" class="lp-btn big" data-request>Request access</button>${readingDot()}</span><a class="lp-link" href="#/" data-jump="problem">See how it works ›</a></div>
     </div>
   </section>
@@ -82,7 +82,7 @@ function markup() {
     <div class="points">${points([
       ['A little practice every day', 'Each student practices for a few minutes a day, from the first week of class, so exam night becomes a final review.'],
       ['Feedback with every answer', 'Students see the answer and the full working as soon as they try a question, weeks before the exam.'],
-      ['Practice for each student', "Each student's practice follows their own answers and pace, so every student in a large lecture gets a plan of their own."],
+      ['Practice for each student', "Each student's practice follows their own answers and pace, so every student, even in a large lecture, gets a plan of their own."],
     ])}</div>
   </section>
 
@@ -139,7 +139,7 @@ function markup() {
         <p class="lp-eyebrow">For educators</p>
         <h2 id="pf-h" class="h2 lp-h-mid">Your materials in. A complete course out.</h2>
         <p class="lp-lead">Upload your slides, notes and past exams. Cramming makes notes, practice and quizzes for every unit, checks every answer key twice, then waits for your review. Students see it once you publish.</p>
-        <ul class="lp-checks">${['Built from the materials you upload', 'Edit anything before you publish', 'Works with Claude, ChatGPT or Gemini, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
+        <ul class="lp-checks">${['Built from the materials you upload', 'Edit anything before you publish', 'Works with Claude or ChatGPT, on your own account'].map((t) => `<li>${TICK}${t}</li>`).join('')}</ul>
       </div>
       <div class="card lp-build" data-build role="img" aria-label="Example of Build my course: steps from reading the materials to ready for review, completing one after another.">
         <div class="head" aria-hidden="true"><b>Build my course · MATH 150</b><span data-build-pct>0%</span></div>
@@ -168,7 +168,7 @@ function markup() {
     <div class="stack reveal lp-duo-col">
       <p class="lp-eyebrow">For educators · Class dashboard</p>
       <h2 id="da-h" class="h2 lp-h-mid">See what to reteach, early.</h2>
-      <p class="lp-lead">The hardest questions and who is yet to begin, so the next lecture can clear up a concept well before the midterm.</p>
+      <p class="lp-lead">See which questions your class finds hardest and who is yet to start, so you can reteach a concept in the next lecture, well before the midterm.</p>
       <div class="card lp-dash lp-lift" role="img" aria-label="Example class dashboard: the two hardest questions this week, 36 and 59 percent correct, and 9 students yet to begin the quiz.">
         <div class="head" aria-hidden="true"><b>MATH 150 · This week</b><span>142 students</span></div>
         <div aria-hidden="true" style="display:flex;flex-direction:column;gap:14px">
@@ -242,14 +242,15 @@ function markup() {
 
 
   <section id="faq" class="wrap sec lp-faq" aria-labelledby="fq-h">
-    <h2 id="fq-h" class="h2 reveal lp-fq-h">Questions professors ask.</h2>
+    <h2 id="fq-h" class="h2 reveal lp-fq-h">Questions educators ask.</h2>
     <div class="list">${FAQ.map(([q, a]) => `<details class="reveal"><summary><span>${q}</span>${PLUS}</summary><p>${a}</p></details>`).join('')}</div>
   </section>
 
   <section class="wrap lp-center lp-end" aria-labelledby="en-h">
     <span class="reveal">${MARK(44)}</span>
+    <p class="lp-eyebrow reveal">Small reps. Top grades.™</p>
     <h2 id="en-h" class="h2 reveal">Bring Cramming to your class.</h2>
-    <p class="lp-lead reveal">We're setting up a small number of courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
+    <p class="lp-lead reveal">We're setting up a few courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>
     <button type="button" class="lp-btn big reveal" data-request>Request access</button>
     <p class="lp-small">Free during early access. Student? <a href="#/signin">Sign in with your school account ›</a></p>
   </section>

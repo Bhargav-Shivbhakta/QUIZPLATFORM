@@ -2265,10 +2265,10 @@ fieldset.an-picklist { margin: .6rem 0; min-width: 0; }
 [data-form-err]:empty { display: none; }
 .live-bar { align-items: center; gap: .6rem; margin-bottom: .6rem; }
 .live-bar .check { display: inline-flex; gap: .4rem; align-items: center; }
-.st-pill { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .85rem; font-weight: 600; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
-.st-pill.st-working { background: var(--accent-soft); color: var(--ink); border-color: var(--accent-line); }
-.st-pill.st-submitted, .st-pill.st-timeup { background: var(--good-soft); color: var(--good); border-color: var(--good-line); }
-.st-pill.st-ended, .st-pill.st-lost { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-line); }
+.live-pill { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .85rem; font-weight: 600; background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--line); }
+.live-pill.lv-working { background: var(--accent-soft); color: var(--ink); border-color: var(--accent-line); }
+.live-pill.lv-submitted, .live-pill.lv-timeup { background: var(--good-soft); color: var(--good); border-color: var(--good-line); }
+.live-pill.lv-ended, .live-pill.lv-lost { background: var(--bad-soft); color: var(--bad); border-color: var(--bad-line); }
 .live-table td, .results-table td { vertical-align: top; }
 .row-actions { white-space: nowrap; }
 .row-actions .btn { margin: 0 .2rem .2rem 0; }

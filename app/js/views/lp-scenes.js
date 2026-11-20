@@ -65,16 +65,22 @@ export function repsSpot() {
   </svg>`;
 }
 
-// Privacy and access: the Dot standing guard with a shield, beside a padlock that clicks shut.
+// Privacy and access: the Dot at the door. A school ID card rises and the Dot checks it: a tick, the padlock
+// opens, the door swings open, the card goes through, and the door closes and locks again. A card without
+// the school band bounces off the Dot's shield; the door stays shut. Still (paused, reduced motion, off
+// screen): the school card held up, ticked, at a locked door.
+const idCard = (cls, school) => `<g class="gd-card ${cls}"><rect class="gd-c${school ? '' : ' gd-c-x'}" x="-17" y="-12" width="34" height="24" rx="4"/>${school ? '<path class="gd-band" d="M-17 -8 a4 4 0 0 1 4 -4 h26 a4 4 0 0 1 4 4 v1 h-34z"/>' : ''}<circle class="gd-face" cx="-8" cy="2" r="4.5"/><path class="gd-lines" d="M0 -1 h10 M0 5 h7"/>${school ? '<g class="gd-tick"><circle cx="16" cy="-12" r="7"/><path d="M12.6 -12 l2.4 2.4 l4.4 -4.8"/></g>' : ''}</g>`;
 export function guardSpot() {
   return `<svg class="lp-scene lp-spot lp-scene-guard" viewBox="0 0 260 224" width="260" height="224" aria-hidden="true" focusable="false">
     <circle class="lp-spot-bg" cx="130" cy="118" r="96"/>
-    <g class="lp-lock-g"><path class="lp-shackle" d="M184 70 v-10 a10 10 0 0 1 20 0 v10"/><rect class="lp-lock" x="178" y="68" width="32" height="26" rx="6"/><circle class="lp-keyhole" cx="194" cy="79" r="3.4"/><path class="lp-keyhole" d="M192.6 80 h2.8 l1 7 h-4.8z"/></g>
+    <g class="gd-door"><rect class="gd-frame" x="188" y="98" width="46" height="76" rx="5"/><rect class="gd-in" x="194" y="104" width="34" height="70" rx="2"/><g class="gd-leaf"><rect x="194" y="104" width="34" height="70" rx="2"/><circle cx="200" cy="141" r="2.6"/></g></g>
+    <g class="lp-lock-g"><path class="lp-shackle" d="M201 70 v-10 a10 10 0 0 1 20 0 v10"/><rect class="lp-lock" x="195" y="68" width="32" height="26" rx="6"/><circle class="lp-keyhole" cx="211" cy="79" r="3.4"/><path class="lp-keyhole" d="M209.6 80 h2.8 l1 7 h-4.8z"/></g>
     <path class="lp-limb-leg" d="M104 146 L102 172 M118 146 L120 172"/><path class="lp-limb-leg" d="M93 173 h9 M120 173 h9"/>
     <path class="lp-limb" d="M84 116 Q74 130 82 142"/>
     <g class="lp-guard-body"><g transform="translate(-9 34)">${body('happy')}</g></g>
     <path class="lp-limb" d="M134 118 Q146 124 144 134"/>
     <g class="lp-shield-g"><path class="lp-shield" d="M152 112 l24 9 v19 c0 17 -11 28 -24 34 c-13 -6 -24 -17 -24 -34 v-19z"/><path class="lp-shield-tick" d="M141 142 l8 8 l14 -16"/></g>
+    ${idCard('gd-a', true)}${idCard('gd-b', false)}
   </svg>`;
 }
 

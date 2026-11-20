@@ -67,11 +67,33 @@ const RAMP = `<svg class="sj-art" viewBox="0 0 320 150" role="img" aria-label="A
   <g class="sj-show"><rect class="sj-ghost" x="-14" y="-22" width="28" height="22" rx="5" transform="translate(240 91) rotate(-26.6)"/>
   <path class="sj-guide" d="M252 86 H304"/><path class="sj-dim" d="M300 88 V126 M295 88 H305 M295 126 H305"/><text class="sj-lbl sj-big sj-h" x="300" y="58" text-anchor="end">h ≈ 0.46 m</text></g>
 </svg>`;
-const WEEK = `<svg class="sj-art" viewBox="0 0 320 112" role="img" aria-label="Two study plans with the same total time: a short session each day, or one long session the night before the exam.">
+const WEEK = `<svg class="sj-art" viewBox="0 0 320 112" role="img" aria-label="Two study plans with the same total time: 20 minutes each day from Monday to Friday, or one 100-minute session on Friday.">
   ${['M', 'T', 'W', 'T', 'F'].map((d, i) => `<text class="sj-lbl" x="${108 + i * 44}" y="14" text-anchor="middle">${d}</text>`).join('')}
   <text class="sj-lbl" x="4" y="46">Spaced</text>${[0, 1, 2, 3, 4].map((i) => `<rect class="sj-blk" x="${90 + i * 44}" y="28" width="38" height="26" rx="6"/><text class="sj-blk-t" x="${109 + i * 44}" y="45" text-anchor="middle">20 min</text>`).join('')}
-  <text class="sj-lbl" x="4" y="94">Night before</text><rect class="sj-blk sj-blk-late" x="224" y="76" width="88" height="26" rx="6"/><text class="sj-blk-t" x="268" y="93" text-anchor="middle">100 min</text>
+  <text class="sj-lbl" x="4" y="94">Massed</text><rect class="sj-blk sj-blk-late" x="266" y="70" width="38" height="38" rx="6"/><text class="sj-blk-t" x="285" y="87" text-anchor="middle">100</text><text class="sj-blk-t" x="285" y="99" text-anchor="middle">min</text>
 </svg>`;
+
+// 25 mL of 0.10 M acetic acid (pKa 4.76) titrated with 0.10 M NaOH; the pH solved from the charge balance
+const TITRATION = (() => {
+  const Ka = 10 ** -4.76, pH = (v) => {
+    const ca = 2.5 / (25 + v), na = (0.1 * v) / (25 + v);
+    let lo = 0, hi = 14;
+    for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2, h = 10 ** -m; if (h + na - 1e-14 / h - (ca * Ka) / (Ka + h) > 0) lo = m; else hi = m; }
+    return lo;
+  };
+  const X = (v) => 44 + v * 5.2, Y = (p) => 146 - p * 9, at = (v) => `${X(v).toFixed(1)} ${Y(pH(v)).toFixed(1)}`;
+  const vs = [...Array.from({ length: 23 }, (_, i) => i), ...Array.from({ length: 31 }, (_, i) => 23 + i * 0.1), ...Array.from({ length: 24 }, (_, i) => 27 + i)];
+  const pt = (v, name, dx, dy) => `<circle class="sj-tp" cx="${X(v)}" cy="${Y(pH(v))}" r="5"/><text class="sj-lbl sj-big" x="${X(v) + dx}" y="${Y(pH(v)) + dy}" text-anchor="${dx < 0 ? 'end' : 'start'}">${name}</text>`;
+  return `<svg class="sj-art" viewBox="0 0 320 172" role="img" aria-label="Titration curve: pH against volume of sodium hydroxide added. Point A at the start, point B halfway to the equivalence point, point C at the equivalence point.">
+  <rect class="sj-band" x="${X(2.3)}" y="${Y(14)}" width="${X(22.7) - X(2.3)}" height="${Y(0) - Y(14)}"/><text class="sj-lbl" x="${X(12.5)}" y="${Y(13.2)}" text-anchor="middle">Buffer region</text>
+  <path class="sj-axis" d="M44 ${Y(14)} V${Y(0)} H304"/>
+  ${[0, 7, 14].map((p) => `<text class="sj-lbl" x="36" y="${Y(p) + 4}" text-anchor="end">${p}</text>`).join('')}<text class="sj-lbl" x="20" y="${Y(14) + 4}" text-anchor="end">pH</text>
+  ${[0, 25, 50].map((v) => `<text class="sj-lbl" x="${X(v)}" y="${Y(0) + 16}" text-anchor="middle">${v}</text>`).join('')}<text class="sj-lbl" x="${X(37.5)}" y="${Y(0) + 16}" text-anchor="middle">NaOH added (mL)</text>
+  <path class="sj-curve" d="M${vs.map(at).join(' L')}"/>
+  <g class="sj-show"><path class="sj-guide" d="M44 ${Y(4.76)} H${X(12.5)}"/><text class="sj-lbl sj-pka" x="${X(12.5) + 10}" y="${Y(4.76) + 20}">pH = pKa = 4.76</text></g>
+  ${pt(0, 'A', -10, -6)}${pt(12.5, 'B', -4, -12)}${pt(25, 'C', 10, 5)}
+</svg>`;
+})();
 
 // ---- the subjects: name, the tag on the card, and the question
 const S = [
@@ -91,19 +113,17 @@ const S = [
     note: ['Correct. The area under one arch of sin x is exactly 2.', 'Almost. An antiderivative of sin x is −cos x; evaluate it from 0 to π.'] },
   { id: 'stats', name: 'Statistics', html: () => card('STAT 119 · Center and spread', 'One score is 30. Which measure barely moves because of it?', PLOT + opts([['Mean', 0, 'Almost. The mean is pulled up to 8.4 by the 30.'], ['Median', 1, 'Correct. The median stays at 6: it depends on the middle, not the extremes.'], ['Range', 0, 'Almost. The range jumps to 26 because of the 30.']])) },
   { id: 'phys', name: 'Physics', html: () => card('PHYS 195 · Energy', 'The block slides onto a frictionless ramp. How high does it rise before it stops? Use g = 9.8 m/s².', RAMP + opts([['0.15 m', 0, 'Almost. Square the speed: kinetic energy is ½mv², so h = v² ÷ 2g.'], ['0.46 m', 1, 'Correct. ½mv² = mgh, so h = v² ÷ 2g = 9 ÷ 19.6 ≈ 0.46 m. The mass cancels.'], ['0.92 m', 0, 'Almost. Keep the ½: h = v² ÷ 2g, not v² ÷ g.']])) },
-  { id: 'chem', name: 'Chemistry', html: () => card('CHEM 200 · Combustion', 'Propane burns in oxygen. Balance the equation with the smallest whole numbers.', `
-    <div class="sj-eq">${['C<sub>3</sub>H<sub>8</sub>', 'O<sub>2</sub>', 'CO<sub>2</sub>', 'H<sub>2</sub>O'].map((f, i) => `<span class="sj-term"><span class="sj-co"><button type="button" data-co="${i}" data-d="-1" aria-label="Fewer">−</button><b data-cv="${i}">1</b><button type="button" data-co="${i}" data-d="1" aria-label="More">+</button></span><span class="sj-f">${f}</span></span>${['<span class="sj-op">+</span>', '<span class="sj-op">→</span>', '<span class="sj-op">+</span>', ''][i]}`).join('')}</div>
-    <div class="sj-atoms"><span data-atom="C"></span><span data-atom="H"></span><span data-atom="O"></span></div>`) },
+  { id: 'chem', name: 'Chemistry', html: () => card('CHEM 202 · Acid–base titrations', 'Acetic acid is titrated with sodium hydroxide. At which point does the pH equal the pK<sub>a</sub> of acetic acid?', TITRATION + opts([['Point A', 0, 'Almost. A is the acid alone, before any base is added: pH ≈ 2.9, below the pKa.'], ['Point B', 1, 'Correct. Halfway to equivalence, half the acid is neutralized, so [HA] = [A⁻] and pH = pKa = 4.76.'], ['Point C', 0, 'Almost. C is the equivalence point: the acetate left behind is a weak base, so the pH is about 8.7, above the pKa.']])) },
   { id: 'bio', name: 'Biology', html: () => card('BIO 101 · The cell <span class="sj-step" data-step>Part 1 of 3</span>', 'What is the part the arrow points to?', CELL + '<div data-bio-opts></div>') },
   { id: 'econ', name: 'Economics', html: () => card('ECON 101 · Markets', 'A price ceiling is set below the equilibrium price. What follows?', SD + opts([['A shortage', 1, 'Correct. At the capped price, buyers want Qd but sellers offer only Qs.'], ['A surplus', 0, 'Almost. A surplus follows a price floor above equilibrium.'], ['No change', 0, 'Almost. A ceiling below P* changes both quantities.']])) },
-  { id: 'psych', name: 'Psychology', html: () => card('PSY 210 · Research methods', 'Both groups study for 100 minutes. A week later, the spaced group scores higher. What is the independent variable?', WEEK + opts([['How the study time is spread out', 1, 'Correct. It is the one thing the researchers changed between the groups; the score is the dependent variable.'], ['The test score a week later', 0, 'Almost. The score is what the study measures: the dependent variable.'], ['The 100 minutes of study', 0, 'Almost. The total time is held the same for both groups: a controlled variable.']])) },
+  { id: 'psych', name: 'Psychology', html: () => card('PSY 210 · Research methods', 'Both groups study for 100 minutes in total. On the same test a week later, the spaced group scores higher. What is the independent variable?', WEEK + opts([['How the study time is spread out', 1, 'Correct. It is the one thing the researchers changed between the groups; the score is the dependent variable.'], ['The score on the test', 0, 'Almost. The score is what the study measures: the dependent variable.'], ['The 100 minutes of study', 0, 'Almost. The total time is held the same for both groups: a controlled variable.']])) },
   { id: 'eng', name: 'Engineering', html: () => card('EE 210 · Circuits', 'The resistors are in parallel. What current does the ammeter read?', CIRCUIT + opts([['0.75 A', 0, 'Almost. 12 ÷ 16 treats the resistors as if in series. In parallel, 1/R = 1/4 + 1/12.'], ['3 A', 0, 'Almost. That is the 4 Ω branch alone; the 12 Ω branch adds another 1 A.'], ['4 A', 1, 'Correct. The branches draw 3 A and 1 A, so the ammeter reads 4 A (R = 3 Ω).']])) },
   { id: 'bus', name: 'Business', html: () => card('ACCT 201 · Ratios', 'What is the company&#39;s current ratio?', `
     <div class="sj-bs" role="table" aria-label="Balance sheet, in thousands of dollars">${[['Assets', ''], ['Cash', '30'], ['Accounts receivable', '25'], ['Inventory', '35'], ['Equipment', '120'], ['Liabilities', ''], ['Accounts payable', '40'], ['Short-term loan', '20'], ['Long-term loan', '80']].map(([t, v]) => (v ? `<div role="row"><span role="cell">${t}</span><b role="cell">$${v}k</b></div>` : `<div role="row" class="sj-bs-h"><span role="columnheader">${t}</span></div>`)).join('')}</div>
     ${opts([['0.64', 0, 'Almost. Leave out the long-term loan: only liabilities due within a year count. 90 ÷ 60.'], ['1.5', 1, 'Correct. Current assets 90 ÷ current liabilities 60 = 1.5.'], ['3.5', 0, 'Almost. Equipment is a long-term asset. Current assets are 30 + 25 + 35 = 90.']])}`) },
-  { id: 'more', name: 'And more', html: () => card('HIST 110 · Written answer', 'Explain one cause of the First World War. <span class="sj-who">Marked by the educator and TAs</span>', `
+  { id: 'more', name: 'And more', html: () => card('HIST 110 · Written answer · Graded by hand', 'Explain one cause of the First World War.', `
     <blockquote class="sj-essay">The alliance system turned a regional conflict into a world war: when Austria-Hungary declared war on Serbia, Russia, Germany, France and Britain were drawn in by their treaties within a week.</blockquote>
-    <div class="sj-row"><span class="sj-lbl-t">Your mark, out of 5</span><span class="sj-chips" role="group" aria-label="Mark out of 5">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" class="sj-chip" data-mark="${n}">${n}</button>`).join('')}</span></div>`) },
+    <div class="sj-row"><span class="sj-lbl-t"><b>Grade it yourself, out of 5.</b></span><span class="sj-chips" role="group" aria-label="Grade out of 5">${[0, 1, 2, 3, 4, 5].map((n) => `<button type="button" class="sj-chip" data-mark="${n}">${n}</button>`).join('')}</span></div>`) },
 ];
 
 export function subjectsMarkup() {
@@ -111,7 +131,8 @@ export function subjectsMarkup() {
     <div class="stack reveal lp-subj-text">
       <p class="lp-eyebrow">Subjects</p>
       <h2 id="sb-h" class="h2 lp-h-mid">Made for your subject.</h2>
-      <p class="lp-lead">If it can be asked as a question, it works on Cramming, from code that runs to diagrams from the educator's own notes. Pick a subject and try one.</p>
+      <p class="lp-lead">Code that runs, equations to balance, diagrams to label. Each subject gets questions in its own form.</p>
+      <p class="sj-try">Pick a subject and try a question.</p>
       <ul class="lp-chips sj-pick" aria-label="Subjects">${S.map((s, i) => `<li><button type="button" data-subj="${s.id}" aria-pressed="${i === 0}">${s.name}</button></li>`).join('')}</ul>
     </div>
     <div class="card sj-card reveal" data-sj-card aria-label="A question to try"></div>
@@ -129,7 +150,6 @@ export function mountSubjects(root) {
     box.dataset.sj = s.id;
     box.classList.remove('solved');
     box.innerHTML = s.html();
-    if (s.id === 'chem') chem(box);
     if (s.id === 'bio') bio(box, 0);
   };
   const out = (t, ok) => {
@@ -138,15 +158,6 @@ export function mountSubjects(root) {
     box.classList.toggle('solved', !!ok);
     box.querySelector('.sj-again').hidden = false;
     if (ok) box.querySelectorAll('[data-win]').forEach((el) => (el.textContent = el.dataset.win));
-  };
-  // chemistry: the atoms on each side update with every press
-  const chem = (c) => {
-    const [a, b, x, y] = [...c.querySelectorAll('[data-cv]')].map((el) => Number(el.textContent));
-    const atoms = { C: [3 * a, x], H: [8 * a, 2 * y], O: [2 * b, 2 * x + y] };
-    Object.entries(atoms).forEach(([k, [l, r]]) => { const el = c.querySelector(`[data-atom="${k}"]`); el.textContent = `${k}: ${l} left, ${r} right`; el.classList.toggle('ok', l === r); });
-    const even = Object.values(atoms).every(([l, r]) => l === r);
-    if (even) out([a, b, x, y].join(',') === '1,5,3,4' ? 'Balanced. C₃H₈ + 5O₂ → 3CO₂ + 4H₂O.' : 'Balanced, though not in the smallest whole numbers: they are 1, 5, 3 and 4.', [a, b, x, y].join(',') === '1,5,3,4');
-    else { box.classList.remove('solved'); const o = c.querySelector('.sj-out'); o.textContent = ''; c.querySelector('.sj-again').hidden = true; }
   };
   // biology: three parts, one after another
   const bio = (c, k) => {
@@ -164,7 +175,7 @@ export function mountSubjects(root) {
     }
     if (t.dataset.mark) {
       box.querySelectorAll('[data-mark]').forEach((b) => b.classList.toggle('on', b === t));
-      return out(`Marked ${t.dataset.mark} of 5. The student sees it when you release the grades.`, true);
+      return out(`Graded ${t.dataset.mark} of 5. Multiple choice, numbers and code grade themselves. Written answers like this one, you and your TAs grade by hand, and students see the grade when you release it.`, true);
     }
     if (t.matches('.sj-opt')) {
       const ok = t.dataset.ok === '1';
@@ -192,11 +203,6 @@ export function mountSubjects(root) {
         if (i === lis.length - 1) { t.disabled = false; out(pass === 4 ? '4 of 4 tests pass.' : `${pass} of 4 tests pass. Choose another value to try again.`, pass === 4); }
       }, 260 * (i + 1)));
       return;
-    }
-    if (t.dataset.co) {
-      const b = box.querySelector(`[data-cv="${t.dataset.co}"]`);
-      b.textContent = String(Math.min(9, Math.max(1, Number(b.textContent) + Number(t.dataset.d))));
-      chem(box);
     }
   });
   box.addEventListener('submit', (e) => {
