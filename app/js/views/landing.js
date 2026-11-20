@@ -247,7 +247,7 @@ function markup() {
   </section>
 
   <section class="wrap lp-center lp-end" aria-labelledby="en-h">
-    <span class="reveal">${MARK(44)}</span>
+    <span class="reveal lp-mark-end">${MARK(44)}</span>
     <p class="lp-eyebrow reveal">Small reps. Top grades.™</p>
     <h2 id="en-h" class="h2 reveal">Bring Cramming to your class.</h2>
     <p class="lp-lead reveal">We're setting up a few courses by hand this term. Tell us about yours, and we'll build the first one with you.</p>

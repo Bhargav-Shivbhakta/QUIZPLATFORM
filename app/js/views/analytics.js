@@ -493,8 +493,9 @@ export async function render(main, params = {}, query = {}, opts = {}) {
         const g = e.target.closest('.an-hit'); if (!g) return;
         tip.textContent = g.dataset.tip; tip.hidden = false;
         const r = g.getBoundingClientRect(), w = wrap.getBoundingClientRect();
-        tip.style.left = Math.min(Math.max(r.left - w.left + r.width / 2, 90), w.width - 90) + 'px';
-        tip.style.top = Math.max(0, r.top - w.top - 8) + 'px';
+        const z = (document.body.currentCSSZoom || 1); // big monitors zoom the page (tokens.css)
+        tip.style.left = Math.min(Math.max((r.left - w.left + r.width / 2) / z, 90), w.width / z - 90) + 'px';
+        tip.style.top = Math.max(0, (r.top - w.top) / z - 8) + 'px';
         wrap.querySelectorAll('.an-hit.on').forEach((x) => x.classList.remove('on')); g.classList.add('on');
       });
       wrap.addEventListener('pointerleave', () => { tip.hidden = true; wrap.querySelectorAll('.an-hit.on').forEach((x) => x.classList.remove('on')); });

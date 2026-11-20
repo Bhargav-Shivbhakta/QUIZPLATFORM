@@ -171,12 +171,12 @@ export function toggleCalculator(force) {
   const head = panel.querySelector('[data-drag]');
   head.addEventListener('pointerdown', (e) => {
     if (e.target.closest('button')) return;
-    const r = panel.getBoundingClientRect();
+    const r = panel.getBoundingClientRect(), z = (document.body.currentCSSZoom || 1); // big monitors zoom the page (tokens.css)
     const dx = e.clientX - r.left, dy = e.clientY - r.top;
     head.setPointerCapture(e.pointerId);
     const move = (ev) => {
-      panel.style.left = Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx)) + 'px';
-      panel.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy)) + 'px';
+      panel.style.left = Math.max(0, Math.min(innerWidth - r.width, ev.clientX - dx)) / z + 'px';
+      panel.style.top = Math.max(0, Math.min(innerHeight - 40, ev.clientY - dy)) / z + 'px';
       panel.style.right = 'auto'; panel.style.bottom = 'auto';
     };
     const up = () => { head.removeEventListener('pointermove', move); head.removeEventListener('pointerup', up); };

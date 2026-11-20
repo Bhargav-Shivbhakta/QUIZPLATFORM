@@ -241,7 +241,8 @@ export async function render(main, params = {}, query = {}) {
       tip.textContent = g.dataset.tip;
       tip.hidden = false;
       const r = g.getBoundingClientRect(), w = wrap.getBoundingClientRect();
-      const left = Math.min(Math.max(r.left - w.left + r.width / 2, 70), w.width - 70);
+      const z = (document.body.currentCSSZoom || 1); // big monitors zoom the page (tokens.css)
+      const left = Math.min(Math.max((r.left - w.left + r.width / 2) / z, 70), w.width / z - 70);
       tip.style.left = left + 'px';
       wrap.querySelectorAll('.ov-col.on').forEach((x) => x.classList.remove('on'));
       g.classList.add('on');

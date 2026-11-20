@@ -413,3 +413,9 @@ Everything that carries the Cramming name follows this file, not only the app.
 5. Nothing moves the page by itself; reduce motion is respected; motion follows DESIGN › Motion (Full and Soft), and the study buddy only appears at a moment from its table.
 6. Every word read aloud once.
 7. Has its place in the navigation: one back link from `backFor()` (or none, for the four places), the right highlight, and no navigation of its own (DESIGN › Navigation).
+
+## Big monitors (20 Nov)
+
+The app grows with the screen. From 1700 px wide the whole page zooms: 1.12× at 1700, 1.25× at 2000, 1.4× at 2400 and 1.75× at 3200 (tokens.css, `--z`). Below 1700 nothing changes. The landing pages are left out because they already scale with the screen. Two rules keep the zoom safe:
+- **Full-screen heights:** zoom also enlarges `vh`, so any height that must equal the screen divides by it: `calc(100vh / var(--z, 1))`.
+- **Positions from measurements:** code that turns a measurement (`getBoundingClientRect`) into a position divides by `document.body.currentCSSZoom || 1`.

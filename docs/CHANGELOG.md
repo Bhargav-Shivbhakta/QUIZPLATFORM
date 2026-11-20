@@ -2,6 +2,17 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 20 November 2026: big monitors and clean class names
+
+- **Big monitors:** the app now grows with the screen instead of staying laptop-sized in the middle. From 1700 px wide everything (the bar, text, cards, buttons) scales up: 1.12× at 1700 px, 1.25× at 2000, 1.4× at 2400 (a 1440p monitor) and 1.75× at 3200 (a 4K monitor without scaling). Laptops don't change. The landing, sign-in and policy pages already scale with the screen, so they're left alone. Full-screen layouts (practice, the coding screen, exam editors, dialogs) still fit exactly, and tooltips, the calculator drag, the Dot's hop and the heart are measured correctly at every scale.
+- **Class names in the bar:** the course code and section are taken off the front, because the code already shows on the right. "CS150 (Introductory Computer Programming)" shows as "Introductory Computer Programming", and "CS160-01:Intermediate Computer Programming" shows as "Intermediate Computer Programming".
+- **Tested:** rendered at 2560 × 1267, 1920 × 1080 and 1440 × 900 with no extra scrolling and no script errors. 75 tests and the architecture check pass.
+
+## 20 November 2026: the last screen matches the first
+
+- **Landing, last screen:** "Bring Cramming to your class." now sits at the same scale as the opening screen instead of reading like a footer. The logo, the headline (up to 116 px), the lead and the button are larger, and "Small reps. Top grades.™" is in the brand blue, like the opening tagline.
+- **Tested:** fits on one screen with no sideways scroll at 1440 × 900, 1280 × 720, 1024 × 640, 768 × 1024, 390 × 844 and 360 × 640. 75 tests and the architecture check pass.
+
 ## 19 November 2026: the new student bar
 
 - **One bar, three parts (DESIGN › Navigation).** The logo stays at the top, your name stays at the bottom, and only the middle moves. It shows Today and your classes; open a class and it slides over to that class's card and its four sections: Ready, Learn, Practice and Graded work.

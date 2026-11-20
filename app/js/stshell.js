@@ -43,7 +43,16 @@ function who() {
 }
 // The badge: subject over number, white on the class colour.
 const badge = (c) => { const p = codeParts(c.course, c.name); return `<span class="st-badge" aria-hidden="true"><b>${esc(p.subject || '?')}</b>${p.number ? `<b>${esc(p.number)}</b>` : ''}</span>`; };
-const nameOf = (c) => { const p = codeParts(c.course, c.name), n = String(c.name || '').trim(); const lead = p.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*'); return (lead && n.replace(new RegExp(`^${lead}\\s*[:·-]?\\s*`, 'i'), '')) || n || p.code; };
+// A class's own name, without the course code the badge and code already show: "CS150 (Intro to
+// Programming)" → "Intro to Programming", "CS160-01: Intermediate Programming" → "Intermediate Programming".
+const nameOf = (c) => {
+  const p = codeParts(c.course, c.name), n = String(c.name || '').trim();
+  const lead = p.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+  let t = lead ? n.replace(new RegExp(`^${lead}(?![0-9A-Za-z])`, 'i'), '') : n;
+  t = t.replace(/^[\s:·\-–]*(?:(?:section|sec\.?)\s*)?(?:\d{1,3}\s*[:·\-–]\s*)?/i, '').trim();
+  const wrapped = t.match(/^\((.*)\)$/) || t.match(/^\[(.*)\]$/);
+  return (wrapped ? wrapped[1].trim() : t) || n || p.code;
+};
 const codeOf = (c) => codeParts(c.course, c.name).code;
 
 export function mountShell() {

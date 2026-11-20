@@ -150,3 +150,12 @@
   --cr-shadow: rgba(0, 0, 0, 0.6);
   --cr-class-blue: #6E8BFF; --cr-class-blue-soft: #1C2340; --cr-class-green: #5CC48F; --cr-class-green-soft: #15291F; --cr-class-purple: #B59CFF; --cr-class-purple-soft: #271D42; --cr-class-orange: #FF9F5A; --cr-class-orange-soft: #33210F; --cr-class-teal: #4FD1E6; --cr-class-teal-soft: #0F2A30; --cr-class-rose: #FF7AA8; --cr-class-rose-soft: #341823; --cr-class-gold: #F0C94A; --cr-class-gold-soft: #2F2810; --cr-class-slate: #A9B8CC; --cr-class-slate-soft: #1E242C;
 }
+
+/* Big monitors: the app grows with the screen (not the landing page, which already scales with it).
+   Below 1700 px wide nothing changes. --z is read back where a height must equal the screen's:
+   zoom also enlarges vh, so those rules divide by it (app.css, student.css). */
+@media (min-width: 1700px) { body:not(.landing-mode) { --z: 1.12; } }
+@media (min-width: 2000px) { body:not(.landing-mode) { --z: 1.25; } }
+@media (min-width: 2400px) { body:not(.landing-mode) { --z: 1.4; } }
+@media (min-width: 3200px) { body:not(.landing-mode) { --z: 1.75; } }
+body:not(.landing-mode) { zoom: var(--z, 1); }

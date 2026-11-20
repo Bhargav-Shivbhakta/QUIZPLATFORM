@@ -67,7 +67,8 @@ export function tap(el) {
   if (pick === 'love') {
     const r = el.getBoundingClientRect(), h = document.createElement('span');
     h.className = 'bd-heart-pop'; h.textContent = '♥'; h.setAttribute('aria-hidden', 'true');
-    h.style.left = `${r.left + r.width / 2 - 7 + scrollX}px`; h.style.top = `${r.top - 6 + scrollY}px`;
+    const z = (document.body.currentCSSZoom || 1); // big monitors zoom the page (tokens.css)
+    h.style.left = `${(r.left + r.width / 2 + scrollX) / z - 7}px`; h.style.top = `${(r.top + scrollY) / z - 6}px`;
     document.body.appendChild(h); setTimeout(() => h.remove(), 1000);
     el.classList.add('bd-boop');
   } else el.classList.add(pick);
@@ -92,7 +93,8 @@ export function follow(root) {
 export function hop(from, via, to, done) {
   const can = from && via && to && motionLevel() === 'full' && buddyKind() === 'dot' && typeof document.body.animate === 'function';
   if (!can) { done(); return; }
-  const c = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; };
+  const z = (document.body.currentCSSZoom || 1); // big monitors zoom the page (tokens.css)
+  const c = (el) => { const r = el.getBoundingClientRect(); return [(r.left + r.width / 2) / z, (r.top + r.height / 2) / z, r.width / z]; };
   const [x0, y0, w0] = c(from), [x1, y1] = c(via), [x2, y2, w2] = c(to);
   if (!w0 || !w2) { done(); return; }
   const fly = document.createElement('div'); fly.className = 'bd-flyer'; fly.innerHTML = buddy('hello', { size: 60, kind: 'dot' });

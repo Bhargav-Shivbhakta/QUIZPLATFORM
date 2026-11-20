@@ -216,8 +216,8 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .lp-faq details[open] summary svg { transform: rotate(45deg); }
 .lp-faq details p { padding: 0 0 22px; max-width: 680px; color: var(--cr-ink-2); }
 .lp-faq details[open] p { animation: lp-in .5s var(--cr-ease) both; }
-.lp-end { padding: var(--section) 0 clamp(96px, 14vh, 140px); gap: 22px; }
-.lp-end .lp-small { font-size: 14px; color: var(--cr-ink-3); }
+.lp-end { padding: var(--section) 0 clamp(96px, 14vh, 140px); gap: clamp(16px, 2.8vh, 28px); }
+.lp-end .lp-small { font-size: 15px; color: var(--cr-ink-3); }
 .lp-foot { border-top: 1px solid var(--cr-line); }
 .lp-foot .wrap { padding-top: 22px; padding-bottom: 88px; display: flex; flex-wrap: wrap; gap: 12px 18px; justify-content: space-between; align-items: center; font-size: 13px; color: var(--cr-ink-3); }
 .lp-foot nav { display: flex; flex-wrap: wrap; gap: 4px 18px; }
@@ -721,3 +721,10 @@ body.landing-mode::before { content: ""; position: fixed; inset: 0 0 auto; heigh
 .sj-bs > div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--cr-line); }
 .sj-bs b { font-weight: 600; font-variant-numeric: tabular-nums; }
 .sj-bs .sj-bs-h { border-bottom: 1.5px solid var(--cr-line-2); font-size: 12.5px; font-weight: 700; color: var(--cr-ink-3); text-transform: uppercase; letter-spacing: .06em; }
+
+/* the closing screen answers the first one: the same scale as the hero, not a footer note */
+.lp-end .lp-mark-end svg { width: clamp(52px, 8vh, 76px); height: auto; }
+.lp-end .lp-eyebrow { font-size: clamp(17px, min(2vw, 2.8vh), 24px); font-weight: 600; color: var(--cr-accent); }
+.lp > section.lp-end h2.h2 { font-size: clamp(44px, min(8.4vw, 12.5vh), 116px); line-height: 1; letter-spacing: -0.045em; max-width: 1100px; }
+.lp > section.lp-end .lp-lead { font-size: clamp(18px, min(2vw, 3vh), 26px); max-width: 30em; }
+.lp-end .lp-btn.big { min-height: 60px; padding: 0 36px; font-size: 18px; margin-top: clamp(4px, 1vh, 12px); }

@@ -460,9 +460,9 @@ export async function render(main, params = {}, query = {}) {
     }
     // sit below the site's top bar so the menu stays usable
     const bar = document.querySelector('.topbar');
-    d.style.top = (bar && getComputedStyle(bar).display !== 'none' ? Math.max(0, bar.getBoundingClientRect().height) : 0) + 'px';
+    d.style.top = (bar && getComputedStyle(bar).display !== 'none' ? Math.max(0, bar.getBoundingClientRect().height) / (document.body.currentCSSZoom || 1) : 0) + 'px'; // big monitors zoom the page (tokens.css)
     const tabs = document.querySelector('.tabbar');
-    d.style.bottom = (tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().height : 0) + 'px';
+    d.style.bottom = (tabs && getComputedStyle(tabs).display !== 'none' ? tabs.getBoundingClientRect().height / (document.body.currentCSSZoom || 1) : 0) + 'px';
     return d;
   }
   function closeDrawer() {

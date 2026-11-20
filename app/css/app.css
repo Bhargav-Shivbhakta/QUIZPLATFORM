@@ -116,7 +116,7 @@ html[data-size="l"] { font-size: 18px; }
 *, *::before, *::after { box-sizing: border-box; }
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: calc(100vh / var(--z, 1));
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -540,7 +540,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .topic-name { font-weight: 700; }
 
 /* ---------- quiz ---------- */
-.quiz { min-height: 100vh; display: flex; flex-direction: column; }
+.quiz { min-height: calc(100vh / var(--z, 1)); display: flex; flex-direction: column; }
 .quiz-bar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -705,7 +705,7 @@ textarea { resize: vertical; line-height: 1.5; }
   padding: 1.1rem;
   border: 1px solid var(--line); border-radius: var(--radius-lg);
   background: var(--surface);
-  max-height: calc(100vh - 110px); overflow: auto;
+  max-height: calc(100vh / var(--z, 1) - 110px); overflow: auto;
 }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8rem; }
 .sheet-head h2 { margin: 0; font-size: .8rem; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
@@ -785,7 +785,7 @@ button.bub:hover { border-color: var(--ink-2); }
   animation: fade .15s ease;
 }
 .modal {
-  width: min(480px, 100%); max-height: calc(100vh - 32px); overflow: auto;
+  width: min(480px, 100%); max-height: calc(100vh / var(--z, 1) - 32px); overflow: auto;
   border-radius: var(--radius-lg); background: var(--surface);
   box-shadow: var(--shadow-3);
   animation: pop .18s cubic-bezier(.2,.8,.2,1);
@@ -1362,9 +1362,9 @@ pre code.hljs, .prose pre code { overflow-x: visible !important; display: block;
 }
 
 /* workspace */
-body.focus-mode:has(.ide) { height: 100dvh; overflow: hidden; }
+body.focus-mode:has(.ide) { height: calc(100dvh / var(--z, 1)); overflow: hidden; }
 .ide {
-  height: 100dvh; display: grid; grid-template-rows: auto auto 1fr;
+  height: calc(100dvh / var(--z, 1)); display: grid; grid-template-rows: auto auto 1fr;
   background: var(--paper);
 }
 .ide-bar {
@@ -2606,7 +2606,7 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
 .exam-example { margin: 0 0 .7rem; }
 .exam-example pre { background: var(--surface-2); padding: .5rem .7rem; border-radius: 8px; white-space: pre-wrap; margin: .2rem 0 0; }
 .exam-code .editor-head { border: 1px solid var(--line-strong); border-bottom: 0; border-radius: 10px 10px 0 0; position: relative; z-index: 3; }
-.exam-code .editor-wrap.cm-host { border-radius: 0 0 10px 10px; max-height: none; height: max(300px, calc(100vh - 400px)); }
+.exam-code .editor-wrap.cm-host { border-radius: 0 0 10px 10px; max-height: none; height: max(300px, calc(100vh / var(--z, 1) - 400px)); }
 @media (max-width: 1100px) {
   .exam-split { grid-template-columns: 1fr; }
   .exam-work { position: static; }
