@@ -4,7 +4,7 @@
 // Practice: question sets and coding practice. Notes: the units' notes. Graded work: exams, quizzes,
 //   assignments and scores. The pages they open (practice, flashcards, coding, notes) are today's screens.
 import * as cloud from '../cloud.js';
-import { classTitle } from '../navmap.js';
+import { classTitle, className, codeParts } from '../navmap.js';
 import * as store from '../store.js';
 import { esc, icon, plural, confirmDialog } from '../ui.js';
 import { daysUntil } from '../today.js';
@@ -31,8 +31,8 @@ export async function render(main, { classId }, query = {}) {
   const body = tab === 'plan' ? planTab(d) : tab === 'practice' ? practiceTab(d) : tab === 'notes' ? notesTab(d) : gradedTab(d);
   main.innerHTML = `
     <section class="st-page st-class cc-${cc}">
-      <header class="st-chead"><div><p class="st-muted st-small">${esc([cls.term, cls.section ? `Section ${cls.section}` : ''].filter(Boolean).join(' · '))}</p>
-        <h1><span class="st-cdot" aria-hidden="true"></span>${esc(classTitle(cls))}</h1></div>
+      <header class="st-chead"><div><p class="st-muted st-small">${esc([codeParts(cls.course, cls.name).code, cls.term, cls.section ? `Section ${String(cls.section).replace(/^\s*section\s*/i, '')}` : ''].filter(Boolean).join(' · '))}</p>
+        <h1 title="${esc(classTitle(cls))}"><span class="st-cdot" aria-hidden="true"></span>${esc(className(cls))}</h1></div>
         ${d.tools.tutor ? `<a class="st-btn st-btn-ghost st-sm" href="#/mystudy/${e(cls.id)}">${icon('sparkle')} Ask the tutor</a>` : ''}</header>
       ${ann}
       <nav class="st-tabs-c" aria-label="${esc(cls.course || cls.name)}">${TABS.map(([k, l]) => `<a href="#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
@@ -127,8 +127,23 @@ function gradedTab(d) {
   const row = (g, label, primary) => `<li class="st-row"><div class="st-grow"><a class="st-row-title" href="${g.href}">${esc(g.title)}</a><span class="st-muted st-small">${esc(g.kindLabel)} · ${primary === 'open' ? `open now, closes ${time(g.until)}` : primary === 'soon' ? `opens ${dateTime(g.at)}` : `closed ${dateTime(g.until)}`}${g.minutes ? ` · ${g.minutes} minutes` : ''}${g.requireCode && primary !== 'past' ? ' · access code given in class' : ''}</span></div>
     <a class="st-btn ${primary === 'open' ? '' : 'st-btn-ghost'} st-sm" href="${g.href}">${label}</a></li>`;
   if (!d.graded.length) return `<section class="st-card st-empty">${buddy('calm', { size: 72 })}<h3>No graded work yet</h3><p class="st-muted">Exams, quizzes and assignments appear here when your professor posts them.</p></section>`;
-  return `${open.length ? `<section class="st-card"><h2>Open now</h2><ul class="st-rows">${open.map((g) => row(g, `Start ${g.kindLabel.toLowerCase()}`, 'open')).join('')}</ul></section>` : ''}
+  const scored = past.filter((g) => g.released).length;
+  const count = (n, label, cls) => `<li class="st-gcount ${n ? cls : ''}"><b>${n}</b><span>${label}</span></li>`;
+  // on wide screens the lists sit beside a summary and the rules, so the page uses its width
+  return `<div class="st-graded">
+    <div class="st-graded-main">
+    ${open.length ? `<section class="st-card"><h2>Open now</h2><ul class="st-rows">${open.map((g) => row(g, `Start ${g.kindLabel.toLowerCase()}`, 'open')).join('')}</ul></section>` : ''}
     ${soon.length ? `<section class="st-card"><h2>Coming up</h2><ul class="st-rows">${soon.map((g) => row(g, 'Details', 'soon')).join('')}</ul></section>` : ''}
     ${past.length ? `<section class="st-card"><h2>Done</h2><ul class="st-rows">${past.map((g) => row(g, g.released ? 'See score' : 'Details', 'past')).join('')}</ul></section>` : ''}
-    <p class="st-muted st-small">Graded work counts toward your grade: one attempt, timed, full screen.</p>`;
+    </div>
+    <aside class="st-graded-side" aria-label="Graded work at a glance">
+      <section class="st-card"><h2>At a glance</h2><ul class="st-gcounts">${count(open.length, 'open now', 'is-open')}${count(soon.length, 'coming up', '')}${count(past.length, 'done', '')}${count(scored, 'scored', '')}</ul>
+        ${past.length > scored ? `<p class="st-small st-muted">${past.length - scored} still being graded.</p>` : ''}
+        ${soon[0] ? `<p class="st-small st-muted">Next: <b>${esc(soon[0].title)}</b>, ${esc(dateTime(soon[0].at))}</p>` : '<p class="st-small st-muted">Nothing else is scheduled yet.</p>'}</section>
+      <section class="st-card"><h2>How graded work works</h2><ul class="st-grules">
+        <li>${icon('check')}<span><b>One attempt.</b> Your first submission is the one that counts.</span></li>
+        <li>${icon('clock')}<span><b>Timed.</b> The clock starts when you press Start and keeps going if you leave.</span></li>
+        <li>${icon('lock')}<span><b>Full screen.</b> Notes, practice and the tutor are closed until you submit.</span></li>
+      </ul></section>
+    </aside></div>`;
 }

@@ -17,7 +17,7 @@ body.st { --st-side-w: 260px; --st-top-h: 56px; background: var(--cr-bg); color:
 body.st:has(.st-side.slim) { --st-side-w: 72px; }
 body.st > .topbar, body.st > .tabbar, body.st > .sitefoot { display: none !important; }
 body.st #main { transition: margin-left var(--cr-slow) var(--cr-ease); margin-left: var(--st-side-w); min-height: calc(100vh / var(--z, 1)); padding: var(--st-top-h) 0 0; max-width: none; }
-body.st #main .crumbs { display: none; } /* the top bar's back link is the one way up (DESIGN › Navigation) */
+body.st:not(.st-staff) #main .crumbs { display: none; } /* the top bar's back link is the one way up (DESIGN › Navigation) */
 /* the bar: a fixed top (the logo), a middle that slides between two lists, a fixed foot (you) */
 .st-side { position: fixed; inset: 0 auto 0 0; z-index: 40; width: var(--st-side-w); display: flex; flex-direction: column; background: var(--cr-surface); border-right: 1px solid var(--cr-line); font-family: var(--cr-font); transition: width var(--cr-slow) var(--cr-ease); }
 .st-side-top { flex: none; padding: var(--cr-space-5) var(--cr-space-3) var(--cr-space-3); }
@@ -148,7 +148,8 @@ body.st.exam-locked .st-side, body.st.exam-locked .st-top, body.st.exam-locked .
 body.st.focus-mode #main, body.st.exam-locked #main { margin-left: 0; padding-top: 0; padding-bottom: 0; }
 
 /* ---------- pages ---------- */
-.st-page { max-width: var(--cr-width-work); margin: 0 auto; padding: var(--cr-space-2) var(--cr-gutter) var(--cr-space-12); display: flex; flex-direction: column; gap: var(--cr-space-6); font-family: var(--cr-font); color: var(--cr-ink); }
+/* pages fill the room beside the bar (no empty strips on big screens); the cap only stops absurd widths */
+.st-page { max-width: 1760px; margin: 0; padding: var(--cr-space-2) clamp(16px, 3.4vw, 64px) var(--cr-space-12); display: flex; flex-direction: column; gap: var(--cr-space-6); font-family: var(--cr-font); color: var(--cr-ink); }
 .st-page h1 { margin: 0; font-size: var(--cr-text-2xl); font-weight: 800; letter-spacing: var(--cr-tracking-tight); line-height: 1.1; }
 .st-page h2 { margin: 0 0 var(--cr-space-2); font-size: var(--cr-text-md); font-weight: 700; }
 .st-page h3 { margin: 0; font-size: var(--cr-text-md); font-weight: 700; }
@@ -222,6 +223,7 @@ body.st.focus-mode #main, body.st.exam-locked #main { margin-left: 0; padding-to
 .st-list { list-style: none; margin: 0; padding: 0; }
 .st-list li { display: flex; justify-content: space-between; align-items: center; gap: var(--cr-space-3); padding: var(--cr-space-3) 0; border-top: 1px solid var(--cr-line); }
 .st-list li > span:first-child { display: flex; align-items: center; min-width: 0; }
+.st-list li > span:first-child > .st-small { margin-left: var(--cr-space-2); } /* flex drops the space before the course code */
 
 /* class page */
 .st-chead { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--cr-space-3); flex-wrap: wrap; }
@@ -450,4 +452,34 @@ body.st .resume-banner { margin: 0; }
   .ss-buddies { justify-content: space-between; }
   .ss-buddy { flex: 1; }
   .ss-buddy span { width: auto; }
+}
+
+
+/* Graded work: the lists, and beside them on wide screens a summary and the rules */
+.st-graded { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--cr-space-6); align-items: start; }
+.st-graded-main, .st-graded-side { display: flex; flex-direction: column; gap: var(--cr-space-6); min-width: 0; }
+@media (min-width: 1100px) { .st-graded { grid-template-columns: minmax(0, 1fr) clamp(320px, 26%, 420px); } .st-graded-side { position: sticky; top: calc(var(--st-top-h) + var(--cr-space-4)); } }
+.st-gcounts { list-style: none; margin: 0 0 var(--cr-space-3); padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--cr-space-2); }
+.st-gcount { display: flex; flex-direction: column; gap: 2px; padding: var(--cr-space-3); border-radius: var(--cr-radius); background: var(--cr-soft); }
+.st-gcount b { font-size: var(--cr-text-xl); font-weight: 800; letter-spacing: -0.02em; line-height: 1; }
+.st-gcount span { font-size: 13px; color: var(--cr-ink-2); }
+.st-gcount.is-open { background: var(--cc-soft, var(--cr-accent-soft)); }
+.st-gcount.is-open b { color: var(--cc, var(--cr-accent)); }
+.st-grules { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--cr-space-3); }
+.st-grules li { display: flex; gap: var(--cr-space-3); align-items: flex-start; font-size: var(--cr-text-sm); color: var(--cr-ink-2); line-height: 1.45; }
+.st-grules b { color: var(--cr-ink); }
+.st-grules .icon { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--cc, var(--cr-accent)); }
+
+/* Wide pages: more cards side by side, never wider cards. A card grows only as far as its content needs,
+   so the room goes to extra columns (container queries: they read the page's own width, after zoom). */
+.st-page { container: stpage / inline-size; }
+@container stpage (min-width: 1240px) {
+  .st-today .st-cols { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .st-today .st-cols > .st-stack { display: contents; }
+  .st-class .st-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .st-graded { grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); }
+  .st-graded-main { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); align-items: start; }
+}
+@container stpage (min-width: 1600px) {
+  .st-class .st-cols { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
 }

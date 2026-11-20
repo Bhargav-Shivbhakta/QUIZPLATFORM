@@ -6,7 +6,7 @@ import { listCourses, chosenCourses, courseOptions, saveChoice } from './subject
 import * as cloud from '../cloud.js';
 import { fmtDate } from '../engine.js';
 import { dayKey } from '../format.js';
-import { isStudentMode, mountShell, setPlace } from '../stshell.js';
+import { isStudentMode, frameOn, mountShell, setPlace } from '../stshell.js';
 import { buddy } from '../buddy.js';
 import { mountBell } from '../notify.js';
 
@@ -42,6 +42,12 @@ export async function render(main) {
           <p class="muted small fieldset-help">Your home page shows only these. Exams from other classes stay available through their links.</p>
           <div class="subject-grid compact">${courseOptions(courses, chosen)}</div>
           <p class="form-error bad small" data-subj-err role="alert" hidden>Keep at least one class selected.</p>
+        </fieldset>
+      </form>` : ''}
+      ${cloud.enabled && cloud.isInstructor() && !isStudentMode() ? `<form class="setup-form" data-staffnav>
+        <fieldset><legend>Navigation (trial)</legend>
+          <label class="check"><input type="checkbox" name="staffFrame" ${store.get('staffFrame', false) ? 'checked' : ''}><span>Try the new left bar</span></label>
+          <p class="muted small fieldset-help">The bar students have, with your classes and their sections. Every screen works as before; only the way around changes. It's saved in this browser only, so you can switch back at any time. Exams and the live view are full screen either way.</p>
         </fieldset>
       </form>` : ''}
       <form class="setup-form" data-prefs>
@@ -128,6 +134,10 @@ export async function render(main) {
     toast('Your classes are saved');
   });
 
+  main.querySelector('[data-staffnav]')?.addEventListener('change', (ev) => {
+    store.set('staffFrame', ev.target.checked);
+    if (frameOn()) { mountShell(); mountBell(); setPlace({ path: '/settings' }); } else location.reload(); // the old top bar is drawn at start-up
+  });
   main.querySelector('[data-prefs]').addEventListener('change', (ev) => {
     const f = ev.currentTarget;
     store.saveSettings({

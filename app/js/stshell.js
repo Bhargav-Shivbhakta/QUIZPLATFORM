@@ -7,12 +7,15 @@
 // The bar collapses to a rail (the round handle or ⌘ + \); in the rail a class shows its subject over its
 // number ("CS" over "150"). Tablets always get the rail; phones get tabs at the bottom and a top bar.
 // Places that are planned but not built (Inbox, Calendar, Search, Grades) stay hidden until they ship.
-// Staff and admins keep the old top bar.
+// Staff and admins keep the old top bar unless they switch the new one on in Settings (a trial, off by default):
+// then the same bar holds Today, the classes they teach, Admin (site admins only) and, inside a class, its
+// sections, each opening the screen that does that job today. Taking and running exams is never touched.
 import * as cloud from './cloud.js';
 import * as store from './store.js';
 import { esc, icon, logoMark, toast, confirmDialog } from './ui.js';
 import { motionLevel } from './buddy.js';
-import { backFor, classTitle, codeParts } from './navmap.js';
+import { backFor, classTitle, codeParts, className } from './navmap.js';
+const nameOf = className;
 import { getManifest } from './data.js';
 
 // Students only: on at least one roster, teaching none, not an admin.
@@ -21,14 +24,36 @@ export function isStudentMode() {
   const mine = cloud.myClasses();
   return mine.length > 0 && !mine.some((c) => cloud.isStaffRole(c.role));
 }
+// Staff and admins who switched the new bar on (Settings › Navigation). Kept in this browser only.
+export const isStaffFrame = () => !!(cloud.enabled && cloud.currentUser() && !isStudentMode() && cloud.isInstructor() && store.get('staffFrame', false));
+export const frameOn = () => isStudentMode() || isStaffFrame();
 export const classColor = (c) => (c?.color && /^[a-z]+$/.test(c.color) ? c.color : 'blue');
 const LOGO = logoMark('st-logo-mark');
 const e = encodeURIComponent;
 
 // A class's sections, in order: [tab in st-class.js, label, icon]. Grades joins when it is built.
 const SECTIONS = [['plan', 'Ready', 'target'], ['notes', 'Learn', 'learn'], ['practice', 'Practice', 'edit'], ['graded', 'Graded work', 'graded']];
+// A class's sections for staff: [key, label, icon, href]. Each opens the screen that does that job today.
+const staffSections = (id) => [
+  ['overview', 'Overview', 'grid', `#/instructor?class=${e(id)}&tab=progress`],
+  ...(cloud.leadsClass(id) ? [['build', 'Build', 'sparkle', `#/build/${e(id)}`]] : []),
+  ['spractice', 'Practice', 'edit', `#/content/${e(id)}`],
+  ['sgraded', 'Graded work', 'graded', `#/instructor?class=${e(id)}&tab=timed`],
+  ['insights', 'Insights', 'chart', `#/instructor?class=${e(id)}&tab=scores`],
+  ['people', 'People', 'users', `#/instructor?class=${e(id)}&tab=students`],
+  ...(cloud.isAdmin() ? [['csettings', 'Class settings', 'settings', `#/admin?edit=${e(id)}`]] : []),
+];
+const ADMIN = [['a-overview', 'Platform overview', 'chart', '#/overview'], ['a-requests', 'Access requests', 'mail', '#/requests'], ['a-classes', 'Classes and rosters', 'users', '#/admin']];
+function staffSectionOf(path, query) {
+  if (path.startsWith('/build/')) return 'build';
+  if (path.startsWith('/content/')) return 'spractice';
+  if (path.startsWith('/timed/')) return 'sgraded';
+  if (path === '/admin') return 'csettings';
+  return { progress: 'overview', announce: 'overview', questions: 'spractice', timed: 'sgraded', scores: 'insights', students: 'people' }[query.tab] || 'overview';
+}
 // Which section a page inside a class belongs to.
 function sectionOf(path, query) {
+  if (staff) return staffSectionOf(path, query);
   if (/^\/class\//.test(path)) return SECTIONS.some(([k]) => k === query.tab) ? query.tab : 'plan';
   if (/^\/(study|mystudy)\//.test(path)) return 'notes';
   if (/^\/(exam|cards|browse|start|assignments)\//.test(path)) return 'practice';
@@ -43,22 +68,18 @@ function who() {
 }
 // The badge: subject over number, white on the class colour.
 const badge = (c) => { const p = codeParts(c.course, c.name); return `<span class="st-badge" aria-hidden="true"><b>${esc(p.subject || '?')}</b>${p.number ? `<b>${esc(p.number)}</b>` : ''}</span>`; };
-// A class's own name, without the course code the badge and code already show: "CS150 (Intro to
-// Programming)" → "Intro to Programming", "CS160-01: Intermediate Programming" → "Intermediate Programming".
-const nameOf = (c) => {
-  const p = codeParts(c.course, c.name), n = String(c.name || '').trim();
-  const lead = p.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
-  let t = lead ? n.replace(new RegExp(`^${lead}(?![0-9A-Za-z])`, 'i'), '') : n;
-  t = t.replace(/^[\s:·\-–]*(?:(?:section|sec\.?)\s*)?(?:\d{1,3}\s*[:·\-–]\s*)?/i, '').trim();
-  const wrapped = t.match(/^\((.*)\)$/) || t.match(/^\[(.*)\]$/);
-  return (wrapped ? wrapped[1].trim() : t) || n || p.code;
-};
+
 const codeOf = (c) => codeParts(c.course, c.name).code;
 
+let staff = false;
+const myList = () => (staff ? cloud.teachingClasses() : cloud.myClasses());
+const classHref = (c) => (staff ? `#/instructor?class=${e(c.id)}&tab=progress` : `#/class/${e(c.id)}`);
 export function mountShell() {
   document.documentElement.dataset.motion = motionLevel();
+  staff = !isStudentMode();
   document.body.classList.add('st');
-  const { u, name, avatar } = who(), mine = cloud.myClasses();
+  document.body.classList.toggle('st-staff', staff);
+  const { u, name, avatar } = who(), mine = myList();
   const slim = store.get('sideSlim', false), several = mine.length > 1;
   unmountShell(true);
   const me = (cls) => `<button type="button" class="st-me ${cls}" data-st-me aria-haspopup="dialog" aria-expanded="false" aria-label="You: ${esc(name)}" title="${esc(name)}"><span class="st-avatar">${avatar}</span><span class="st-lbl">${esc(name)}</span></button>`;
@@ -70,8 +91,9 @@ export function mountShell() {
       <div class="st-slide"><div class="st-track">
         <nav class="st-pane st-pane-main" aria-label="Main">
           <a class="st-item" href="#/" data-st="today" title="Today">${icon('sun')}<span class="st-lbl">Today</span></a>
-          <p class="st-label"><span>${several ? 'Your classes' : 'Your class'}</span></p>
-          ${mine.map((c) => `<a class="st-item st-cls cc-${classColor(c)}" href="#/class/${e(c.id)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}
+          ${mine.length ? `<p class="st-label"><span>${staff ? 'Teaching' : several ? 'Your classes' : 'Your class'}</span></p>` : ''}
+          ${mine.map((c) => `<a class="st-item st-cls cc-${classColor(c)}" href="${classHref(c)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}
+          ${staff && cloud.isAdmin() ? `<p class="st-label"><span>Admin</span></p>${ADMIN.map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-st="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}` : ''}
         </nav>
         <nav class="st-pane st-pane-class" aria-label="This class" inert></nav>
       </div></div>
@@ -85,7 +107,7 @@ export function mountShell() {
       <button type="button" class="st-scrim" data-st-close tabindex="-1" aria-label="Close"></button>
       <section class="st-medlg" role="dialog" aria-modal="true" aria-labelledby="st-me-name">
         <div class="st-menu-who"><span class="st-avatar">${avatar}</span><span><strong id="st-me-name">${esc(u.displayName || name)}</strong><span class="st-sub">${esc(u.email)}</span></span></div>
-        <a class="st-menu-item" href="#/progress" data-st-go>${icon('chart')} My progress</a>
+        ${staff ? '' : `<a class="st-menu-item" href="#/progress" data-st-go>${icon('chart')} My progress</a>`}
         <a class="st-menu-item" href="#/settings" data-st-go>${icon('settings')} Settings</a>
         <button type="button" class="st-menu-item" data-st-signout>${icon('logout')} Sign out</button>
         <button type="button" class="st-btn st-btn-ghost st-sm st-me-close" data-st-close>Close</button>
@@ -93,8 +115,9 @@ export function mountShell() {
     </div>
     <nav class="st-tabs" id="st-tabs" aria-label="Main"><span class="st-tind" aria-hidden="true"></span>
       <a href="#/" data-st="today">${icon('sun')}<span>Today</span></a>
-      <a href="${several ? '#/classes' : `#/class/${e(mine[0].id)}`}" data-st="classes">${icon('book')}<span>${several ? 'Classes' : 'Class'}</span></a>
-      <a href="#/progress" data-st="progress">${icon('chart')}<span>Progress</span></a>
+      ${staff ? `<a href="#/instructor" data-st="classes">${icon('book')}<span>Teaching</span></a>${cloud.isAdmin() ? `<a href="#/overview" data-st="a-overview">${icon('users')}<span>Admin</span></a>` : ''}`
+    : `<a href="${several ? '#/classes' : `#/class/${e(mine[0].id)}`}" data-st="classes">${icon('book')}<span>${several ? 'Classes' : 'Class'}</span></a>
+      <a href="#/progress" data-st="progress">${icon('chart')}<span>Progress</span></a>`}
       <a href="#/settings" data-st="settings">${icon('settings')}<span>Settings</span></a>
     </nav>`);
   shownClass = null;
@@ -180,14 +203,14 @@ let shownClass = null;
 function drawClassPane(cls) {
   const pane = document.querySelector('.st-pane-class'); if (!pane) return;
   shownClass = cls.id;
-  const others = cloud.myClasses().filter((c) => c.id !== cls.id);
+  const others = myList().filter((c) => c.id !== cls.id);
   pane.setAttribute('aria-label', nameOf(cls));
   pane.innerHTML = `
     <button type="button" class="st-classcard cc-${classColor(cls)}" data-st-switch aria-expanded="false" ${others.length ? 'aria-controls="st-switch"' : 'disabled'} title="${esc(classTitle(cls))}${others.length ? ': switch class' : ''}">
       <span class="st-cstripe" aria-hidden="true"></span>${badge(cls)}<span class="st-lbl"><b>${esc(nameOf(cls))}</b><span class="st-sub">${esc([codeOf(cls), cls.term].filter(Boolean).join(', '))}</span></span>${others.length ? icon('chev', 'st-chev') : ''}</button>
-    ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="#/class/${e(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}</div>` : ''}
+    ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="${classHref(c)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}</div>` : ''}
     <span class="st-gap" aria-hidden="true"></span>
-    ${SECTIONS.map(([k, l, ic]) => `<a class="st-item" href="#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
+    ${(staff ? staffSections(cls.id) : SECTIONS.map(([k, l, ic]) => [k, l, ic, `#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}`])).map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
 }
 function onClassPane(ev) {
   const sw = ev.target.closest('[data-st-switch]');
@@ -231,13 +254,17 @@ function trap(ev) {
 // ---------- where you are ----------
 let current = 'today';
 export async function setPlace({ path, params = {}, query = {} }) {
-  const mine = cloud.myClasses();
+  const mine = myList();
   let key = '';
   if (path === '/' || path === '') key = 'today';
+  else if (staff && path === '/overview') key = 'a-overview';
+  else if (staff && path === '/requests') key = 'a-requests';
+  else if (staff && path === '/admin' && !query.edit) key = 'a-classes';
+  else if (staff && path === '/instructor' && !query.class) key = 'classes';
   else if (path === '/progress' || /^\/(progress|results)\//.test(path)) key = 'progress';
   else if (path === '/classes') key = 'classes';
   else if (path === '/settings') key = 'settings';
-  const cid = params.classId || (params.id ? cloud.classForExam(params.id)?.id : null) || query.class;
+  const cid = params.classId || (params.id ? cloud.classForExam(params.id)?.id : null) || query.class || (staff ? query.edit : null);
   const cls = cid ? mine.find((c) => c.id === cid) : null;
   if (!key && cls) key = `class:${cid}`;
   current = key;
@@ -254,7 +281,8 @@ export async function setPlace({ path, params = {}, query = {} }) {
   // the one way up (DESIGN › Navigation)
   const exams = await getManifest().then((m) => m.exams).catch(() => []);
   const set = params.id ? exams.find((x) => x.id === params.id) : null;
-  const back = backFor(path, { ...params, className: cls ? cls.course || cls.name : '', setTitle: set?.title }, {
+  // staff screens keep their own breadcrumbs, so the top bar shows no back link for them
+  const back = staff ? null : backFor(path, { ...params, className: cls ? cls.course || cls.name : '', setTitle: set?.title }, {
     classOf: (id) => cloud.classForExam(id), several: mine.length > 1,
     codingOnly: (id) => { const x = exams.find((y) => y.id === id); return !!x && !x.questionCount && x.assignmentCount > 0; },
   });

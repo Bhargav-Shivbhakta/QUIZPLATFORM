@@ -25,6 +25,17 @@ export function codeParts(course, name) {
   return { subject, number: '', code: String(course || '').trim() };
 }
 
+// A class's own name, without the course code the badge and code already show: "CS150 (Intro to
+// Programming)" → "Intro to Programming", "CS160-01: Intermediate Programming" → "Intermediate Programming".
+export function className(c) {
+  const p = codeParts(c.course, c.name), n = String(c.name || '').trim();
+  const lead = p.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
+  let t = lead ? n.replace(new RegExp(`^${lead}(?![0-9A-Za-z])`, 'i'), '') : n;
+  t = t.replace(/^[\s:·\-–]*(?:(?:section|sec\.?)\s*)?(?:\d{1,3}\s*[:·\-–]\s*)?/i, '').trim();
+  const wrapped = t.match(/^\((.*)\)$/) || t.match(/^\[(.*)\]$/);
+  return (wrapped ? wrapped[1].trim() : t) || n || p.code;
+}
+
 // A class's full name: "CS150 · Intro to Programming", but just "CS 210 Data Structures" when the name
 // already starts with the course, so nothing is said twice.
 export function classTitle(c) {

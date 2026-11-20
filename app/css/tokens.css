@@ -159,3 +159,5 @@
 @media (min-width: 2400px) { body:not(.landing-mode) { --z: 1.4; } }
 @media (min-width: 3200px) { body:not(.landing-mode) { --z: 1.75; } }
 body:not(.landing-mode) { zoom: var(--z, 1); }
+/* never on exams, practice or the coding screen: editors and timers stay exactly as they were */
+body.focus-mode, body.exam-locked { --z: 1; zoom: 1; }

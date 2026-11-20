@@ -12,7 +12,7 @@ import { getExam } from './data.js';
 import { mountBell } from './notify.js';
 import { getNavGuard, applyTheme } from './nav.js';
 import { countNew } from './requests.js';
-import { isStudentMode, mountShell, unmountShell, setPlace } from './stshell.js';
+import { isStudentMode, frameOn, mountShell, unmountShell, setPlace } from './stshell.js';
 
 const routes = [
   // st: the page students see in the student frame (stshell.js); everyone else gets view
@@ -126,7 +126,7 @@ async function route() {
       cls = params.classId ? mine.find((x) => x.id === params.classId) : params.id ? cloud.classForExam(params.id) : (path === '/' || path === '') && mine.length === 1 ? mine[0] : null;
     }
     applyClassColor(cls?.color);
-    if (student) setPlace({ path, params, query });
+    if (frameOn()) setPlace({ path, params, query });
     if (cloud.enabled && cloud.currentUser()) main.querySelectorAll('.crumbs a[href="#/"]').forEach((a) => { if (a.textContent.trim() === 'Exams') a.textContent = 'My classes'; });
     if (!query.keepScroll) window.scrollTo(0, 0);
     const h1 = main.querySelector('h1');
@@ -166,8 +166,8 @@ function paintChrome() {
     const initials = name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('');
     nav.insertAdjacentHTML('afterend', `<a class="account-chip" href="#/settings" title="${esc(u.email)}" aria-label="Account: ${esc(u.email)}">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : esc(initials)}</a>`);
   }
-  // students get the new frame (stshell.js); staff and admins keep this top bar for now
-  if (isStudentMode()) mountShell(); else unmountShell();
+  // students get the new frame (stshell.js); staff and admins keep this top bar unless they turned the new one on
+  if (frameOn()) mountShell(); else unmountShell();
   mountBell();
   document.body.classList.toggle('signed-out', cloud.enabled && !u);
   // phones: the same links as a bottom tab bar, within thumb reach

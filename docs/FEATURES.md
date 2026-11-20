@@ -54,6 +54,7 @@ Every feature, and the one state it's in (states are defined in `STANDARDS.md`).
 
 | Feature | State | Files | Tests |
 |---|---|---|---|
+| **Staff bar (trial, off by default):** Settings › Navigation › "Try the new left bar" (this browser only). Today, Teaching, Admin (site admins); in a class: Overview, Build (instructors), Practice, Graded work, Insights, People, Class settings (admins), each opening today's screen | New, trial | `stshell.js`, `main.js`, `views/settings.js`, `css/student.css` | Browser renders as instructor and admin, trial on and off |
 | Build my course (five steps) | Live, unpolished | `views/builder.js`, `views/build-run.js`, `views/build-review.js`, `build/engine.js`, `connector/` | Engine, connector, Worker |
 | Course materials read in the browser | Live, unpolished | `materials.js` | Partly |
 | Practice sets: questions (.md), coding (.zip) or both; Remove questions | Live, unpolished | `views/content.js`, `views/content-coding.js` | Parser; browser flow (I-1) |

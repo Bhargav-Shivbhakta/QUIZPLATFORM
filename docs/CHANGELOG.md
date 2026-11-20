@@ -2,6 +2,42 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 20 November 2026: pages fill the screen
+
+- **Wide pages get more columns, not wider cards.** Stretching the cards only moved the empty space inside them, so each page now adds columns as it gets wider and every card stays close to the size of what's in it. The pages measure their own width, so this works with the big-monitor zoom.
+  - **Today:** the hero, This week and Coming up sit in three columns.
+  - **Ready:** two columns.
+  - **Graded work:** Coming up, Done and the side cards sit side by side.
+- **Student pages** now fill the space beside the bar, starting right next to it, instead of a 1120 px column centred with empty strips on both sides. They stop at 1760 px. The side column on Graded work grows with the page (320 to 420 px).
+- **Staff and practice pages** widen from 1100 to 1480 px, and the practice screen from 1180 to 1480 px. Reading pages keep their narrow column.
+- **Today › Coming up:** a space now separates the title from the course ("Midterm 2 CS150", not "Midterm 2CS150").
+- **Tested:** rendered at 2560 × 1267, 2196 × 1270, 1440 × 900 and 390 × 844 with no sideways scroll or script errors.
+
+## 20 November 2026: the new bar for professors and admins, as a trial (off by default)
+
+- **Settings › Navigation (trial):** professors, TAs and admins can tick "Try the new left bar". It's saved in that browser only and is off until ticked, so nobody's screens change on upload. Unticking it brings the old top bar back.
+- **The bar for staff:** Today, then "Teaching" (your classes), then Admin for site admins (Platform overview, Access requests, Classes and rosters). Opening a class slides to its sections, and each opens the screen that does that job today:
+  - Overview: Class progress
+  - Build: Build my course
+  - Practice: practice sets
+  - Graded work: graded work and the live view
+  - Insights: exam scores
+  - People: students
+  - Class settings: edit class, admins only
+  TAs don't see Build. Staff screens keep their own breadcrumbs. Phones get Today, Teaching, Admin and Settings as tabs.
+- **Exams are safe:** taking an exam, the live view and every exam rule are untouched. The new bar hides on full-screen pages, as it does for students.
+- **Big-monitor zoom is now off on exam, practice and coding screens**, so code editors and timers behave exactly as before at every screen size.
+- **Tested:** 75 tests and the architecture check pass. Rendered as an instructor and admin with the trial on and off, and checked that the exam and practice screens have no zoom at 2560 px.
+
+## 20 November 2026: Graded work uses the screen
+
+- **Class pages:** the heading is now the class's own name ("Introductory Computer Programming"), with the code, term and section in the small line above it ("CS 150 · Fall 2026 · Section 02"). It used to repeat the code and read "Section Section 02".
+- **Graded work:** on screens 1100 px and wider, the lists sit beside two cards instead of leaving half the screen empty:
+  - **At a glance:** how many are open now, coming up, done and scored, how many are still being graded, and what's next.
+  - **How graded work works:** one attempt, timed (the clock keeps going if you leave), full screen.
+  On phones the two cards follow the lists.
+- **Tested:** rendered at 2196 × 1270, 1440 × 900 and 390 × 844 with no sideways scroll or script errors. 75 tests and the architecture check pass.
+
 ## 20 November 2026: big monitors and clean class names
 
 - **Big monitors:** the app now grows with the screen instead of staying laptop-sized in the middle. From 1700 px wide everything (the bar, text, cards, buttons) scales up: 1.12× at 1700 px, 1.25× at 2000, 1.4× at 2400 (a 1440p monitor) and 1.75× at 3200 (a 4K monitor without scaling). Laptops don't change. The landing, sign-in and policy pages already scale with the screen, so they're left alone. Full-screen layouts (practice, the coding screen, exam editors, dialogs) still fit exactly, and tooltips, the calculator drag, the Dot's hop and the heart are measured correctly at every scale.

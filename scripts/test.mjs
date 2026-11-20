@@ -1031,6 +1031,9 @@ console.log('\nMock exams');
     assert.equal(N.badgeFor('CS', 'CS 210 Data Structures'), '210'); assert.equal(N.badgeFor('Intro', 'Intro to Programming'), 'IN');
     assert.deepEqual(N.codeParts('CS150'), { subject: 'CS', number: '150', code: 'CS 150' }); assert.deepEqual(N.codeParts('MATH 150A'), { subject: 'MATH', number: '150A', code: 'MATH 150A' });
     assert.deepEqual(N.codeParts('CS', 'CS 210 Data Structures'), { subject: 'CS', number: '210', code: 'CS 210' }); assert.equal(N.codeParts('', 'Biology').subject, 'BIOL'); assert.equal(N.codeParts('', 'Biology').number, '');
+    assert.equal(N.className({ course: 'CS150', name: 'CS150 (Introductory Computer Programming)' }), 'Introductory Computer Programming');
+    assert.equal(N.className({ course: 'CS160', name: 'CS160-01:Intermediate Computer Programming' }), 'Intermediate Computer Programming');
+    assert.equal(N.className({ course: 'MATH 150', name: 'Calculus I' }), 'Calculus I'); assert.equal(N.className({ course: 'CS150', name: 'CS1500 Thing' }), 'CS1500 Thing');
     assert.equal(N.classTitle({ course: 'CS 210', name: 'CS 210 Data Structures' }), 'CS 210 Data Structures'); assert.equal(N.classTitle({ course: 'CS150', name: 'Intro to Programming' }), 'CS150 · Intro to Programming'); assert.equal(N.classTitle({ name: 'Biology' }), 'Biology');
   });
   test('every file in app/js parses (a syntax error stops the whole page)', () => {
