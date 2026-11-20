@@ -2849,3 +2849,7 @@ textarea.mono { font-family: var(--mono); font-size: .92rem; width: 100%; }
 .timed-qtable th:nth-child(-n+2), .timed-qtable td:nth-child(-n+2) { width: 3.5rem; }
 .live-pill.lv-other, .live-pill.lv-rolled { background: var(--surface-2); color: var(--ink-2); border-color: var(--line); }
 .dev-hint { color: var(--flag); font-weight: 600; }
+/* question text size (A− / A+ next to Flag): the problem, examples and choices grow together */
+.exam-shell .exam-text, .exam-shell .exam-example pre, .exam-shell .exam-opts, .exam-shell .exam-sh, .exam-shell .exam-example p { font-size: calc(var(--q-scale, 1) * 1em); }
+.exam-qhead .q-size { display: inline-flex; gap: .3rem; margin-left: .4rem; }
+.exam-qhead > .eyebrow { margin-right: auto; }

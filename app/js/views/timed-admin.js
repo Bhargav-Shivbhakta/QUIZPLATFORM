@@ -217,7 +217,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       </fieldset>
       <fieldset><legend>6. Extra time (accommodations)</legend>
         <label class="field"><span>One student per line: email (or username) and extra minutes</span><textarea name="extra" rows="3" placeholder="jdoe@sdsu.edu 30&#10;asmith 45">${esc(extra.map((x) => `${x.email} ${x.minutes}`).join('\n'))}</textarea></label>
-        <p class="muted small">Their time limit, and the closing time for them, are extended by those minutes.</p>
+        <p class="muted small">Their time limit, and the closing time for them, are extended by those minutes. They take it in another room, so they <strong>don't need the access code or the exit code</strong>. (Put 0 minutes for someone who takes it elsewhere without extra time.)</p>
       </fieldset>
       <p class="bad" data-form-err role="alert"></p>
       <div class="row end timed-actions">
@@ -429,6 +429,7 @@ async function examPage(main, cls, tid, query) {
   const phaseNow = () => examPhase({ ...test, ...overallWindow(test) }, cloud.trueNow());
   const lead = cloud.leadsClass(cls.id); // TAs: no Settings, turning off, releasing or new attempts
   let tab = ['live', 'results', ...(lead ? ['settings'] : [])].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' && lead ? 'settings' : 'live';
+  let elsewhere = new Set(); // on the extra-time list: another room, so no exit code is expected
   let otherTook = null; // two sittings: emails of students who started the other sitting (this one names it)
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
   let codes = await cloud.getAccessCodes(cls.id, tid).catch(() => ({ code: '', sections: {} }));
@@ -479,6 +480,7 @@ async function examPage(main, cls, tid, query) {
     if (full || !fullAt) {
       const t = cloud.trueNow();
       [roster, attempts, earlier] = await Promise.all([roster.length ? roster : cloud.getRoster(cls.id), cloud.listAttempts(cls.id, tid), cloud.listEarlierAttempts(cls.id, tid).catch(() => [])]);
+      elsewhere = new Set((await cloud.listTimedExtra(cls.id, tid).catch(() => [])).map((x) => String(x.email).toLowerCase()));
       if (test.notIfTook) otherTook = new Set((await cloud.listAttempts(cls.id, test.notIfTook).catch(() => [])).map((x) => String(x.email).toLowerCase()));
       fullAt = deltaAt = t;
     } else if (cloud.trueNow() - fullAt >= FULL_EVERY) {
@@ -579,7 +581,7 @@ async function examPage(main, cls, tid, query) {
     const exitHtml = test.requireExit && codes.exit ? `<div class="code-box exit-box"><div class="code-row">
         <div><p class="eyebrow">Exit code</p><p class="code-big">${esc(codes.exit)}</p></div>
         <div class="row wrap"><button class="btn primary" data-showexit>${icon('eye')} Show on projector</button>${lead ? `<button class="btn" data-exitnew>${icon('shuffle')} New code</button><button class="btn" data-exitoff>Turn off</button>` : ''}</div></div>
-        <p class="muted small">Students type it after they submit or their time runs out (until 30 minutes after the exam closes). Their answers count either way; anyone without it is marked <strong>No exit code</strong> below. Show it in the room once students start finishing, and keep it up.</p></div>`
+        <p class="muted small">Students type it after they submit or their time runs out (until 30 minutes after the exam closes). Their answers count either way. Students on the extra-time list (another room) don't need it, or the access code. Anyone else without it is marked <strong>No exit code</strong> below. Show it in the room once students start finishing, and keep it up.</p></div>`
       : lead ? `<p class="small"><button class="btn small" data-exiton>${icon('lock')} Ask for an exit code after finishing</button> <span class="muted">Turn it on before students start, so a leaked access code isn't enough.</span></p>` : '';
     return `${codeBox}${exitHtml}
       <div class="row between wrap live-bar">
@@ -598,7 +600,7 @@ async function examPage(main, cls, tid, query) {
           const left = a && a.status === 'open' ? r.deadline - now : null;
           return `<tr class="live-row row-${r.st}">
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
-            <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.label)}</span>${test.requireExit && a && a.status !== 'open' ? (a.exitAt ? '<span class="good small block">Exit code ✓</span>' : '<span class="bad small block"><strong>No exit code</strong></span>') : ''}${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
+            <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.label)}</span>${test.requireExit && a && a.status !== 'open' && !elsewhere.has(String(a.email).toLowerCase()) ? (a.exitAt ? '<span class="good small block">Exit code ✓</span>' : '<span class="bad small block"><strong>No exit code</strong></span>') : ''}${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
             <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${hmm(r.win.closesAt)}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
@@ -648,7 +650,7 @@ async function examPage(main, cls, tid, query) {
         <thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Score</th>${qs.map((q, i) => `<th scope="col" title="${esc(q.label)}">${i + 1}<span class="muted small block">${esc(String(q.label).slice(0, 10))}</span></th>`).join('')}</tr></thead>
         <tbody>${rows.sort((x, y) => String(x.p.name || '').localeCompare(String(y.p.name || ''))).map((r) => { const gr = r.a && g.get(r.a.uid); return `<tr>
           <th scope="row">${esc(r.p.name || r.p.email)}<span class="muted small block">${esc(r.p.section || '')}</span></th>
-          <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span>${test.requireExit && r.a && r.a.status !== 'open' && !r.a.exitAt ? '<span class="bad small block"><strong>No exit code</strong></span>' : ''}</td>
+          <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span>${test.requireExit && r.a && r.a.status !== 'open' && !r.a.exitAt && !elsewhere.has(String(r.a.email).toLowerCase()) ? '<span class="bad small block"><strong>No exit code</strong></span>' : ''}</td>
           <td data-label="Score">${gr ? `<strong>${r1(gr.total)}</strong> <span class="muted small">/ ${r1(gr.max)}</span>` : '–'}</td>
           ${qs.map((q) => { const p = gr?.perQ?.[q.id]; return `<td data-label="${esc(q.label)}">${gr ? `<button class="cell-btn ${p?.pts == null ? 'need' : p.pts >= q.points ? 'full' : p.pts > 0 ? 'part' : 'zero'}" data-cell="${esc(r.a.uid)}|${esc(q.id)}">${p?.pts == null ? 'Grade' : r1(p.pts)}</button>` : ''}</td>`; }).join('')}
         </tr>`; }).join('')}</tbody>
@@ -811,7 +813,7 @@ async function examPage(main, cls, tid, query) {
     const lines = [['Name', 'Email', 'RedID', 'Section', 'Status', 'Exit code', 'Score', 'Out of', 'Percent', 'Exits', ...qs.map((q, i) => `Q${i + 1} ${q.label}`)].map(cell).join(',')];
     for (const r of rowsNow()) {
       const gr = r.a && g.get(r.a.uid);
-      lines.push([r.p.name, r.p.email, r.p.redId || '', r.p.section || '', r.st === 'none' ? 'Absent' : r.label, !test.requireExit || !r.a ? '' : r.a.exitAt ? 'yes' : 'NO', gr?.total ?? '', test.totalPoints, gr ? Math.round((gr.total / (test.totalPoints || 1)) * 1000) / 10 : '', r.exits?.length ?? '', ...qs.map((q) => gr?.perQ?.[q.id]?.pts ?? '')].map(cell).join(','));
+      lines.push([r.p.name, r.p.email, r.p.redId || '', r.p.section || '', r.st === 'none' ? 'Absent' : r.label, !test.requireExit || !r.a ? '' : r.a.exitAt ? 'yes' : elsewhere.has(String(r.a.email).toLowerCase()) ? 'not needed (extra-time list)' : 'NO', gr?.total ?? '', test.totalPoints, gr ? Math.round((gr.total / (test.totalPoints || 1)) * 1000) / 10 : '', r.exits?.length ?? '', ...qs.map((q) => gr?.perQ?.[q.id]?.pts ?? '')].map(cell).join(','));
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));

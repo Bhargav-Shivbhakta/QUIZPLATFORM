@@ -14,7 +14,7 @@ import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../nav.js';
 import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 import { dateTime as when, time as hm } from '../format.js';
-import { navToggle, problemToggle, gutter, bindLayout, showOutput } from './take-layout.js';
+import { navToggle, problemToggle, gutter, textSize, bindLayout, showOutput } from './take-layout.js';
 import { deviceNow, deviceChecks, blocked, checksList, watchExam, insertReporter, needsExit, exitBox, bindExit } from './take-guard.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
@@ -63,6 +63,7 @@ export async function render(main, { classId, tid }, query = {}) {
   if (phase === 'upcoming') return upcoming();
 
   let test = null, attempt = null;
+  const elsewhere = preview ? false : await cloud.onExtraList(classId, tid).catch(() => false); // accommodations: no access or exit code
   try { ({ test, attempt } = await cloud.openTimed(classId, tid)); } catch (e) { console.warn(e); }
   if (test && !preview) test = forSection(test, mySection) || test;
   if (preview) attempt = null;
@@ -131,7 +132,7 @@ export async function render(main, { classId, tid }, query = {}) {
         <li>Your name is shown faintly across the screen${test.aiNotice !== false ? ', with a notice telling AI tools not to answer these questions' : ''}.</li>
       </ul>
       ${checksHtml(test)}
-      ${test.requireCode && !resume ? `<div class="take-code">
+      ${test.requireCode && !resume && !elsewhere ? `<div class="take-code">
         <label class="field"><span>Access code</span><input data-code autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" inputmode="text" aria-describedby="code-hint code-err"></label>
         <p class="muted small" id="code-hint">Your professor shows it in the room when you may start.${preview ? ' (Preview: any code works.)' : ''}</p>
         <p class="bad small" id="code-err" data-code-err role="alert"></p>
@@ -139,12 +140,12 @@ export async function render(main, { classId, tid }, query = {}) {
       <label class="check take-agree"><input type="checkbox" data-agree><span>I understand the rules above${Number(test.warnings) > 0 ? ' (warnings, then the ' + W + ' ends)' : `. Leaving the ${W} ends it`}, and I'm the only one taking it.</span></label>
       <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? `Continue the ${W}` : `Start the ${W}`}</button></div>`);
     const btn = main.querySelector('[data-start]');
-    let can = !blockers(test) || preview;
+    let can = !blockers(test); // staff previews are held back too, so they see what students see
     const codeIn = main.querySelector('[data-code]');
     const ready = () => { btn.disabled = !(main.querySelector('[data-agree]').checked && can && (!codeIn || normCode(codeIn.value).length >= 4 || preview)); };
     // the device is checked again on Check again, when a screen is plugged in or out, and at Start
-    const recheck = () => { const box = main.querySelector('[data-checks]'); if (!box) return; box.nextElementSibling?.matches('p') && box.nextElementSibling.querySelector('[data-recheck]') && box.nextElementSibling.remove(); box.outerHTML = checksHtml(test); can = !blockers(test) || preview; ready(); };
-    main.addEventListener('click', (e) => { if (e.target.closest('[data-recheck]')) recheck(); });
+    const recheck = () => { const box = main.querySelector('[data-checks]'); if (!box) return; box.nextElementSibling?.matches('p') && box.nextElementSibling.querySelector('[data-recheck]') && box.nextElementSibling.remove(); box.outerHTML = checksHtml(test); can = !blockers(test); ready(); };
+    main.addEventListener('click', (e) => { if (e.target.closest('[data-recheck]')) recheck(); else if (preview && e.target.closest('[data-preview-go]')) begin(resume, ''); });
     const scr = typeof screen !== 'undefined' && screen.addEventListener ? screen : null;
     scr?.addEventListener('change', recheck);
     cleanupFns.push(() => scr?.removeEventListener('change', recheck));
@@ -173,7 +174,7 @@ export async function render(main, { classId, tid }, query = {}) {
     // the professor may have turned the exit code on after this page loaded: look at the class once more
     const fresh = !preview && a.status !== 'open' && !a.exitAt ? (await cloud.getClass(classId).catch(() => null))?.timed?.[tid] : null;
     const exitT = { requireExit: !!(fresh?.requireExit ?? (test || sum)?.requireExit) };
-    const askExit = needsExit(exitT, a, preview) && (!a.submittedAt || cloud.trueNow() - ms(a.submittedAt) < 30 * 60000 || cloud.trueNow() < ms(sum.closesAt) + ((Number(a.extraMin) || 0) + 30) * 60000);
+    const askExit = !elsewhere && needsExit(exitT, a, preview) && (!a.submittedAt || cloud.trueNow() - ms(a.submittedAt) < 30 * 60000 || cloud.trueNow() < ms(sum.closesAt) + ((Number(a.extraMin) || 0) + 30) * 60000);
     page(`
       <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(t.title)}</h1>
       ${askExit ? exitBox(W) : exitT.requireExit && a.exitAt ? `<p class="good small">${icon('check')} Exit code accepted.</p>` : ''}
@@ -312,7 +313,7 @@ export async function render(main, { classId, tid }, query = {}) {
         <div class="exam-split">
           <div class="exam-problem">
             <div class="exam-qhead"><p class="eyebrow">Question ${i + 1} of ${qs.length} · ${QTYPE_LABEL[q.type]} · ${plural(q.points, 'point')}</p>
-              <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button></div>
+              <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button>${textSize()}</div>
             ${aiOn ? `<p class="ai-notice" aria-hidden="true">${esc(AI_NOTICE)}</p>` : ''}
             <div class="exam-text">${md(q.text)}</div>
             ${q.samples?.length ? `<h3 class="exam-sh">Examples</h3>${q.samples.map((s, k) => `<div class="exam-example"><p class="small"><strong>Example ${k + 1}</strong></p><div class="grid2"><div><p class="small muted">Input</p><pre>${esc(s.input || '(none)')}</pre></div><div><p class="small muted">Expected output</p><pre>${esc(s.output)}</pre></div></div></div>`).join('')}` : ''}
@@ -322,7 +323,7 @@ export async function render(main, { classId, tid }, query = {}) {
         </div>`;
       return `
         <div class="exam-qhead"><p class="eyebrow">Question ${i + 1} of ${qs.length} · ${QTYPE_LABEL[q.type]} · ${plural(q.points, 'point')}</p>
-          <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button></div>
+          <button class="btn small ${flags.has(q.id) ? 'on' : ''}" data-flag aria-pressed="${flags.has(q.id)}">${icon('flag')} ${flags.has(q.id) ? 'Flagged' : 'Flag for review'}</button>${textSize()}</div>
         ${aiOn ? `<p class="ai-notice" aria-hidden="true">${esc(AI_NOTICE)}</p>` : ''}
         <div class="exam-text">${md(q.text)}</div>
         ${q.type === 'code' && q.samples?.length ? `<details class="exam-samples"><summary>Sample input and output</summary>${q.samples.map((s) => `<div class="grid2"><div><p class="small"><strong>Input</strong></p><pre>${esc(s.input || '(none)')}</pre></div><div><p class="small"><strong>Expected output</strong></p><pre>${esc(s.output)}</pre></div></div>`).join('')}</details>` : ''}

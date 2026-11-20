@@ -1396,6 +1396,11 @@ export async function saveAttempt(classId, base, changes) {
   await fb.setDoc(tdoc(classId, 'attempts', base.id), data);
 }
 // Extra minutes the professor gave this student for this exam (0 if none)
+// On this exam's extra-time list at all (accommodations): they take it in another room, so no access or exit code
+export async function onExtraList(classId, tid) {
+  await load();
+  return (await fb.getDoc(tdoc(classId, 'testExtra', `${tid}_${user.email.toLowerCase()}`))).exists();
+}
 export async function myExtraTime(classId, tid) {
   await load();
   const snap = await fb.getDoc(tdoc(classId, 'testExtra', `${tid}_${user.email.toLowerCase()}`));

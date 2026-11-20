@@ -10,6 +10,9 @@ const write = (v) => { try { localStorage.setItem(KEY, JSON.stringify({ ...read(
 
 export const navToggle = () => `<button type="button" class="exam-fold" data-fold-nav aria-expanded="true" title="Fold the question list">${icon('left')}<span class="sr-only">Fold the question list</span></button>`;
 export const problemToggle = () => `<button class="tool" type="button" data-fold-problem aria-expanded="true" title="Hide or show the problem">${icon('note')}<span data-fold-label>Hide problem</span></button>`;
+// Bigger or smaller question text (the problem, examples and choices), for anyone who needs it
+export const textSize = () => `<span class="tool-group q-size" role="group" aria-label="Question text size"><button type="button" class="btn small" data-qsize="-1" title="Smaller question text" aria-label="Smaller question text">A−</button><button type="button" class="btn small" data-qsize="1" title="Bigger question text" aria-label="Bigger question text">A+</button></span>`;
+const SIZES = [0.9, 1, 1.15, 1.3, 1.5, 1.75, 2];
 export const gutter = () => '<div class="exam-gutter" data-gutter role="separator" aria-orientation="vertical" aria-label="Drag to resize the problem and the code" tabindex="0"></div>';
 
 // shell: the exam's [data-shell]; returns a function to call after each question is drawn
@@ -21,12 +24,14 @@ export function bindLayout(shell, { onResize } = {}) {
     shell.classList.toggle('problem-hidden', !!s.problemHidden);
     if (s.split) shell.style.setProperty('--split', `${s.split}%`);
     if (s.edh) shell.style.setProperty('--edh', `${s.edh}px`);
+    shell.style.setProperty('--q-scale', String(SIZES[s.qsize ?? 1] ?? 1));
     shell.querySelectorAll('[data-fold-nav]').forEach((b) => { b.setAttribute('aria-expanded', String(!s.navSlim)); b.innerHTML = icon(s.navSlim ? 'right' : 'left') + `<span class="sr-only">${s.navSlim ? 'Open' : 'Fold'} the question list</span>`; });
     shell.querySelectorAll('[data-fold-problem]').forEach((b) => { b.setAttribute('aria-expanded', String(!s.problemHidden)); b.querySelector('[data-fold-label]').textContent = s.problemHidden ? 'Show problem' : 'Hide problem'; });
   };
   shell.addEventListener('click', (e) => {
     if (e.target.closest('[data-fold-nav]')) { write({ navSlim: !read().navSlim }); apply(); onResize?.(); }
     else if (e.target.closest('[data-fold-problem]')) { write({ problemHidden: !read().problemHidden }); apply(); onResize?.(); }
+    else if (e.target.closest('[data-qsize]')) { const i = Math.max(0, Math.min(SIZES.length - 1, (read().qsize ?? 1) + Number(e.target.closest('[data-qsize]').dataset.qsize))); write({ qsize: i }); apply(); }
   });
   // drag the line between problem and code (or use the arrow keys on it)
   const setSplit = (pct) => { const v = Math.round(Math.max(20, Math.min(70, pct))); shell.style.setProperty('--split', `${v}%`); write({ split: v }); };

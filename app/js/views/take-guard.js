@@ -24,7 +24,7 @@ export function deviceChecks(t, d) {
 }
 export const blocked = (items) => items.some(([k]) => k === 'bad');
 export const checksList = (items, preview) => `<ul class="dev-checks" data-checks>${items.map(([k, h]) => `<li class="${k}">${icon(k === 'good' ? 'check' : 'x')}<span>${h}</span></li>`).join('')}</ul>
-  ${blocked(items) ? `<p class="small"><button type="button" class="btn small" data-recheck>${icon('shuffle')} Check again</button>${preview ? ' <span class="muted">Preview: you can start anyway; students can\'t.</span>' : ''}</p>` : ''}`;
+  ${blocked(items) ? `<p class="small"><button type="button" class="btn small" data-recheck>${icon('shuffle')} Check again</button>${preview ? ' <span class="muted">Preview: students with this device can\'t start.</span> <button type="button" class="link-btn small" data-preview-go>Start anyway (staff preview)</button>' : ''}</p>` : ''}`;
 
 // During the exam: report helpers, a second screen and code dropped in by a tool. flag(type, detail)
 // records one event for the professor. Returns a function that stops watching.

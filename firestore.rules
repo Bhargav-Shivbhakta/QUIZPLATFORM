@@ -94,7 +94,8 @@ service cloud.firestore {
         && examOpened(classId, t)
         && beforeClose(classId, t, 0, 0)
         && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes))
-        && (!needCode(classId, t) || codeOk(classId, d.tid, d))
+        // the access code, unless they're on the extra-time list (they take it in another room)
+        && (!needCode(classId, t) || codeOk(classId, d.tid, d) || exists(ex))
         && notTakenElsewhere(classId, t);
     }
     // Two sittings of one exam (an optional day for everyone, then each section's own day): a sitting can
