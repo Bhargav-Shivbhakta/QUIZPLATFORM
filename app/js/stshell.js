@@ -75,7 +75,8 @@ let staff = false;
 // admins see every class (loaded once, in the background), not only the ones they teach
 let allClasses = null, lastPlace = null;
 const myList = () => (staff ? (cloud.isAdmin() && allClasses ? allClasses : cloud.teachingClasses()) : cloud.myClasses());
-const classRow = (c) => `<a class="st-item st-cls cc-${classColor(c)}" href="${classHref(c)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`;
+// The code on top (what students call the class), the full name under it on up to two lines: nothing cut off.
+const classRow = (c) => { const code = codeOf(c), nm = nameOf(c); return `<a class="st-item st-cls cc-${classColor(c)}" href="${classHref(c)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-ctext">${code ? `<span class="st-code">${esc(code)}</span>` : ''}<span class="st-lbl">${esc(nm)}</span></span></a>`; };
 function loadAllClasses() {
   if (!staff || !cloud.isAdmin()) return;
   cloud.listClasses().then((list) => {

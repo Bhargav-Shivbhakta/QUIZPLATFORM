@@ -9,8 +9,11 @@ import { nextExam, comingUp, daysUntil, weekDays, todaySummary, hopDue } from '.
 import { dayKey, weekday, time, longDay } from '../format.js';
 import { buddy, buddyKind, motionLevel, tap, follow, hop } from '../buddy.js';
 import { hopTargets, classColor } from '../stshell.js';
+import { codeParts } from '../navmap.js';
 import { classData, examItems, clearClassData, redrawAfterFirstSync } from './st-data.js';
 import { resumeBanner } from './home.js';
+// the class code as the bar shows it ("CS 150", whatever spacing the record has)
+const codeOf = (c) => codeParts(c.course, c.name).code || c.course || c.name || '';
 
 
 export function fillRings(root, delayMs = 0) {
@@ -43,13 +46,13 @@ export async function render(main, params, query = {}) {
   const kind = buddyKind();
   const cc = classColor(examData?.cls);
 
-  const filters = data.length > 1 ? `<div class="st-filters" role="group" aria-label="Show">${[['all', 'All classes']].concat(data.map((d) => [d.cls.id, d.cls.course || d.cls.name])).map(([id, label]) => `<a class="st-chip ${id === 'all' ? '' : `cc-${classColor(data.find((d) => d.cls.id === id).cls)}`}" href="#/${id === 'all' ? '' : `?c=${encodeURIComponent(id)}`}" aria-current="${filter === id ? 'true' : 'false'}">${id === 'all' ? '' : '<span class="st-cdot" aria-hidden="true"></span>'}${esc(label)}</a>`).join('')}</div>` : '';
+  const filters = data.length > 1 ? `<div class="st-filters" role="group" aria-label="Show">${[['all', 'All classes']].concat(data.map((d) => [d.cls.id, codeOf(d.cls)])).map(([id, label]) => `<a class="st-chip ${id === 'all' ? '' : `cc-${classColor(data.find((d) => d.cls.id === id).cls)}`}" href="#/${id === 'all' ? '' : `?c=${encodeURIComponent(id)}`}" aria-current="${filter === id ? 'true' : 'false'}">${id === 'all' ? '' : '<span class="st-cdot" aria-hidden="true"></span>'}${esc(label)}</a>`).join('')}</div>` : '';
 
   // the countdown, or today's minutes when no exam is coming
   let big = '', unit = '', eyebrow = '', when = '';
   if (exam) {
     const n = daysUntil(exam.at, now), open = exam.until && exam.at <= now && now < exam.until;
-    eyebrow = `<span class="st-cdot cc-${classColor(examData?.cls)}" aria-hidden="true"></span>${esc(examData?.cls.course || examData?.cls.name || '')} · ${esc(exam.title)}`;
+    eyebrow = `<span class="st-cdot cc-${classColor(examData?.cls)}" aria-hidden="true"></span>${esc(examData ? codeOf(examData.cls) : '')} · ${esc(exam.title)}`;
     if (open) { big = 'Now'; unit = 'open'; when = `Closes ${time(exam.until)}`; }
     else if (n === 0) { big = 'Today'; unit = ''; when = exam.kind === 'date' ? 'Good luck.' : `At ${time(exam.at)}`; }
     else { big = String(n); unit = n === 1 ? 'day to go' : 'days to go'; when = exam.kind === 'date' ? weekday(exam.at, new Date(now)) : `${weekday(exam.at, new Date(now))} at ${time(exam.at)}`; }
@@ -91,7 +94,7 @@ export async function render(main, params, query = {}) {
             <ol class="st-week">${week.map((d) => `<li class="${d.done ? 'done' : ''} ${d.today ? 'today' : ''}"><span class="st-wdot" aria-hidden="true">${d.done ? icon('check') : ''}</span><span class="st-wl" aria-hidden="true">${d.letter}</span><span class="sr-only">${d.done ? 'studied' : d.future ? 'still to come' : 'not studied'}</span></li>`).join('')}</ol>
             <p class="st-muted st-small">${daysDone >= GOAL ? 'Goal reached. Anything more is a bonus.' : `Study on ${plural(GOAL - daysDone, 'more day')} this week to reach your goal.`}</p></section>
           <section class="st-card" aria-labelledby="cu-h"><h2 id="cu-h">Coming up</h2>
-            ${coming.length ? `<ul class="st-list">${coming.map((x) => { const d = data.find((y) => y.cls.id === x.classId); return `<li><span><span class="st-cdot cc-${classColor(d?.cls)}" aria-hidden="true"></span>${esc(x.title)}${data.length > 1 ? ` <span class="st-muted st-small">${esc(d?.cls.course || '')}</span>` : ''}</span><span class="st-muted st-small">${esc(weekday(x.at, new Date(now)))}</span></li>`; }).join('')}</ul>` : '<p class="st-muted">Nothing scheduled yet. Exams and quizzes appear here when your professor sets them.</p>'}</section>
+            ${coming.length ? `<ul class="st-list">${coming.map((x) => { const d = data.find((y) => y.cls.id === x.classId); return `<li><span><span class="st-cdot cc-${classColor(d?.cls)}" aria-hidden="true"></span>${esc(x.title)}${data.length > 1 ? ` <span class="st-muted st-small">${esc(d ? codeOf(d.cls) : '')}</span>` : ''}</span><span class="st-muted st-small">${esc(weekday(x.at, new Date(now)))}</span></li>`; }).join('')}</ul>` : '<p class="st-muted">Nothing scheduled yet. Exams and quizzes appear here when your professor sets them.</p>'}</section>
         </div></div>
     </section>`;
 

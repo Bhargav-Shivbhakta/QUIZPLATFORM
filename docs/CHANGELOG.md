@@ -2,6 +2,12 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 20 November 2026: class names you can read
+
+- **Classes in the bar** show the code on top in bold ("CS 150") and the full name under it on up to two lines, instead of one line cut off mid-word ("Introductory Com..."). The collapsed rail still shows the badges.
+- **Today's class chips and Coming up** use the same code as the bar, so "CS150" and "CS 210" no longer appear side by side.
+- Tested: 79 tests pass; screenshots at 1440 and 2560 px, bar open and collapsed.
+
 ## 20 November 2026: pages fill the screen
 
 - **Wide pages get more columns, not wider cards.** Stretching the cards only moved the empty space inside them, so each page now adds columns as it gets wider and every card stays close to the size of what's in it. The pages measure their own width, so this works with the big-monitor zoom.

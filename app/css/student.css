@@ -46,6 +46,12 @@ body.st:not(.st-staff) #main .crumbs { display: none; } /* the top bar's back li
 .st-sub { display: block; font-size: 12px; font-weight: 500; color: var(--cr-ink-2); overflow: hidden; text-overflow: ellipsis; }
 .st-cstripe { width: 4px; height: 18px; flex: none; border-radius: 4px; background: var(--cc); }
 .st-code { flex: none; font-size: 12px; font-weight: 500; color: var(--cr-ink-2); }
+/* a class in the bar: the code on top, the full name under it (two lines at most, never cut mid-line) */
+.st-cls { align-items: stretch; padding-top: 8px; padding-bottom: 8px; }
+.st-cls .st-cstripe { height: auto; align-self: stretch; }
+.st-ctext { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.st-cls .st-code { font-size: var(--cr-text-sm); font-weight: 650; color: var(--cr-ink); letter-spacing: 0.01em; }
+.st-cls .st-lbl { white-space: normal; font-size: 13px; line-height: 1.3; color: var(--cr-ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; text-overflow: clip; }
 /* the badge: subject over number on the class colour; shown in the rail */
 .st-badge { min-width: 44px; padding: 5px 4px; border-radius: 9px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; flex: none; background: var(--cc); color: var(--cr-accent-ink); line-height: 1.1; font-size: 11px; font-weight: 800; }
 .st-badge b { display: block; font-weight: 800; }
@@ -73,7 +79,7 @@ body.st:not(.st-staff) #main .crumbs { display: none; } /* the top bar's back li
 .st-avatar { width: 34px; height: 34px; border-radius: var(--cr-radius-pill); background: var(--cr-accent-soft); color: var(--cr-accent); display: grid; place-items: center; flex: none; overflow: hidden; font-size: 12px; font-weight: 800; }
 .st-avatar img { width: 100%; height: 100%; object-fit: cover; }
 /* the rail: icons, badges and you; names show on hover (title) */
-.st-side.slim .st-brand span, .st-side.slim .st-lbl, .st-side.slim .st-code, .st-side.slim .st-cstripe, .st-side.slim .st-chev, .st-side.slim .st-label span, .st-side.slim .st-switch-h { display: none; }
+.st-side.slim .st-brand span, .st-side.slim .st-lbl, .st-side.slim .st-code, .st-side.slim .st-ctext, .st-side.slim .st-cstripe, .st-side.slim .st-chev, .st-side.slim .st-label span, .st-side.slim .st-switch-h { display: none; }
 .st-side.slim .st-badge { display: inline-flex; }
 .st-side.slim .st-pane, .st-side.slim .st-side-top, .st-side.slim .st-side-foot { padding-left: 10px; padding-right: 10px; }
 .st-side.slim .st-brand, .st-side.slim .st-item, .st-side.slim .st-me, .st-side.slim .st-classcard, .st-side.slim .st-switch-item { justify-content: center; padding-left: 0; padding-right: 0; }
@@ -116,7 +122,7 @@ html[data-motion="none"] .st-side, html[data-motion="none"] .st-track, html[data
 /* tablets: the bar is always the rail */
 @media (max-width: 1023px) {
   body.st { --st-side-w: 72px; }
-  .st-handle, .st-side .st-brand span, .st-side .st-lbl, .st-side .st-code, .st-side .st-cstripe, .st-side .st-chev, .st-side .st-label span, .st-side .st-switch-h { display: none; }
+  .st-handle, .st-side .st-brand span, .st-side .st-lbl, .st-side .st-code, .st-side .st-ctext, .st-side .st-cstripe, .st-side .st-chev, .st-side .st-label span, .st-side .st-switch-h { display: none; }
   .st-side .st-badge { display: inline-flex; }
   .st-side .st-pane, .st-side .st-side-top, .st-side .st-side-foot { padding-left: 10px; padding-right: 10px; }
   .st-side .st-brand, .st-side .st-item, .st-side .st-me, .st-side .st-classcard, .st-side .st-switch-item { justify-content: center; padding-left: 0; padding-right: 0; }

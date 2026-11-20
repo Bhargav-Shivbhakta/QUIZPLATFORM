@@ -2,6 +2,13 @@
 
 Decisions that shape Cramming, newest first, each with the reason. A decision changes only with a new entry that says so.
 
+## 20 November 2026
+
+- **FC (Final Cramming) comes first.** FC is Cramming with every feature on the system map. Nothing is built until it passes the FC check in `FC.md`: every FC feature that touches it, every scenario, each marked covered or fixed, slots kept for later phases, then Bhargav's yes. Only then are the launch parts built.
+
+- **The Dot comes out of the app, everywhere.** Bhargav decided the study buddy and its animations distract more than they help. Today, Settings (Study buddy, the Flame) and every hop or pose go. This replaces the earlier "keep the Dot, add arms and legs" plan; its intro and poses are dropped from the system map.
+- **Today at launch holds:** today's plan with one Start, the next exam and readiness, this week's study days, the professor's note, and coming-up deadlines (hidden when empty). The layout is chosen from three mockups of Today in the finished app.
+
 ## 17 November 2026
 
 - **No trademark filing yet.** The $700 filing waits until a school is paying. Until then: ™ on the marks (legal without filing), consistent use, and an evidence folder of first-use dates.
