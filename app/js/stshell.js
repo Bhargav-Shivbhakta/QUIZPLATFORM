@@ -36,9 +36,9 @@ const SECTIONS = [['plan', 'Ready', 'target'], ['notes', 'Learn', 'learn'], ['pr
 // A class's sections for staff: [key, label, icon, href]. Each opens the screen that does that job today.
 const staffSections = (id) => [
   ['overview', 'Overview', 'grid', `#/instructor?class=${e(id)}&tab=progress`],
-  ...(cloud.leadsClass(id) ? [['build', 'Build', 'sparkle', `#/build/${e(id)}`]] : []),
+  ...(cloud.isAdmin() || cloud.leadsClass(id) ? [['build', 'Build', 'sparkle', `#/build/${e(id)}`]] : []),
   ['spractice', 'Practice', 'edit', `#/content/${e(id)}`],
-  ['sgraded', 'Graded work', 'graded', `#/instructor?class=${e(id)}&tab=timed`],
+  ['sgraded', 'Graded work', 'graded', `#/timed/${e(id)}`],
   ['insights', 'Insights', 'chart', `#/instructor?class=${e(id)}&tab=scores`],
   ['people', 'People', 'users', `#/instructor?class=${e(id)}&tab=students`],
   ...(cloud.isAdmin() ? [['csettings', 'Class settings', 'settings', `#/admin?edit=${e(id)}`]] : []),
@@ -72,7 +72,20 @@ const badge = (c) => { const p = codeParts(c.course, c.name); return `<span clas
 const codeOf = (c) => codeParts(c.course, c.name).code;
 
 let staff = false;
-const myList = () => (staff ? cloud.teachingClasses() : cloud.myClasses());
+// admins see every class (loaded once, in the background), not only the ones they teach
+let allClasses = null, lastPlace = null;
+const myList = () => (staff ? (cloud.isAdmin() && allClasses ? allClasses : cloud.teachingClasses()) : cloud.myClasses());
+const classRow = (c) => `<a class="st-item st-cls cc-${classColor(c)}" href="${classHref(c)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`;
+function loadAllClasses() {
+  if (!staff || !cloud.isAdmin()) return;
+  cloud.listClasses().then((list) => {
+    allClasses = list;
+    const box = document.querySelector('[data-st-classes]'); if (!box) return;
+    box.innerHTML = `<p class="st-label"><span>All classes</span></p>${list.map(classRow).join('')}`;
+    shownClass = null;
+    if (lastPlace) setPlace(lastPlace);
+  }).catch(() => {});
+}
 const classHref = (c) => (staff ? `#/instructor?class=${e(c.id)}&tab=progress` : `#/class/${e(c.id)}`);
 export function mountShell() {
   document.documentElement.dataset.motion = motionLevel();
@@ -91,8 +104,8 @@ export function mountShell() {
       <div class="st-slide"><div class="st-track">
         <nav class="st-pane st-pane-main" aria-label="Main">
           <a class="st-item" href="#/" data-st="today" title="Today">${icon('sun')}<span class="st-lbl">Today</span></a>
-          ${mine.length ? `<p class="st-label"><span>${staff ? 'Teaching' : several ? 'Your classes' : 'Your class'}</span></p>` : ''}
-          ${mine.map((c) => `<a class="st-item st-cls cc-${classColor(c)}" href="${classHref(c)}" data-st="class:${esc(c.id)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}
+          <div data-st-classes>${mine.length ? `<p class="st-label"><span>${staff ? (cloud.isAdmin() ? 'All classes' : 'Teaching') : several ? 'Your classes' : 'Your class'}</span></p>` : ''}
+          ${mine.map(classRow).join('')}</div>
           ${staff && cloud.isAdmin() ? `<p class="st-label"><span>Admin</span></p>${ADMIN.map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-st="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}` : ''}
         </nav>
         <nav class="st-pane st-pane-class" aria-label="This class" inert></nav>
@@ -121,6 +134,7 @@ export function mountShell() {
       <a href="#/settings" data-st="settings">${icon('settings')}<span>Settings</span></a>
     </nav>`);
   shownClass = null;
+  loadAllClasses();
   const side = document.getElementById('st-side');
   side.querySelector('[data-st-slim]').addEventListener('click', () => setSlim(!side.classList.contains('slim')));
   const logo = side.querySelector('[data-st-logo]');
@@ -254,6 +268,7 @@ function trap(ev) {
 // ---------- where you are ----------
 let current = 'today';
 export async function setPlace({ path, params = {}, query = {} }) {
+  lastPlace = { path, params, query };
   const mine = myList();
   let key = '';
   if (path === '/' || path === '') key = 'today';

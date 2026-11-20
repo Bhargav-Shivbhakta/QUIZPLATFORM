@@ -48,7 +48,8 @@
         "app/js/colors.js",
         "app/js/nav.js",
         "app/js/buddy.js",
-        "app/js/stshell.js"
+        "app/js/stshell.js",
+        "app/js/integrity.js"
       ],
       "mayImport": [
         "core",

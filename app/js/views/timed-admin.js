@@ -22,6 +22,7 @@ const when = (t) => dateTime(t) || '–';
 const clock = (t) => clockTime(t) || '–';
 const mmss = (msLeft) => { if (msLeft <= 0) return '0:00'; const s = Math.round(msLeft / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`; };
 const r1 = (x) => (x == null || isNaN(x) ? '–' : String(Math.round(x * 10) / 10));
+const FLAGS = ['helper-detected', 'insert-blocked', 'second-screen']; // reported, never end the exam
 const LEAVES = ['tab-hidden', 'window-blur', 'fullscreen-exit', 'page-leave', 'print-screen', 'devtools-key', 'away-too-long'];
 // "Sections 01, 03" or "" when everyone takes it
 const whoText = (t) => { const s = assignedSections(t); return s ? `${s.length === 1 ? 'Section' : 'Sections'} ${s.join(', ')}` : ''; };
@@ -86,7 +87,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
   const startDefault = (() => { const d = new Date(Date.now() + DAY); d.setMinutes(0, 0, 0); return d.getTime(); })();
   const state = {
     opensAt: ms(t.opensAt) || startDefault, closesAt: ms(t.closesAt) || startDefault + 2 * 3600000,
-    questions: (t.questions || []).map((q) => ({ ...q })), key: key?.questions || null,
+    questions: [...(t.questions || []).map((q) => ({ ...q })), ...(key?.unused || []).map((q) => ({ ...q, off: true }))], key: key?.questions || null,
     parsed: null, mdName: '', asg: null, asgName: '', asgProblems: new Map(), asgRunning: false, filesChanged: false,
   };
   // ---- 3. Who takes it: everyone, or only some sections (each with its own times if needed)
@@ -203,6 +204,9 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
         <label class="check"><input type="checkbox" name="aiNotice" ${t.aiNotice !== false ? 'checked' : ''}><span><strong>Add a notice for AI tools</strong> (recommended): a small line above every question and a faint background tells any AI that sees a photo or screenshot of the screen not to answer. Students see it too.</span></label>
         <label class="check"><input type="checkbox" name="allowPhones" ${t.allowPhones ? 'checked' : ''}><span><strong>Allow phones</strong> (off: laptops and iPads only)</span></label>
         <label class="check"><input type="checkbox" name="releaseDetail" ${t.releaseDetail !== false ? 'checked' : ''}><span>When scores are released, also show students <strong>which questions they got right</strong> (the right answers are never shown)</span></label>
+        ${(() => { const others = Object.entries(cls.timed || {}).filter(([id]) => id !== existing?.id); return others.length ? `<label class="field"><span><strong>Two sittings?</strong> Students who took this one can't take this:</span>
+          <select name="notIfTook"><option value="">Nobody is kept out</option>${others.map(([id, x]) => `<option value="${esc(id)}" ${t.notIfTook === id ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>
+          <span class="muted small">For example, on the regular-day exam pick the optional Friday sitting: anyone who started Friday's can't start this one.</span></label>` : ''; })()}
         <div class="grid2 leave-rules">
           <label class="field"><span>When a student leaves the exam (switches app, tab or desktop, swipes with 3 or 4 fingers, clicks outside, leaves full screen)</span>
             <select name="warnings">${[[0, 'End it right away'], [1, 'Warn once, end it the 2nd time'], [2, 'Warn twice, end it the 3rd time (recommended)'], [3, 'Warn 3 times, end it the 4th time']].map(([v, l]) => `<option value="${v}" ${Number(t.warnings ?? 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -262,13 +266,15 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     }
     qc.innerHTML = bits.join('');
     const qs = state.questions;
-    const total = qs.reduce((s, q) => s + (Number(q.points) || 0), 0);
+    const total = qs.filter((q) => !q.off).reduce((s, q) => s + (Number(q.points) || 0), 0);
+    const used = qs.filter((q) => !q.off).length;
     ql.innerHTML = qs.length ? `
       <div class="table-wrap" tabindex="0" role="region" aria-label="Questions"><table class="inst-table compact timed-qtable">
-        <thead><tr><th scope="col">#</th><th scope="col">Question</th><th scope="col">Type</th><th scope="col">Points</th></tr></thead>
-        <tbody>${qs.map((q, i) => `<tr><td>${i + 1}</td><td><strong>${esc(q.label)}</strong> <span class="muted small">${esc(firstLine(q.text))}</span>${q.type === 'code' ? `<span class="muted small block">${plural((q.samples || []).length, 'sample test')} shown · ${plural(Math.max(0, (state.key?.[q.id]?.tests || []).length - (q.samples || []).length), 'hidden test')}</span>` : ''}</td><td>${QTYPE_LABEL[q.type] || q.type}</td>
+        <caption class="small muted">Giving <strong data-used>${used} of ${qs.length}</strong> questions. Untick a question to leave it off this ${esc(KINDS[t.kind] ? KINDS[t.kind].label.toLowerCase() : 'exam')}: students never receive it.</caption>
+        <thead><tr><th scope="col">Give</th><th scope="col">#</th><th scope="col">Question</th><th scope="col">Type</th><th scope="col">Points</th></tr></thead>
+        <tbody>${qs.map((q, i) => `<tr class="${q.off ? 'q-off' : ''}"><td><input type="checkbox" data-use="${i}" ${q.off ? '' : 'checked'} ${attemptsExist ? 'disabled' : ''} aria-label="Give ${esc(q.label)}"></td><td>${i + 1}</td><td><strong>${esc(q.label)}</strong> <span class="muted small">${esc(firstLine(q.text))}</span>${q.type === 'code' ? `<span class="muted small block">${plural((q.samples || []).length, 'sample test')} shown · ${plural(Math.max(0, (state.key?.[q.id]?.tests || []).length - (q.samples || []).length), 'hidden test')}</span>` : ''}</td><td>${QTYPE_LABEL[q.type] || q.type}</td>
           <td><input type="number" min="0" step="0.5" value="${esc(q.points)}" data-pts="${i}" aria-label="Points for ${esc(q.label)}" ${attemptsExist ? 'disabled' : ''} class="pts-input"></td></tr>`).join('')}</tbody>
-        <tfoot><tr><th colspan="3" scope="row">Total</th><td><strong data-total>${r1(total)}</strong></td></tr></tfoot>
+        <tfoot><tr><th colspan="4" scope="row">Total (given questions)</th><td><strong data-total>${r1(total)}</strong></td></tr></tfoot>
       </table></div>` : '<p class="muted">No questions yet. Add a question file and/or programming problems.</p>';
   }
   const firstLine = (s) => { const x = String(s || '').replace(/```[\s\S]*?```/g, ' [code] ').replace(/[#*_`>]/g, '').replace(/\s+/g, ' ').trim(); return x.length > 90 ? x.slice(0, 89) + '…' : x; };
@@ -330,7 +336,9 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       if (el.matches('[data-folder]') && el.files.length) { const list = [...el.files].map((f) => ({ path: f.webkitRelativePath || f.name, file: f })); await useFolderList(`${list[0].path.split('/')[0]}/ (folder)`, list); }
     } catch (e) { toast("Couldn't read that: " + (e?.message || e), 'bad'); }
     if (el.type === 'file') el.value = '';
-    if (el.matches('[data-pts]')) { state.questions[Number(el.dataset.pts)].points = Math.max(0, Number(el.value) || 0); const tot = root.querySelector('[data-total]'); if (tot) tot.textContent = r1(state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0)); }
+    if (el.matches('[data-use]') && existing && !state.key) { el.checked = !el.checked; toast("The answer key didn't load, so the questions can't be changed now. Reload the page and try again.", 'bad'); return; }
+    if (el.matches('[data-use]')) { state.questions[Number(el.dataset.use)].off = !el.checked; state.filesChanged = true; drawQuestions(); return; }
+    if (el.matches('[data-pts]')) { state.questions[Number(el.dataset.pts)].points = Math.max(0, Number(el.value) || 0); const tot = root.querySelector('[data-total]'); if (tot) tot.textContent = r1(state.questions.filter((q) => !q.off).reduce((s, q) => s + (Number(q.points) || 0), 0)); }
   });
   // drag and drop (files and folders)
   const zoneOf = (ev) => ev.target.closest?.('[data-drop]');
@@ -371,7 +379,7 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
     if (!opensAt || !closesAt) problems.push('Set when the exam opens and closes.');
     else if (closesAt <= opensAt) problems.push('Closes must be after Opens.');
     if (!(durationMin >= 1 && durationMin <= 600)) problems.push('The time limit must be between 1 and 600 minutes.');
-    if (status === 'published' && !state.questions.length) problems.push('Add questions before publishing (or save as a draft).');
+    if (status === 'published' && !state.questions.some((q) => !q.off)) problems.push('Tick at least one question to give before publishing (or save as a draft).');
     if (state.parsed?.errors.length || state.asg?.errors.length || [...state.asgProblems.values()].some((x) => x.length)) problems.push('Fix the problems in the question files first.');
     if (state.asgRunning) problems.push('Wait until the programming problems have been checked.');
     const windows = readWho(opensAt, closesAt, problems);
@@ -384,18 +392,22 @@ async function editorPage(main, cls, existing, host = null, onSaved = null) {
       if (!(await confirmDialog({ title: 'The window is shorter than the time limit', body: `<p>The exam is open for ${Math.round((closesAt - opensAt) / 60000)} minutes but the time limit is ${durationMin}. Students who start late get less time. Publish anyway?</p>`, confirm: 'Publish' }))) return;
     }
     err.textContent = '';
+    // only the ticked questions reach students; the rest stay in the staff-only key for next time
+    const strip = ({ off, ...q }) => q;
+    const given = state.questions.filter((q) => !q.off).map(strip), unused = state.questions.filter((q) => q.off).map(strip);
     const test = {
       title, kind: KINDS[f.get('kind')] ? f.get('kind') : 'exam', instructions: String(f.get('instructions') || '').trim(), opensAt, closesAt, windows, durationMin,
       shuffleQ: f.get('shuffleQ') === 'on', shuffleOpts: f.get('shuffleOpts') === 'on', requireSEB: f.get('requireSEB') === 'on', requireCode: f.get('requireCode') === 'on',
       allowPhones: f.get('allowPhones') === 'on', releaseDetail: f.get('releaseDetail') === 'on', aiNotice: f.get('aiNotice') === 'on',
       warnings: Math.max(0, Math.min(3, Number(f.get('warnings')) || 0)), awayMaxSec: [5, 10, 15, 30].includes(Number(f.get('awayMaxSec'))) ? Number(f.get('awayMaxSec')) : 15,
-      questions: state.questions, totalPoints: state.questions.reduce((s, q) => s + (Number(q.points) || 0), 0),
+      questions: given, totalPoints: given.reduce((s, q) => s + (Number(q.points) || 0), 0),
       status, disabled: !!t.disabled, released: !!t.released, createdAt: t.createdAt || null, createdBy: t.createdBy || null,
+      ...(f.get('notIfTook') ? { notIfTook: String(f.get('notIfTook')) } : {}),
     };
     if (!test.createdAt) { delete test.createdAt; delete test.createdBy; }
     const btns = form.querySelectorAll('button[type=submit]'); btns.forEach((b) => (b.disabled = true));
     try {
-      const id = await cloud.saveTimed(cls.id, existing?.id || null, test, state.filesChanged || !existing ? { questions: state.key || {} } : null, ex.list);
+      const id = await cloud.saveTimed(cls.id, existing?.id || null, test, state.filesChanged || !existing ? { questions: state.key || {}, unused } : null, ex.list);
       const wantCode = test.requireCode ? code : accessCode;
       const sameCodes = wantCode === accessCode && JSON.stringify(Object.entries(newSecCodes).sort()) === JSON.stringify(Object.entries(secCodes || {}).sort());
       if (!sameCodes && (test.requireCode || Object.keys(newSecCodes).length || Object.keys(secCodes || {}).length)) await cloud.setAccessCodes(cls.id, id, { code: wantCode, sections: newSecCodes });
@@ -417,6 +429,7 @@ async function examPage(main, cls, tid, query) {
   const phaseNow = () => examPhase({ ...test, ...overallWindow(test) }, cloud.trueNow());
   const lead = cloud.leadsClass(cls.id); // TAs: no Settings, turning off, releasing or new attempts
   let tab = ['live', 'results', ...(lead ? ['settings'] : [])].includes(query.tab) ? query.tab : phaseNow() === 'closed' ? 'results' : phaseNow() === 'draft' && lead ? 'settings' : 'live';
+  let otherTook = null; // two sittings: emails of students who started the other sitting (this one names it)
   let roster = [], attempts = [], grades = [], key = null, loadedAt = 0, filter = 'all', section = '', search = '', auto = true, timer = null, tick = null, settingsCleanup = null;
   let codes = await cloud.getAccessCodes(cls.id, tid).catch(() => ({ code: '', sections: {} }));
   let accessCode = codes.code;
@@ -466,6 +479,7 @@ async function examPage(main, cls, tid, query) {
     if (full || !fullAt) {
       const t = cloud.trueNow();
       [roster, attempts, earlier] = await Promise.all([roster.length ? roster : cloud.getRoster(cls.id), cloud.listAttempts(cls.id, tid), cloud.listEarlierAttempts(cls.id, tid).catch(() => [])]);
+      if (test.notIfTook) otherTook = new Set((await cloud.listAttempts(cls.id, test.notIfTook).catch(() => [])).map((x) => String(x.email).toLowerCase()));
       fullAt = deltaAt = t;
     } else if (cloud.trueNow() - fullAt >= FULL_EVERY) {
       // students still working only (finished ones don't change; any change to them comes with a stateKey)
@@ -500,8 +514,13 @@ async function examPage(main, cls, tid, query) {
     for (const a of attempts) if (!list.some((r) => r.a === a) && !mySecs) list.push({ p: { email: a.email, name: a.name || a.email, section: '' }, a, offRoster: true });
     return list.map((r) => ({ ...r, ...attemptState(r.a, now, r.p) }));
   }
+  // two sittings: the sitting this one names, and any later sitting that names this one
+  const otherTitle = () => cls.timed?.[test.notIfTook]?.title || 'the other sitting';
+  const laterSitting = () => Object.values(cls.timed || {}).find((x) => x.notIfTook === tid);
   function attemptState(a, now, p = {}) {
     const win = windowFor(test, p.section) || overallWindow(test);
+    if (!a && otherTook?.has(String(p.email).toLowerCase())) return { st: 'other', label: `Took ${otherTitle()}`, win };
+    if (!a && laterSitting() && now >= win.closesAt) return { st: 'rolled', label: `Rolled over to ${laterSitting().title}`, win };
     if (!a) return { st: 'none', label: now < win.opensAt ? `Opens ${when(win.opensAt)}` : now >= win.closesAt ? "Didn't take it" : 'Not started', win };
     const dl = attemptDeadline({ ...test, ...win }, a);
     const exits = (a.events || []).filter((e) => LEAVES.includes(e.type));
@@ -518,14 +537,14 @@ async function examPage(main, cls, tid, query) {
   }
 
   // ------------------------------------------------ Live
-  const FILTERS = { all: () => true, none: (r) => r.st === 'none', working: (r) => r.st === 'working', submitted: (r) => r.st === 'submitted' || r.st === 'timeup', ended: (r) => r.st === 'ended', lost: (r) => r.st === 'lost', exits: (r) => (r.exits || []).length > 0 };
+  const FILTERS = { all: () => true, other: (r) => r.st === 'other', rolled: (r) => r.st === 'rolled', none: (r) => r.st === 'none', working: (r) => r.st === 'working', submitted: (r) => r.st === 'submitted' || r.st === 'timeup', ended: (r) => r.st === 'ended', lost: (r) => r.st === 'lost', exits: (r) => (r.exits || []).length > 0 };
   // the code, huge, for the projector (Esc or click to close)
-  function showCodeBig(code = accessCode, label = '') {
+  function showCodeBig(code = accessCode, label = '', kind = 'Access code', help = 'Open the exam on your class page, type this code, and press Start.') {
     const el = document.createElement('div');
     el.className = 'code-projector';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', 'Access code');
-    el.innerHTML = `<p class="code-proj-title">${esc(test.title)}</p><p class="code-proj-label">Access code${label ? ' · ' + esc(label) : ''}</p><p class="code-proj-code">${esc(code)}</p>
-      <p class="code-proj-help">Open the exam on your class page, type this code, and press Start.</p><button class="btn" data-close-proj>Close</button>`;
+    el.innerHTML = `<p class="code-proj-title">${esc(test.title)}</p><p class="code-proj-label">${esc(kind)}${label ? ' · ' + esc(label) : ''}</p><p class="code-proj-code">${esc(code)}</p>
+      <p class="code-proj-help">${esc(help)}</p><button class="btn" data-close-proj>Close</button>`;
     document.body.appendChild(el);
     const close = () => { el.remove(); document.removeEventListener('keydown', onKey); main.querySelector('[data-showcode]')?.focus(); };
     const onKey = (e) => { if (e.key === 'Escape') close(); };
@@ -539,10 +558,10 @@ async function examPage(main, cls, tid, query) {
     const n = (k) => rows.filter(FILTERS[k]).length;
     const q = search.trim().toLowerCase();
     const shown = rows.filter(FILTERS[filter]).filter((r) => !q || `${r.p.name} ${r.p.email} ${r.p.redId || ''}`.toLowerCase().includes(q))
-      .sort((x, y) => ['lost', 'ended', 'working', 'timeup', 'submitted', 'none'].indexOf(x.st) - ['lost', 'ended', 'working', 'timeup', 'submitted', 'none'].indexOf(y.st) || String(x.p.name || '').localeCompare(String(y.p.name || '')));
+      .sort((x, y) => ['lost', 'ended', 'working', 'timeup', 'submitted', 'none', 'rolled', 'other'].indexOf(x.st) - ['lost', 'ended', 'working', 'timeup', 'submitted', 'none', 'rolled', 'other'].indexOf(y.st) || String(x.p.name || '').localeCompare(String(y.p.name || '')));
     const secs = [...new Set(students().flatMap((p) => String(p.section || '').split(',').map((s) => s.trim()).filter(Boolean)))].sort();
     const now = cloud.trueNow();
-    const cards = [['all', 'Everyone', ''], ['none', 'Not started', ''], ['working', 'Working now', 'good'], ['submitted', 'Submitted', 'good'], ['ended', 'Ended by leaving', 'bad'], ['lost', 'No contact 5+ min', 'warn'], ['exits', 'Any exit recorded', 'warn']];
+    const cards = [['all', 'Everyone', ''], ['none', 'Not started', ''], ['working', 'Working now', 'good'], ['submitted', 'Submitted', 'good'], ['ended', 'Ended by leaving', 'bad'], ['lost', 'No contact 5+ min', 'warn'], ['exits', 'Any exit recorded', 'warn'], ...(otherTook ? [['other', `Took ${otherTitle()}`, '']] : []), ...(laterSitting() ? [['rolled', 'Rolled over', '']] : [])];
     // one code for the exam, or each section's own code (a section without its own uses the exam's)
     const secList = test.windows ? codedSections() : [];
     const codeRows = test.windows
@@ -556,7 +575,13 @@ async function examPage(main, cls, tid, query) {
         </div>`).join('')}
         <p class="muted small">Show it in the room when students may start. Students who have already started don't need it again.${codeRows.length > 1 && codeRows.some((r) => !r.own) ? ' Sections without their own code share the exam\'s code, so a new code changes it for all of them.' : ''}</p>
       </div>` : '';
-    return `${codeBox}
+    // the exit code: typed after finishing, so a code passed outside the room isn't enough on its own
+    const exitHtml = test.requireExit && codes.exit ? `<div class="code-box exit-box"><div class="code-row">
+        <div><p class="eyebrow">Exit code</p><p class="code-big">${esc(codes.exit)}</p></div>
+        <div class="row wrap"><button class="btn primary" data-showexit>${icon('eye')} Show on projector</button>${lead ? `<button class="btn" data-exitnew>${icon('shuffle')} New code</button><button class="btn" data-exitoff>Turn off</button>` : ''}</div></div>
+        <p class="muted small">Students type it after they submit or their time runs out (until 30 minutes after the exam closes). Their answers count either way; anyone without it is marked <strong>No exit code</strong> below. Show it in the room once students start finishing, and keep it up.</p></div>`
+      : lead ? `<p class="small"><button class="btn small" data-exiton>${icon('lock')} Ask for an exit code after finishing</button> <span class="muted">Turn it on before students start, so a leaked access code isn't enough.</span></p>` : '';
+    return `${codeBox}${exitHtml}
       <div class="row between wrap live-bar">
         <p class="muted small" aria-live="polite">Updated ${clock(loadedAt)}${auto ? ' · status every minute, last saved and answered every 5 minutes (Refresh for now)' : ''}</p>
         <span class="row"><label class="check"><input type="checkbox" data-auto ${auto ? 'checked' : ''}><span>Auto-refresh</span></label><button class="btn" data-refresh>${icon('shuffle')} Refresh</button></span>
@@ -573,13 +598,13 @@ async function examPage(main, cls, tid, query) {
           const left = a && a.status === 'open' ? r.deadline - now : null;
           return `<tr class="live-row row-${r.st}">
             <td><button class="link-btn stu-name" data-detail="${esc(r.p.email)}">${esc(r.p.name || r.p.email)}</button><span class="muted small block">${esc(r.p.email)}${r.p.section ? ' · ' + esc(r.p.section) : ''}${r.offRoster ? ' · not on roster' : ''}</span></td>
-            <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.label)}</span>${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
+            <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.label)}</span>${test.requireExit && a && a.status !== 'open' ? (a.exitAt ? '<span class="good small block">Exit code ✓</span>' : '<span class="bad small block"><strong>No exit code</strong></span>') : ''}${a?.reopened ? `<span class="muted small block">let back in ×${a.reopened}</span>` : ''}${earlierOf(r.p.email).length ? `<span class="muted small block">attempt ${earlierOf(r.p.email).length + 1}${a ? '' : ' allowed, not started'}</span>` : ''}</td>
             <td data-label="Started">${a ? clock(ms(a.startedAt)) : '–'}</td>
             <td data-label="Time left">${left == null ? '–' : `<span data-left="${r.deadline}">${mmss(left)}</span>`}${a?.extraMin ? `<span class="muted small block">+${a.extraMin} min extra</span>` : ''}${left != null && ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 > r.win.closesAt ? `<span class="muted small block" title="Started ${esc(String(Math.round((ms(a.startedAt) + (r.win.durationMin ?? test.durationMin) * 60000 - r.win.closesAt) / 60000)))} min too late for the full time">ends at closing time ${hmm(r.win.closesAt)}</span>` : ''}</td>
             <td data-label="Last saved">${a ? clock(r.beat) : '–'}</td>
             <td data-label="Answered">${a ? `${r.answeredN} of ${(test.questions || []).length}` : '–'}</td>
             <td data-label="Exits">${r.exits?.length ? `<span class="bad">${Number(test.warnings) > 0 ? `${r.warns} of ${test.warnings} warnings` : r.exits.length}</span> <span class="muted small">${esc(EXIT_LABEL[r.exits[r.exits.length - 1].type] || '')}${r.awaySec ? ` · away ${r.awaySec}s in all` : ''}</span>` : a ? '0' : '–'}</td>
-            <td data-label="Device">${a?.device ? `${esc(a.device.browser)} · ${esc(a.device.os)}${a.device.seb ? ' ✓' : ''}` : '–'}</td>
+            <td data-label="Device">${a?.device ? `${esc(a.device.browser)} · ${esc(a.device.os)}${a.device.seb ? ' ✓' : ''}${a.device.machine === 'vm' ? ' <span class="bad small block">Virtual machine</span>' : (a.device.hints || []).length ? ` <span class="dev-hint small block" title="Signs that fit a virtual machine or remote control, and some real computers too. Worth a look in the room.">Check this device: ${esc(a.device.hints.join(', '))}</span>` : a.device.machine === 'software' ? ' <span class="muted small block">No graphics chip (check)</span>' : ''}` : '–'}${(a?.events || []).some((e) => FLAGS.includes(e.type)) ? `<span class="bad small block">${esc([...new Set(a.events.filter((e) => FLAGS.includes(e.type)).map((e) => EXIT_LABEL[e.type]))].join('; '))}</span>` : ''}</td>
             <td class="row-actions">${a ? `${['ended', 'lost', 'timeup'].includes(r.st) ? `<button class="btn small" data-reopen="${esc(a.id)}">Let back in</button>` : ''}${r.st === 'submitted' && lead ? `<button class="btn small" data-newattempt="${esc(a.id)}">New attempt</button>` : ''}${r.st === 'working' || r.st === 'lost' ? `<button class="btn small" data-addtime="${esc(a.id)}">+ Time</button><button class="btn small danger-outline" data-endnow="${esc(a.id)}">End</button>` : ''}` : ''}</td>
           </tr>`;
         }).join('') || `<tr><td colspan="9" class="muted">No students match.</td></tr>`}</tbody>
@@ -623,7 +648,7 @@ async function examPage(main, cls, tid, query) {
         <thead><tr><th scope="col">Student</th><th scope="col">Status</th><th scope="col">Score</th>${qs.map((q, i) => `<th scope="col" title="${esc(q.label)}">${i + 1}<span class="muted small block">${esc(String(q.label).slice(0, 10))}</span></th>`).join('')}</tr></thead>
         <tbody>${rows.sort((x, y) => String(x.p.name || '').localeCompare(String(y.p.name || ''))).map((r) => { const gr = r.a && g.get(r.a.uid); return `<tr>
           <th scope="row">${esc(r.p.name || r.p.email)}<span class="muted small block">${esc(r.p.section || '')}</span></th>
-          <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span></td>
+          <td data-label="Status"><span class="live-pill lv-${r.st}">${esc(r.st === 'none' ? 'Absent' : r.label)}</span>${test.requireExit && r.a && r.a.status !== 'open' && !r.a.exitAt ? '<span class="bad small block"><strong>No exit code</strong></span>' : ''}</td>
           <td data-label="Score">${gr ? `<strong>${r1(gr.total)}</strong> <span class="muted small">/ ${r1(gr.max)}</span>` : '–'}</td>
           ${qs.map((q) => { const p = gr?.perQ?.[q.id]; return `<td data-label="${esc(q.label)}">${gr ? `<button class="cell-btn ${p?.pts == null ? 'need' : p.pts >= q.points ? 'full' : p.pts > 0 ? 'part' : 'zero'}" data-cell="${esc(r.a.uid)}|${esc(q.id)}">${p?.pts == null ? 'Grade' : r1(p.pts)}</button>` : ''}</td>`; }).join('')}
         </tr>`; }).join('')}</tbody>
@@ -783,10 +808,10 @@ async function examPage(main, cls, tid, query) {
     const qs = test.questions || [];
     const g = new Map(grades.map((x) => [x.uid, x]));
     const cell = (v) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-    const lines = [['Name', 'Email', 'RedID', 'Section', 'Status', 'Score', 'Out of', 'Percent', 'Exits', ...qs.map((q, i) => `Q${i + 1} ${q.label}`)].map(cell).join(',')];
+    const lines = [['Name', 'Email', 'RedID', 'Section', 'Status', 'Exit code', 'Score', 'Out of', 'Percent', 'Exits', ...qs.map((q, i) => `Q${i + 1} ${q.label}`)].map(cell).join(',')];
     for (const r of rowsNow()) {
       const gr = r.a && g.get(r.a.uid);
-      lines.push([r.p.name, r.p.email, r.p.redId || '', r.p.section || '', r.st === 'none' ? 'Absent' : r.label, gr?.total ?? '', test.totalPoints, gr ? Math.round((gr.total / (test.totalPoints || 1)) * 1000) / 10 : '', r.exits?.length ?? '', ...qs.map((q) => gr?.perQ?.[q.id]?.pts ?? '')].map(cell).join(','));
+      lines.push([r.p.name, r.p.email, r.p.redId || '', r.p.section || '', r.st === 'none' ? 'Absent' : r.label, !test.requireExit || !r.a ? '' : r.a.exitAt ? 'yes' : 'NO', gr?.total ?? '', test.totalPoints, gr ? Math.round((gr.total / (test.totalPoints || 1)) * 1000) / 10 : '', r.exits?.length ?? '', ...qs.map((q) => gr?.perQ?.[q.id]?.pts ?? '')].map(cell).join(','));
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv' }));
@@ -841,7 +866,7 @@ async function examPage(main, cls, tid, query) {
         <label class="field inline"><span>Extra minutes</span><input type="number" min="0" max="300" value="${Math.max(0, Math.ceil((cloud.trueNow() - attemptDeadline({ ...test, ...win }, a)) / 60000) + 5) || 0}" data-add></label>`,
       actions: [{ label: 'Cancel' }, { label: 'Let back in', kind: 'primary', onClick: (close) => {
         const add = Math.max(0, Math.round(Number(m.el.querySelector('[data-add]').value) || 0));
-        cloud.staffAttempt(cls.id, aid, { status: 'open', session: '', endedReason: '', submittedAt: null, extraMin: (Number(a.extraMin) || 0) + add, reopened: (a.reopened || 0) + 1, events: [...(a.events || []), { t: cloud.trueNow(), type: 'reopened', by: cloud.currentUser()?.email || '', add }] }, { now: true })
+        cloud.staffAttempt(cls.id, aid, { status: 'open', session: '', endedReason: '', submittedAt: null, exitCode: null, exitAt: null, extraMin: (Number(a.extraMin) || 0) + add, reopened: (a.reopened || 0) + 1, events: [...(a.events || []), { t: cloud.trueNow(), type: 'reopened', by: cloud.currentUser()?.email || '', add }] }, { now: true })
           .then(() => { toast(`${a.name || a.email} can sign in and continue`, 'good'); refresh(); }).catch((e) => toast("Couldn't: " + (e?.message || e), 'bad'));
         close(); return true;
       } }],
@@ -960,12 +985,19 @@ async function examPage(main, cls, tid, query) {
     }
     if (b.dataset.lf) { filter = filter === b.dataset.lf ? 'all' : b.dataset.lf; paint(); return; }
     if ('refresh' in b.dataset) { b.disabled = true; await refresh(); return; }
+    if ('showexit' in b.dataset) { showCodeBig(codes.exit, '', 'Exit code', 'Finished? Type this exit code on your screen, then you may leave.'); return; }
+    if ('exiton' in b.dataset || 'exitnew' in b.dataset || 'exitoff' in b.dataset) {
+      const exit = 'exitoff' in b.dataset ? '' : newAccessCode();
+      try { await cloud.setExitCode(cls.id, tid, exit); codes = { ...codes, exit }; test = { ...test, requireExit: !!exit }; paint(); toast(exit ? `Exit code: ${exit}` : 'Exit code turned off', 'good'); }
+      catch (e) { toast("Couldn't change the exit code. Check your connection; if it keeps failing, publish the latest firestore.rules.", 'bad'); }
+      return;
+    }
     if ('showcode' in b.dataset) { const sec = b.dataset.showcode; showCodeBig(sec ? codes.sections[sec] || accessCode : accessCode, sec ? `section ${sec}` : ''); return; }
     if ('newaccess' in b.dataset) {
       const ok = await confirmDialog({ title: 'Make a new access code?', body: '<p>The old code stops working straight away. Students who have already started keep going; anyone who hasn\'t started yet needs the new code.</p><p class="muted small">Useful if the code may have been shared outside the room.</p>', confirm: 'New code' });
       if (!ok) return;
       const code = newAccessCode(), sec = b.dataset.newaccess;
-      const next = sec ? { code: accessCode, sections: { ...codes.sections, [sec]: code } } : { code, sections: { ...codes.sections } };
+      const next = sec ? { code: accessCode, sections: { ...codes.sections, [sec]: code }, exit: codes.exit } : { code, sections: { ...codes.sections }, exit: codes.exit };
       try { await cloud.setAccessCodes(cls.id, tid, next); codes = next; accessCode = next.code; paint(); toast(`New access code${sec ? ` for section ${sec}` : ''}: ${code}`, 'good'); }
       catch (e) { toast("Couldn't change the code: " + (e?.code === 'permission-denied' ? 'publish the latest firestore.rules.' : e?.message || e), 'bad'); }
       return;

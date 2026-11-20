@@ -2,6 +2,7 @@
 // Only accounts listed in firestore.rules can read this data; everyone else gets "not allowed".
 import { getManifest, getAssignments, getExam } from '../data.js';
 import * as cloud from '../cloud.js';
+import { isStaffFrame } from '../stshell.js';
 import { esc, icon, meter, toneFor, plural, toast, confirmDialog, modal } from '../ui.js';
 import { fmtDate } from '../engine.js';
 import { REASON_LABEL } from '../report.js';
@@ -74,7 +75,7 @@ export async function render(main, params = {}, query = {}) {
           <h1 data-class-name>${esc(cls().name)}</h1>
         </div>
         <div class="dash-pickers">
-          <label class="field"><span>Class</span><select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
+          <label class="field" ${isStaffFrame() ? 'hidden' : ''}><span>Class</span><select data-class>${classes.map((c) => `<option value="${esc(c.id)}" ${c.id === classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           <label class="field"><span>Practice exam</span><select data-exam></select></label>
           <a class="btn" data-content-link href="#/content/${encodeURIComponent(classId)}">${icon('book')} Practice</a>
           ${cloud.isAdmin() ? `<a class="btn" data-build-link href="#/build/${encodeURIComponent(classId)}">${icon('sparkle')} Build my course <span class="tag">Preview</span></a>` : ''}
@@ -110,15 +111,14 @@ export async function render(main, params = {}, query = {}) {
   async function load() {
     body.innerHTML = '<p class="muted loading-line">Loading student data…</p>';
     try {
-      if (!examId) { body.innerHTML = '<div class="empty-state"><h2>This class has no exams yet</h2></div>'; return; }
       let sums, marks;
-      [sums, roster, asgList, reports, marks] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), getAssignments(examId).catch(() => []), cloud.classReports(classId).catch(() => []), cloud.classSignIns(classId).catch(() => [])]);
+      [sums, roster, asgList, reports, marks] = await Promise.all([cloud.classSummaries(classId), cloud.getRoster(classId), examId ? getAssignments(examId).catch(() => []) : [], cloud.classReports(classId).catch(() => []), cloud.classSignIns(classId).catch(() => [])]);
       // admins can also see every account that has ever signed in (covers sign-ins from before these records existed)
       const users = cloud.isAdmin() ? await cloud.listUsersCached().catch(() => null) : null;
       grades = null; await loadGrades();
       reports = reports.filter((x) => x.examId === examId).sort((a, b) => b.createdAt - a.createdAt);
       anns = await cloud.listAnnouncements(classId, { fresh: true }).catch(() => []);
-      examData = await getExam(examId).catch(() => null);
+      examData = examId ? await getExam(examId).catch(() => null) : null;
       allSums = sums;
       sums = sums.filter((x) => x.examId === examId);
       const students = roster.filter((p) => !p.role || p.role === 'student');
@@ -405,6 +405,7 @@ export async function render(main, params = {}, query = {}) {
   }
   function panel() {
     const none = '<p class="muted dash-empty">Nobody has started this exam yet. This fills in once students begin practising.</p>';
+    if (!examId && ['progress', 'questions'].includes(tab)) return `<div class="empty-state"><h2>No practice sets yet</h2><p>Class progress and question insights fill in once this class has practice sets. Students, graded work and announcements work already.</p><p><a class="btn" href="#/content/${encodeURIComponent(classId)}">${icon('book')} Add practice</a></p></div>`;
     if (tab === 'progress') return `<p class="dash-intro">How far the class is with <strong>${esc(allExams.find((e) => e.id === examId)?.title || 'this exam')}</strong>${section ? ` in ${esc(section)}` : ''}.</p>` + overview() + sectionCompare() + (started().length ? assignments() : none);
     if (tab === 'questions') return `<p class="dash-intro">What the class finds hard, and questions students reported as wrong or unclear.</p><div data-reports>${reportsSection()}</div>` + (started().length ? missedSection() + topics() : none);
     if (tab === 'scores') return '<div data-scores><p class="muted loading-line">Loading…</p></div>';

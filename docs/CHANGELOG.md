@@ -13,6 +13,45 @@ One entry for every upload to the live site, newest first. Each entry says what 
 - **Today › Coming up:** a space now separates the title from the course ("Midterm 2 CS150", not "Midterm 2CS150").
 - **Tested:** rendered at 2560 × 1267, 2196 × 1270, 1440 × 900 and 390 × 844 with no sideways scroll or script errors.
 
+## 20 November 2026 (exam day): exam integrity, exit code, two sittings, question picking, coding screen, admin access
+
+Built for Midterm 3 (Friday sitting at 11:15 AM, then each section's regular day). Two parts need **the new `firestore.rules` published** before they work for students: the exit code and the two-sittings rule.
+
+- **Can't start until the device is ready:** a second screen, a virtual machine, a writing or AI helper on the page (Grammarly, LanguageTool, QuillBot, Monica, Sider and others), a phone (when not allowed) or a missing Safe Exam Browser stops the start. Each is checked when the page opens, on "Check again", when a screen is plugged in, and again at the moment Start is pressed. The message tells students how to fix it (for helpers: a private window, where add-ons are off).
+- **During the exam (reported, never ends it):** a helper appearing, a second screen being connected, or code dropped into the editor. Each shows in the live view's Device column and in the student's timeline.
+- **Possible virtual machines are flagged for the professor:** weaker signs that fit a VM or a remote-controlled browser are shown in the live view's Device column as "Check this device: …". They never block a student, because each also fits some real computers. The signs: a browser driven by a program, no graphics chip, 2 or fewer processor cores, 2 GB or less memory, a typical VM screen size (800 × 600, 1024 × 768, 1152 × 864). A clear VM graphics name still blocks the start.
+- **Code can only be typed:** the exam's code editor refuses any change that adds more than 3 letters or symbols at once (a paste that got through, an AI helper, a script). Undo, redo, Alt+arrow line moves, copying a line (Shift+Alt+arrow), auto-indent, closing brackets and Reset still work. Grammarly, LanguageTool, spell-check and writing suggestions are turned off on every exam input.
+- **Exit code:** on the Live tab, the professor turns on "Ask for an exit code after finishing" and shows it on the projector near the end. After submitting (or when time runs out, or the exam ends), the student types it, up to 30 minutes after the exam closes for them (or 30 minutes after they finished, if that is later). Their answers count either way. If their submission never reached the server, they're told to tell the professor instead of "wrong code". Anyone without it is marked **No exit code** in red in Live, in Results and in the CSV, so a leaked access code alone isn't enough. The code is staff-only; the security rules check it. "Let back in" clears it, so the student enters it again after finishing.
+- **Two sittings:** in an exam's Settings › Rules, "Two sittings?" picks the other sitting. A student who started that one can't start this one; the screen tells them their earlier sitting is the one that counts. The security rules check it too.
+- **Rolling over between the two sittings:**
+  - On the regular exam, students who took the Friday sitting show as "Took Midterm 3 (Friday)", not "Not started" or "Absent", with their own filter card.
+  - On the Friday exam, once it closes, students who didn't take it show as "Rolled over to <the regular exam>", not "Didn't take it".
+  - Students who took Friday no longer see the regular sitting on their class page or Today.
+  - Students who missed Friday are told, on the Friday exam's page, that they take it at their section's time.
+- **Pick the questions on the paper:** the exam editor has a Give tick box for each question. Upload 10, tick 3. Only ticked questions reach students and count in the total; unticked ones stay in the staff-only answer key for later. Locked once anyone has started.
+- **Coding exam screen:**
+  - The question list folds to a slim strip of numbers.
+  - "Hide problem" gives the code the whole width.
+  - The line between problem and code can be dragged (or moved with the arrow keys).
+  - The code box resizes from its bottom corner.
+  - The code side scrolls on its own, and Run brings the output and any errors into view.
+  - These choices are remembered on the device.
+- **Admins:** with the new bar on, an admin sees every class under "All classes", with Build and Class settings in each.
+- **Professor pages:** a class with no practice sets now still opens Students, Graded work and Announcements (it used to show only "This class has no exams yet"). Graded work in the bar opens the class's graded-work list. The class picker hides when the bar shows the classes.
+- **Fixed before release:** an error that would have stopped every exam's start page ("Cannot access 'checksHtml' before initialization"), found in the browser test.
+- **Tested:**
+  - Automated: 78 tests (3 new: virtual-machine names, typed versus dropped-in code, event names) and the architecture check pass.
+  - In the browser: a student with Grammarly and a second screen can't start (even when Start is forced); typing works and a tool's insert is refused; a wrong exit code is refused and the right one accepted; ticking 4 of 5 questions saves 4 with the 5th in the key; the two-sittings choice and the exit-code setting survive a save; fold, drag, hide and Run work; admin and professor pages render in the new bar.
+  - Reviewed independently: no blockers. Fixed from the review:
+    - "Check again" now clears a second screen once it's unplugged.
+    - Copying a line is allowed.
+    - The exit-code window runs to the exam's close.
+    - A submission that didn't arrive gets its own message.
+    - The graphics check runs once.
+    - Saving an exam keeps its exit-code setting.
+    - Changing the access code offline can't wipe the exit code.
+  - Known limit: Grammarly and LanguageTool may mark every page while installed, so students who have them should open the exam in a private window (the message says so).
+
 ## 20 November 2026: the new bar for professors and admins, as a trial (off by default)
 
 - **Settings › Navigation (trial):** professors, TAs and admins can tick "Try the new left bar". It's saved in that browser only and is off until ticked, so nobody's screens change on upload. Unticking it brings the old top bar back.

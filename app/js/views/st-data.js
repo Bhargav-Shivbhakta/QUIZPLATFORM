@@ -52,10 +52,17 @@ async function load(cls) {
   if (!tasks.length && openCoding) tasks.push({ key: 'code', title: `${openCoding.started ? 'Keep going with' : 'Start'} ${openCoding.title}`, why: `${openCoding.done} of ${openCoding.total} coding assignments done.`, minutes: 20, href: `#/exam/${encodeURIComponent(openCoding.id)}`, done: false });
 
   // graded work for this student's section, and exam dates the professor set on practice sets
-  const graded = Object.entries(doc?.timed || {}).map(([id, t]) => forSection({ id, ...t }, cls.section ?? ''))
+  let graded = Object.entries(doc?.timed || {}).map(([id, t]) => forSection({ id, ...t }, cls.section ?? ''))
     .filter((t) => t && t.status === 'published' && !t.disabled && t.opensAt)
     .map((t) => ({ classId: cls.id, id: t.id, title: t.title, at: Number(t.opensAt), until: Number(t.closesAt) || 0, kind: kindOf(t), kindLabel: KINDS[kindOf(t)].label, released: !!t.released, minutes: t.durationMin, requireCode: !!t.requireCode, href: `#/take/${encodeURIComponent(cls.id)}/${encodeURIComponent(t.id)}` }))
     .sort((a, b) => a.at - b.at);
+  // two sittings: a student who started the other sitting doesn't see this one at all
+  const linked = Object.entries(doc?.timed || {}).filter(([, t]) => t.notIfTook);
+  if (linked.length) {
+    const took = await Promise.all(linked.map(([id, t]) => cloud.myAttempt(cls.id, t.notIfTook).then((x) => (x ? id : null)).catch(() => null)));
+    const skip = new Set(took.filter(Boolean));
+    graded = graded.filter((g) => !skip.has(g.id));
+  }
   const dates = Object.entries(cls.examDates || doc?.examDates || {}).map(([eid, d]) => ({ classId: cls.id, title: (byId.get(eid)?.title || 'Exam').replace(/\s*practice\s*$/i, ''), at: new Date(`${d}T00:00:00`).getTime(), kind: 'date' })).filter((x) => !Number.isNaN(x.at));
 
   // readiness for the class: questions weigh each set, as on My study

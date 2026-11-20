@@ -1002,7 +1002,7 @@ const tdoc = (classId, kind, id) => fb.doc(fb.db, 'classes', classId, kind, id);
 const toTs = (v) => (v == null ? null : fb.Timestamp.fromMillis(typeof v === 'number' ? v : Date.parse(v)));
 const plainMs = (v) => (v == null ? null : typeof v === 'number' ? v : typeof v.toMillis === 'function' ? v.toMillis() : Date.parse(v));
 const plainWindows = (w) => (w && Object.keys(w).length ? Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { ...sectionRules(v), opensAt: plainMs(v.opensAt), closesAt: plainMs(v.closesAt) }])) : null);
-const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', requireCode: !!t.requireCode, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, disabled: !!t.disabled, released: !!t.released, requireSEB: !!t.requireSEB, allowPhones: !!t.allowPhones, points: t.totalPoints || 0 });
+const timedSummary = (t) => ({ title: t.title, kind: t.kind || 'exam', requireCode: !!t.requireCode, opensAt: plainMs(t.opensAt), closesAt: plainMs(t.closesAt), windows: plainWindows(t.windows), durationMin: t.durationMin, status: t.status, disabled: !!t.disabled, released: !!t.released, requireSEB: !!t.requireSEB, allowPhones: !!t.allowPhones, requireExit: !!t.requireExit, ...(t.notIfTook ? { notIfTook: String(t.notIfTook) } : {}), points: t.totalPoints || 0 });
 
 export async function listTimed(classId) {
   await load();
@@ -1035,6 +1035,9 @@ export async function saveTimed(classId, tid, test, key, extra = null) {
   if (clean.windows) data.windows = Object.fromEntries(Object.entries(clean.windows).map(([k, v]) => [k, { ...sectionRules(v), opensAt: toTs(v.opensAt), closesAt: toTs(v.closesAt) }]));
   else delete data.windows;
   if (!data.createdAt) { data.createdAt = Date.now(); data.createdBy = user.email.toLowerCase(); }
+  // the exit code is switched on the Live tab: keep what's stored, not what an editor opened earlier saw
+  const prev = await getTimed(classId, tid).catch(() => null);
+  data.requireExit = !!prev?.requireExit;
   const b = fb.writeBatch(fb.db);
   b.set(tdoc(classId, 'tests', tid), data);
   if (key) b.set(tdoc(classId, 'testKeys', tid), JSON.parse(JSON.stringify({ tid, ...key })));
@@ -1073,12 +1076,35 @@ export async function getAccessCodes(classId, tid) {
   await load();
   const snap = await fb.getDoc(tdoc(classId, 'testCodes', tid));
   const d = snap.exists() ? snap.data() : {};
-  return { code: String(d.code || ''), sections: { ...(d.sections || {}) } };
+  return { code: String(d.code || ''), sections: { ...(d.sections || {}) }, exit: String(d.exit || '') };
 }
 export async function getAccessCode(classId, tid) { return (await getAccessCodes(classId, tid)).code; }
-export async function setAccessCodes(classId, tid, { code = '', sections = {} }) {
+export async function setAccessCodes(classId, tid, { code = '', sections = {}, exit }) {
   await load();
-  await fb.setDoc(tdoc(classId, 'testCodes', tid), { code: String(code), sections: { ...sections }, updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+  if (exit === undefined) exit = (await getAccessCodes(classId, tid)).exit; // keep the exit code (fails rather than wiping it)
+  await fb.setDoc(tdoc(classId, 'testCodes', tid), { code: String(code), sections: { ...sections }, exit: String(exit || ''), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() });
+}
+// The exit code students type after they finish, to show they finished in the room ('' turns it off).
+// The code is staff only (testCodes); the exam and its summary only say whether one is asked for.
+export async function setExitCode(classId, tid, exit) {
+  await load();
+  const t = await getTimed(classId, tid);
+  const b = fb.writeBatch(fb.db);
+  b.set(tdoc(classId, 'testCodes', tid), { exit: String(exit || ''), updatedAt: Date.now(), updatedBy: user.email.toLowerCase() }, { merge: true });
+  b.set(tdoc(classId, 'tests', tid), { requireExit: !!exit }, { merge: true });
+  b.set(fb.doc(fb.db, 'classes', classId), { timed: { [tid]: timedSummary({ ...t, requireExit: !!exit }) }, updatedAt: Date.now() }, { merge: true });
+  await b.commit();
+}
+// A student types the exit code after finishing (the security rules check it against the staff-only copy)
+export async function submitExitCode(classId, attemptId, code) {
+  await load();
+  try { await fb.updateDoc(tdoc(classId, 'attempts', attemptId), { exitCode: String(code), exitAt: fb.serverTimestamp() }); }
+  catch (e) {
+    if (e?.code !== 'permission-denied') throw new Error('offline');
+    // still open on the server: the submission itself never arrived, so the code isn't the problem
+    const snap = await fb.getDoc(tdoc(classId, 'attempts', attemptId)).catch(() => null);
+    throw new Error(snap?.exists() && snap.data().status === 'open' ? 'not-submitted' : 'wrong-code');
+  }
 }
 export async function deleteTimed(classId, tid) {
   await load();

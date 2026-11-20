@@ -1023,6 +1023,25 @@ console.log('\nMock exams');
   test('the buddy hops once a day', () => { assert.equal(T.hopDue('2026-11-17', '2026-11-18'), true); assert.equal(T.hopDue('2026-11-18', '2026-11-18'), false); });
 }
 {
+  console.log('\nExam integrity');
+  const X = await import('../app/js/timed.js');
+  test('virtual machines and software drawing are told apart from real graphics chips', () => {
+    for (const r of ['VMware SVGA 3D', 'ANGLE (VMware, Inc., VMware SVGA 3D, D3D11)', 'VirtualBox Graphics Adapter', 'Parallels Display Adapter (WDDM)', 'Apple Paravirtual device', 'virgl', 'QEMU']) assert.equal(X.gpuKind(r), 'vm', r);
+    for (const r of ['Google SwiftShader', 'llvmpipe (LLVM 15.0.7, 256 bits)', 'Microsoft Basic Render Driver']) assert.equal(X.gpuKind(r), 'software', r);
+    for (const r of ['Apple M2', 'ANGLE (Intel, Intel(R) Iris(R) Xe Graphics, D3D11)', 'NVIDIA GeForce RTX 3060', 'AMD Radeon Pro 5500M', '']) assert.equal(X.gpuKind(r), 'ok', r);
+  });
+  test('weaker VM signs are listed for the professor, ordinary laptops show none', () => {
+    assert.deepEqual(X.vmHints({ cores: 8, memory: 8, width: 1470, height: 956, gpu: 'ok' }), []);
+    assert.deepEqual(X.vmHints({ cores: 2, memory: 2, width: 1024, height: 768, gpu: 'software', webdriver: true }), ['browser driven by a program', 'no graphics chip', '2 processor cores', '2 GB memory', 'screen 1024 × 768']);
+    assert.deepEqual(X.vmHints({ width: 1024, height: 768, touch: 5 }), []);
+  });
+  test('typing adds a few letters at a time; a paste or a tool adds many (spaces do not count)', () => {
+    assert.equal(X.insertedChars('a'), 1); assert.equal(X.insertedChars('()'), 2); assert.equal(X.insertedChars('\n        '), 0);
+    assert.ok(X.insertedChars('return a % 10 == b % 10;') > X.MAX_TYPED);
+  });
+  test('integrity events have plain names for the professor', () => { for (const k of ['helper-detected', 'insert-blocked', 'second-screen']) assert.ok(X.EXIT_LABEL[k]); });
+}
+{
   console.log('\nNavigation (the student frame)');
   const N = await import('../app/js/navmap.js');
   test('class badges use the course number, so two CS classes differ', () => {

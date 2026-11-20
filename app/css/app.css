@@ -2599,9 +2599,31 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
 
 /* ---- exam coding questions: problem on the left, code on the right (like LeetCode) */
 .exam-q > .exam-split { max-width: none; }
-.exam-split { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(400px, 1.3fr); gap: 1.5rem; align-items: start; }
+.exam-split { display: grid; grid-template-columns: var(--split, 42%) 14px minmax(0, 1fr); gap: 0 .6rem; align-items: start; }
 .exam-problem { min-width: 0; }
 .exam-work { min-width: 0; position: sticky; top: 0; z-index: 3; }
+/* laptops: problem and code each scroll on their own, so the Run output and errors are always reachable */
+@media (min-width: 1101px) {
+  .exam-q.is-code { overflow: hidden; display: flex; flex-direction: column; padding: 1rem 1.25rem 0; }
+  .exam-q.is-code > .exam-split { flex: 1; min-height: 0; align-items: stretch; }
+  .exam-q.is-code .exam-problem, .exam-q.is-code .exam-work { overflow-y: auto; min-height: 0; padding-bottom: 1.5rem; position: relative; }
+  .exam-q.is-code .exam-code .editor-wrap.cm-host { height: var(--edh, max(300px, calc(100vh - 330px))); resize: vertical; overflow: hidden; min-height: 160px; }
+  .exam-shell.problem-hidden .exam-split { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .exam-q.is-code .exam-code .editor-head { position: sticky; top: 0; z-index: 5; background: var(--surface); }
+  .exam-shell.problem-hidden .exam-problem, .exam-shell.problem-hidden .exam-gutter { display: none; }
+}
+/* the line between problem and code: drag it, or focus it and use the arrow keys */
+.exam-gutter { position: relative; z-index: 4; align-self: stretch; cursor: col-resize; touch-action: none; border-radius: 6px; }
+.exam-gutter::after { content: ''; position: absolute; top: 0; bottom: 0; left: 6px; width: 2px; border-radius: 2px; background: var(--line); }
+.exam-gutter:hover::after, .exam-gutter:focus-visible::after { background: var(--accent); width: 3px; }
+/* the question list folds to a slim strip of numbers */
+.exam-fold { display: grid; place-items: center; width: 32px; height: 32px; margin: 0 0 .6rem auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); cursor: pointer; position: relative; z-index: 3; }
+.exam-fold .icon { width: 16px; height: 16px; }
+.exam-body.nav-slim { grid-template-columns: 64px 1fr; }
+.exam-body.nav-slim .exam-nav { padding: .7rem .5rem; }
+.exam-body.nav-slim .exam-nav ol { grid-template-columns: 1fr; }
+.exam-body.nav-slim .exam-fold { margin: 0 auto .6rem; }
+.exam-body.nav-slim .exam-legend { display: none; }
 .exam-sh { font-size: 1rem; margin: 1.1rem 0 .4rem; }
 .exam-example { margin: 0 0 .7rem; }
 .exam-example pre { background: var(--surface-2); padding: .5rem .7rem; border-radius: 8px; white-space: pre-wrap; margin: .2rem 0 0; }
@@ -2609,6 +2631,7 @@ textarea.exam-input { min-height: 220px; resize: vertical; }
 .exam-code .editor-wrap.cm-host { border-radius: 0 0 10px 10px; max-height: none; height: max(300px, calc(100vh / var(--z, 1) - 400px)); }
 @media (max-width: 1100px) {
   .exam-split { grid-template-columns: 1fr; }
+  .exam-gutter, [data-fold-problem] { display: none; }
   .exam-work { position: static; }
   .exam-code .editor-wrap.cm-host { height: max(300px, 55vh); }
 }
@@ -2820,3 +2843,9 @@ textarea.mono { font-family: var(--mono); font-size: .92rem; width: 100%; }
 .req-track .field:nth-child(2) { flex: 1 1 280px; }
 .req-track .row { flex: 1 0 100%; align-items: center; gap: .75rem; }
 .req-empty { margin-top: 1.25rem; }
+/* exam editor: questions left off this paper */
+.timed-qtable tr.q-off td:not(:first-child) { opacity: .45; }
+.timed-qtable caption { text-align: left; padding: 0 0 .5rem; }
+.timed-qtable th:nth-child(-n+2), .timed-qtable td:nth-child(-n+2) { width: 3.5rem; }
+.live-pill.lv-other, .live-pill.lv-rolled { background: var(--surface-2); color: var(--ink-2); border-color: var(--line); }
+.dev-hint { color: var(--flag); font-weight: 600; }

@@ -6,6 +6,17 @@ For each issue: what happened, where (screen and steps), the cause once known, a
 
 ## Open
 
+### I-16. What the exam page can't see (exam integrity limits)
+
+- **What:** the exam blocks a second screen, a virtual machine and writing or AI helpers before the start, and refuses code dropped into the editor. A web page can't see everything, though:
+  - **Second screen:** Safari and Firefox don't report one, so only Chrome and Edge catch it.
+  - **Virtual machines:** spotted from the graphics chip's name (blocks). Weaker signs (cores, memory, screen size, no graphics chip, a program driving the browser) are flagged to the professor. A well-disguised VM, or remote-control software, can still pass.
+  - **AI apps outside the browser:** overlays that don't take focus (for example "invisible" interview helpers), a phone, or a second computer can't be seen.
+  - **Typing tools:** a script that types one key at a time looks like typing.
+  - **Helper add-ons:** they're found by the parts they add to the page. A new or unknown add-on may not be on the list yet.
+- **What covers it:** the person in the room, the exit code (a code passed outside the room isn't enough), and Safe Exam Browser. SEB refuses virtual machines and has no add-ons; it's the strongest option for high-stakes exams.
+- **Next:** offer "Require Safe Exam Browser" by default for exams, with a one-page setup guide for students, sent a week ahead.
+
 ### I-15. Question styles shown on the landing page that the app doesn't have yet
 
 - **What:** the Subjects screen shows question styles a visitor can try that educators can't make yet: naming the part of a diagram an arrow points to (biology, images from the educator's notes), and choosing a marked point on a graph (chemistry's titration curve). (The chemistry balancing buttons were replaced by the titration question on 19 November.)

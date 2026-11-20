@@ -170,6 +170,45 @@ export function deviceInfo(ua = '', touch = 0, width = 0) {
   return { os, browser, phone, seb: /SEB\//.test(ua) };
 }
 
+// ---- Exam integrity (pure parts; the browser checks are in integrity.js)
+// What the graphics chip's name says about the computer: 'vm' (a virtual machine or remote desktop),
+// 'software' (drawn without a graphics chip, common in VMs but also when acceleration is off) or 'ok'.
+export function gpuKind(renderer = '') {
+  const r = String(renderer).toLowerCase();
+  if (/vmware|virtualbox|vbox|parallels|qemu|virgl|virtio|hyper-v|red hat|bochs|paravirtual|citrix|remote ?display|\bxen\b|\bkvm\b/.test(r)) return 'vm';
+  if (/swiftshader|llvmpipe|softpipe|microsoft basic render|software/.test(r)) return 'software';
+  return 'ok';
+}
+// Weaker signs of a virtual machine or a remote-controlled browser. Each alone fits some real computers too,
+// so they are only shown to the professor (never block): [plain sign, ...]. d: what the browser reports.
+export function vmHints(d = {}) {
+  const out = [];
+  if (d.webdriver) out.push('browser driven by a program');
+  if (d.gpu === 'software') out.push('no graphics chip');
+  if (d.cores && d.cores <= 2) out.push(`${d.cores} processor core${d.cores > 1 ? 's' : ''}`);
+  if (d.memory && d.memory <= 2) out.push(`${d.memory} GB memory`);
+  const s = `${d.width}x${d.height}`;
+  if (!d.touch && ['800x600', '1024x768', '1152x864'].includes(s)) out.push(`screen ${d.width} × ${d.height}`);
+  return out;
+}
+// Writing and AI helpers that put their own parts into the page: [what to look for, name shown to people].
+// tag: an element name; attr: an attribute on <html> or <body>; any: an element matching a CSS selector.
+export const HELPERS = [
+  ['tag:grammarly-desktop-integration', 'Grammarly'], ['tag:grammarly-extension', 'Grammarly'], ['tag:grammarly-popups', 'Grammarly'],
+  ['attr:data-gr-ext-installed', 'Grammarly'], ['attr:data-new-gr-c-s-check-loaded', 'Grammarly'], ['any:[data-grammarly-part],[data-grammarly-shadow-root]', 'Grammarly'],
+  ['attr:data-lt-installed', 'LanguageTool'], ['tag:lt-toolbar', 'LanguageTool'], ['tag:lt-mirror', 'LanguageTool'], ['tag:lt-highlighter', 'LanguageTool'],
+  ['tag:quillbot-extension-portal', 'QuillBot'], ['any:[id^="quillbot"],[class^="quillbot"]', 'QuillBot'],
+  ['any:[id^="monica-"],[class^="monica-"],monica-shadow-host', 'Monica'], ['any:[id^="sider-"],sider-quick-compose,[class^="sider-"]', 'Sider'],
+  ['any:[id^="merlin"],[class^="merlin-"]', 'Merlin'], ['any:[id^="maxai"],[class^="maxai"]', 'MaxAI'], ['any:[id^="harpa"],harpa-shadow-host', 'HARPA'],
+  ['any:[id*="copilot" i][id*="ext" i]', 'an AI helper'],
+];
+// A browser add-on's own files and frames start with one of these
+export const EXTENSION_URL = /^(chrome|moz|safari-web|ms-browser|edge)-extension:/i;
+// Letters and symbols in a piece of inserted text (spaces and new lines don't count): typing adds one or
+// two at a time (two when a bracket closes itself); a tool or a paste drops in many at once.
+export const insertedChars = (text) => String(text || '').replace(/\s+/g, '').length;
+export const MAX_TYPED = 3;
+
 // Plain-language name for an exit reason
 export const EXIT_LABEL = {
   'tab-hidden': 'Switched tab, app or desktop',
@@ -184,4 +223,7 @@ export const EXIT_LABEL = {
   'professor-ended': 'Ended by the professor',
   'time-up': 'Time ran out',
   'submitted': 'Submitted',
+  'helper-detected': 'A writing or AI helper appeared on the page',
+  'insert-blocked': 'Code was dropped in by a tool or paste (blocked)',
+  'second-screen': 'A second screen was connected',
 };

@@ -12,6 +12,7 @@ import {
   closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap, snippetCompletion,
   searchKeymap, highlightSelectionMatches, java, tags as t,
 } from '../../vendor/codemirror.js';
+import { MAX_TYPED } from '../timed.js';
 
 // colours come from CSS classes (light and dark themes in app.css)
 const javaHighlight = HighlightStyle.define([
@@ -111,7 +112,22 @@ const look = EditorView.theme({
   '.cm-panels': { backgroundColor: 'var(--surface-2)', color: 'var(--ink)' },
 });
 
-export function createCodeEditor(parent, { doc = '', exam = false, label = 'Java code', onChange, onRun, onTest } = {}) {
+// Exams: code may only be typed. A change that drops in more than a few letters at once (a paste that got
+// through, a writing or AI helper, a script) is refused, except undo/redo and our own changes (Reset).
+// Spaces and new lines don't count, so auto-indent and Tab still work.
+let ours = false; // true only while our own code changes the text (Reset, setValue)
+const typedOnly = (onBlocked) => EditorState.transactionFilter.of((tr) => {
+  if (!tr.docChanged || ours || tr.isUserEvent('undo') || tr.isUserEvent('redo') || tr.isUserEvent('move') || tr.isUserEvent('input.copyline')) return tr; // move: Alt+arrow moves a line
+  let n = 0;
+  tr.changes.iterChanges((fa, ta, fb, tb, text) => { n = Math.max(n, text.toString().replace(/\s+/g, '').length); });
+  if (n <= MAX_TYPED) return tr;
+  onBlocked?.(n);
+  return [];
+});
+// Writing helpers (Grammarly, LanguageTool) and the browser's own spelling and writing suggestions: off.
+const NO_HELPERS = { 'data-gramm': 'false', 'data-gramm_editor': 'false', 'data-enable-grammarly': 'false', 'data-lt-active': 'false', writingsuggestions: 'false', translate: 'no', autocomplete: 'off' };
+
+export function createCodeEditor(parent, { doc = '', exam = false, label = 'Java code', onChange, onRun, onTest, onBlocked } = {}) {
   const shortcuts = [];
   if (onTest) shortcuts.push({ key: 'Mod-Enter', run: () => { onTest(); return true; } });
   if (onRun) shortcuts.push({ key: 'Shift-Mod-Enter', run: () => { onRun(); return true; } });
@@ -120,11 +136,12 @@ export function createCodeEditor(parent, { doc = '', exam = false, label = 'Java
     drawSelection(), dropCursor(), rectangularSelection(), indentOnInput(), bracketMatching(), closeBrackets(),
     EditorState.tabSize.of(4), indentUnit.of('    '), java(), syntaxHighlighting(javaHighlight), look, EditorView.lineWrapping,
     errorField, errLines, errGutter,
-    EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': label, autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'data-editor': '' }),
+    EditorView.contentAttributes.of({ tabindex: '0', 'aria-label': label, autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false', 'data-editor': '', ...(exam ? NO_HELPERS : {}) }),
     keymap.of([...shortcuts, ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab,
       ...(exam ? [] : [...searchKeymap, ...completionKeymap])]),
     EditorView.updateListener.of((u) => { if (u.docChanged) onChange?.(u.state.doc.toString()); }),
   ];
+  if (exam) extensions.push(typedOnly(onBlocked));
   if (!exam) extensions.push(highlightSelectionMatches(), autocompletion({ override: [javaCompletions], icons: false, activateOnTyping: !matchMedia('(pointer: coarse)').matches }));
   const view = new EditorView({ state: EditorState.create({ doc, extensions }), parent });
   const lineStart = (n) => view.state.doc.line(Math.max(1, Math.min(view.state.doc.lines, n))).from;
@@ -132,7 +149,8 @@ export function createCodeEditor(parent, { doc = '', exam = false, label = 'Java
     view,
     getValue: () => view.state.doc.toString(),
     setValue(text) {
-      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+      ours = true;
+      try { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); } finally { ours = false; }
     },
     setErrorLines(lines) { view.dispatch({ effects: setErrors.of([...(lines || [])]) }); },
     focus: () => view.focus(),

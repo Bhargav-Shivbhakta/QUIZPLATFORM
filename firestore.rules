@@ -94,7 +94,26 @@ service cloud.firestore {
         && examOpened(classId, t)
         && beforeClose(classId, t, 0, 0)
         && ((!exists(ex) && d.extraMin == 0) || (exists(ex) && d.extraMin == get(ex).data.minutes))
-        && (!needCode(classId, t) || codeOk(classId, d.tid, d));
+        && (!needCode(classId, t) || codeOk(classId, d.tid, d))
+        && notTakenElsewhere(classId, t);
+    }
+    // Two sittings of one exam (an optional day for everyone, then each section's own day): a sitting can
+    // name the other (notIfTook), and a student who started that one can't start this one.
+    function notTakenElsewhere(classId, t) {
+      return t.get('notIfTook', '') == ''
+        || !exists(/databases/$(database)/documents/classes/$(classId)/attempts/$(t.notIfTook + '_' + request.auth.uid));
+    }
+    // The exit code: after finishing, a student types the code shown in the room (once, until 30 minutes
+    // after the exam closes for them, or 30 minutes after they finished if that is later). It only adds exitCode and exitAt; it must match the staff-only copy in testCodes.
+    function exitOk(classId, old, d) {
+      let codes = get(/databases/$(database)/documents/classes/$(classId)/testCodes/$(old.tid)).data;
+      return old.status in ['submitted', 'ended']
+        && old.get('exitAt', null) == null
+        && d.diff(old).affectedKeys().hasOnly(['exitCode', 'exitAt'])
+        && d.exitAt == request.time
+        && (request.time <= old.submittedAt + duration.value(30, 'm') || beforeClose(classId, testOf(classId, old.tid), int(old.extraMin), 1800))
+        && codes.get('exit', '') != ''
+        && d.exitCode == codes.exit;
     }
     // Saves must come from the device that started (or, after the professor lets the student back in,
     // the device that takes over), at least every 5 minutes, and before the time is up (30 s grace).
@@ -230,6 +249,8 @@ service cloud.firestore {
         allow create: if enrolledIn(classId) && startOk(classId, attemptId, request.resource.data);
         // saving and submitting: only from the same device, only while the attempt is open and in time
         allow update: if enrolledIn(classId) && resource.data.uid == request.auth.uid && saveOk(classId, resource.data, request.resource.data);
+        // the exit code, after finishing
+        allow update: if enrolledIn(classId) && resource.data.uid == request.auth.uid && exitOk(classId, resource.data, request.resource.data);
         // the professor: let a student back in, add time, end an attempt
         allow update: if isAdmin() || teaches(classId);
         allow delete: if isAdmin() || leads(classId);

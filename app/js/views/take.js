@@ -14,6 +14,8 @@ import { normalizeOutput } from '../java/index.js';
 import { setNavGuard } from '../nav.js';
 import { ms, studentView, answered, examPhase, attemptDeadline, deviceInfo, forSection, KINDS, kindOf, AI_NOTICE, AI_NOTICE_LINES, normCode, QTYPE_LABEL, EXIT_LABEL } from '../timed.js';
 import { dateTime as when, time as hm } from '../format.js';
+import { navToggle, problemToggle, gutter, bindLayout, showOutput } from './take-layout.js';
+import { deviceNow, deviceChecks, blocked, checksList, watchExam, insertReporter, needsExit, exitBox, bindExit } from './take-guard.js';
 
 const SAVE_EVERY = 120000;       // a save (with answers) every 2 minutes
 const pad = (n) => String(n).padStart(2, '0');
@@ -52,6 +54,11 @@ export async function render(main, { classId, tid }, query = {}) {
     const mine = await cloud.myAttempt(classId, tid).catch(() => null);
     if (!mine) { page(`<p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(allSum.title)}</h1><div class="lock-note">${icon('lock')}<div><h2>This ${W} is turned off</h2><p>Your professor has turned it off for now, so it can't be started. Check back later or ask your professor.</p></div></div><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
   }
+  // two sittings: someone who started the other sitting can't take this one (the security rules check it too)
+  if (sum.notIfTook && !preview && !(await cloud.myAttempt(classId, tid).catch(() => null)) && (await cloud.myAttempt(classId, sum.notIfTook).catch(() => null))) {
+    page(`<p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(allSum.title)}</h1><div class="lock-note">${icon('check')}<div><h2>You already took this ${W}</h2><p>You took it at the other sitting (${esc(cls.timed?.[sum.notIfTook]?.title || 'the earlier one')}), so this one isn't for you. Your answers from that sitting are the ones that count.</p></div></div><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
+    return;
+  }
   const phase = preview ? 'open' : examPhase({ ...sum, opensAt: sum.opensAt, closesAt: sum.closesAt }, cloud.trueNow());
   if (phase === 'upcoming') return upcoming();
 
@@ -79,7 +86,8 @@ export async function render(main, { classId, tid }, query = {}) {
       <p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`);
     return;
   }
-  if (phase === 'closed') { page(`<h1>${esc(test.title)}</h1><p>This ${W} closed ${when(ms(test.closesAt))}. You didn't start it.</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
+  const later = Object.values(cls.timed || {}).find((x) => x.notIfTook === tid); // two sittings: the one they roll over to
+  if (phase === 'closed') { page(`<h1>${esc(test.title)}</h1><p>This ${W} closed ${when(ms(test.closesAt))}. You didn't start it.${later ? ` You'll take it at your section's time instead: <strong>${esc(later.title)}</strong>, on your class page.` : ''}</p><p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`); return; }
   return preStart({ resume: false });
 
   // ------------------------------------------------ screens before / after
@@ -96,16 +104,8 @@ export async function render(main, { classId, tid }, query = {}) {
     el.textContent = mmss(sum.opensAt - cloud.trueNow());
     return () => clearInterval(iv);
   }
-  function checksHtml(t) {
-    const items = [];
-    if (t.requireSEB) items.push(dev.seb ? ['good', 'Safe Exam Browser: ready'] : ['bad', 'This exam must be taken in <strong>Safe Exam Browser</strong>. Install it free from <a href="https://safeexambrowser.org/download_en.html" target="_blank" rel="noopener">safeexambrowser.org</a> and open the exam from it, as your professor explains.']);
-    if (!t.allowPhones && dev.phone) items.push(['bad', 'Phones can\'t be used for this exam. Use a laptop, desktop or iPad.']);
-    if (dev.extended) items.push(['bad', 'A <strong>second screen</strong> is connected. Disconnect it before you start.']);
-    if (!t.requireSEB && !document.fullscreenEnabled && !document.webkitFullscreenEnabled) items.push(['warn', 'This browser can\'t go full screen. Chrome, Edge, Firefox or Safari on a computer work best.']);
-    if (!items.some((x) => x[0] !== 'good')) items.push(['good', 'This device is ready.']);
-    return `<ul class="dev-checks">${items.map(([k, h]) => `<li class="${k}">${icon(k === 'good' ? 'check' : 'x')}<span>${h}</span></li>`).join('')}</ul>`;
-  }
-  function blockers(t) { return (t.requireSEB && !dev.seb) || (!t.allowPhones && dev.phone) || dev.extended; }
+  function checksHtml(t) { return checksList(deviceChecks(t, deviceNow(dev)), preview); }
+  function blockers(t) { return blocked(deviceChecks(t, deviceNow(dev))); }
 
   function preStart({ resume }) {
     const close = ms(test.closesAt);
@@ -139,13 +139,22 @@ export async function render(main, { classId, tid }, query = {}) {
       <label class="check take-agree"><input type="checkbox" data-agree><span>I understand the rules above${Number(test.warnings) > 0 ? ' (warnings, then the ' + W + ' ends)' : `. Leaving the ${W} ends it`}, and I'm the only one taking it.</span></label>
       <div class="row take-start"><a class="btn" href="#/class/${encodeURIComponent(classId)}">Not now</a><button class="btn primary big" data-start disabled>${icon('play')} ${resume ? `Continue the ${W}` : `Start the ${W}`}</button></div>`);
     const btn = main.querySelector('[data-start]');
-    const can = !blockers(test) || preview;
+    let can = !blockers(test) || preview;
     const codeIn = main.querySelector('[data-code]');
     const ready = () => { btn.disabled = !(main.querySelector('[data-agree]').checked && can && (!codeIn || normCode(codeIn.value).length >= 4 || preview)); };
+    // the device is checked again on Check again, when a screen is plugged in or out, and at Start
+    const recheck = () => { const box = main.querySelector('[data-checks]'); if (!box) return; box.nextElementSibling?.matches('p') && box.nextElementSibling.querySelector('[data-recheck]') && box.nextElementSibling.remove(); box.outerHTML = checksHtml(test); can = !blockers(test) || preview; ready(); };
+    main.addEventListener('click', (e) => { if (e.target.closest('[data-recheck]')) recheck(); });
+    const scr = typeof screen !== 'undefined' && screen.addEventListener ? screen : null;
+    scr?.addEventListener('change', recheck);
+    cleanupFns.push(() => scr?.removeEventListener('change', recheck));
     main.querySelector('[data-agree]').addEventListener('change', ready);
     codeIn?.addEventListener('input', () => { main.querySelector('[data-code-err]').textContent = ''; ready(); });
     codeIn?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !btn.disabled) btn.click(); });
-    btn.addEventListener('click', () => begin(resume, codeIn ? normCode(codeIn.value) : ''));
+    btn.addEventListener('click', () => {
+      if (!preview && blockers(test)) { recheck(); toast(`This device isn't ready for the ${W}. Fix what's marked in red, then try again.`, 'bad'); return; }
+      begin(resume, codeIn ? normCode(codeIn.value) : '');
+    });
   }
 
   async function endOnServer(a, reason) {
@@ -161,8 +170,13 @@ export async function render(main, { classId, tid }, query = {}) {
     const reason = a.endedReason;
     const grade = sum.released ? await cloud.myTestGrade(classId, tid) : null;
     const left = a.status === 'ended';
+    // the professor may have turned the exit code on after this page loaded: look at the class once more
+    const fresh = !preview && a.status !== 'open' && !a.exitAt ? (await cloud.getClass(classId).catch(() => null))?.timed?.[tid] : null;
+    const exitT = { requireExit: !!(fresh?.requireExit ?? (test || sum)?.requireExit) };
+    const askExit = needsExit(exitT, a, preview) && (!a.submittedAt || cloud.trueNow() - ms(a.submittedAt) < 30 * 60000 || cloud.trueNow() < ms(sum.closesAt) + ((Number(a.extraMin) || 0) + 30) * 60000);
     page(`
       <p class="eyebrow">${esc(cls.name)} ${kindTag}</p><h1>${esc(t.title)}</h1>
+      ${askExit ? exitBox(W) : exitT.requireExit && a.exitAt ? `<p class="good small">${icon('check')} Exit code accepted.</p>` : ''}
       <div class="lock-note ${left ? 'bad' : 'good'}">${icon(left ? 'lock' : 'check')}<div>
         <h2>${left ? `Your ${W} has ended` : `Your ${W} was submitted`}</h2>
         <p>${left ? `It ended because: <strong>${esc(EXIT_LABEL[reason] || reason || 'you left the exam')}</strong>. The answers you had saved were submitted.` : reason === 'time-up' ? 'Time ran out, so it was submitted for you.' : 'Thanks. Your answers are in.'}${a.submittedAt ? ` (${when(ms(a.submittedAt))})` : ''}</p>
@@ -172,6 +186,7 @@ export async function render(main, { classId, tid }, query = {}) {
         ${test?.releaseDetail !== false && test?.questions?.length ? `<ol class="score-list">${test.questions.map((q) => { const p = grade.perQ?.[q.id]; return `<li><span>${esc(q.label)} <span class="muted small">${QTYPE_LABEL[q.type]}</span></span><strong>${p?.pts == null ? '–' : r1(p.pts)} / ${r1(q.points)}</strong></li>`; }).join('')}</ol>` : ''}</div>`
         : `<p class="muted">${sum.released ? 'Your score isn\'t ready yet.' : 'Your professor will release scores later. They\'ll show here.'}</p>`}
       ${dev.seb ? `<p><a class="btn primary big" href="/seb-quit.html">${icon('check')} Quit Safe Exam Browser</a></p><p class="muted small">This closes Safe Exam Browser and gives you your computer back.</p>` : `<p><a class="btn" href="#/class/${encodeURIComponent(classId)}">Back to the class</a></p>`}`);
+    if (askExit) bindExit(main, { norm: normCode, submit: (code) => cloud.submitExitCode(classId, a.id || `${tid}_${me.uid}`, code), done: () => finishedScreen({ ...a, exitAt: Date.now() }) });
   }
 
   // ------------------------------------------------ the exam
@@ -186,7 +201,8 @@ export async function render(main, { classId, tid }, query = {}) {
     }
     let offset = 0;
     const session = newSession();
-    const device = { browser: dev.browser, os: dev.os, seb: dev.seb, screen: dev.screen };
+    const now = deviceNow(dev);
+    const device = { browser: dev.browser, os: dev.os, seb: dev.seb, screen: dev.screen, machine: now.machine, hints: now.hints, gpu: now.gpu, extended: now.extended };
     if (!preview) {
       try {
         if (resume) {
@@ -229,6 +245,7 @@ export async function render(main, { classId, tid }, query = {}) {
     let answers = { ...(attempt.answers || {}), ...((local && local.at > ms(attempt.beatAt || 0)) ? local.answers : {}) };
     let flags = new Set(JSON.parse(lsGet('flags:' + attempt.id) || '[]'));
     let events = [...(attempt.events || [])];
+    let afterDraw = () => {};
     let idx = 0, finished = false, lastSave = serverNow(), saving = false, saveError = '', warned = new Set(), editor = null;
     let deadline = attemptDeadline({ ...test, closesAt: ms(test.closesAt) }, attempt);
     const name = me?.displayName || me?.email || 'Preview';
@@ -236,7 +253,7 @@ export async function render(main, { classId, tid }, query = {}) {
     const aiOn = test.aiNotice !== false;
     document.body.classList.add('exam-locked');
     main.innerHTML = `
-      <div class="exam-shell" data-shell>
+      <div class="exam-shell" data-shell translate="no">
         <div class="exam-watermark" aria-hidden="true" data-wm></div>
         ${aiOn ? '<div class="exam-watermark ai" aria-hidden="true" data-wm-ai></div>' : ''}
         <header class="exam-bar">
@@ -246,7 +263,7 @@ export async function render(main, { classId, tid }, query = {}) {
           <button class="btn primary" data-submit>${icon('check')} Submit ${W}</button>
         </header>
         <div class="exam-body">
-          <nav class="exam-nav" aria-label="Questions"><ol data-nav></ol><p class="muted small exam-legend"><span class="dot a"></span> answered <span class="dot f"></span> flagged</p></nav>
+          <nav class="exam-nav" aria-label="Questions">${navToggle()}<ol data-nav></ol><p class="muted small exam-legend"><span class="dot a"></span> answered <span class="dot f"></span> flagged</p></nav>
           <section class="exam-q" data-q tabindex="-1" aria-label="Question"></section>
         </div>
         <p class="sr-only" aria-live="assertive" data-alert></p>
@@ -274,18 +291,18 @@ export async function render(main, { classId, tid }, query = {}) {
           <label class="exam-opt"><input type="${multi ? 'checkbox' : 'radio'}" name="opt" value="${oi}" ${multi ? ((v || []).includes(oi) ? 'checked' : '') : v === oi ? 'checked' : ''}><span>${md(q.options[oi], { inline: true })}</span></label>`).join('')}</fieldset>
           ${!multi && v != null ? '<button class="link-btn small" data-clear>Clear my answer</button>' : ''}`;
       } else if (q.type === 'numeric' || q.type === 'text') {
-        input = `<label class="field"><span>Your answer</span><input class="exam-input" data-text value="${esc(v ?? '')}" ${q.type === 'numeric' ? 'inputmode="decimal"' : ''} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></label>`;
+        input = `<label class="field"><span>Your answer</span><input class="exam-input" data-text value="${esc(v ?? '')}" ${q.type === 'numeric' ? 'inputmode="decimal"' : ''} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" data-lt-active="false" writingsuggestions="false"></label>`;
       } else if (q.type === 'long') {
-        input = `<label class="field"><span>Your answer</span><textarea class="exam-input" data-text rows="10" spellcheck="false">${esc(v ?? '')}</textarea></label>`;
+        input = `<label class="field"><span>Your answer</span><textarea class="exam-input" data-text rows="10" spellcheck="false" autocomplete="off" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" data-lt-active="false" writingsuggestions="false">${esc(v ?? '')}</textarea></label>`;
       } else if (q.type === 'code') {
         input = `
           <div class="exam-code">
-            <div class="editor-head"><span class="file-tab">${icon('note')} ${esc((q.cls || 'Main') + '.java')}</span><span class="spacer"></span>
+            <div class="editor-head"><span class="file-tab">${icon('note')} ${esc((q.cls || 'Main') + '.java')}</span><span class="spacer"></span>${problemToggle()}
               <span class="tool-group" role="group" aria-label="Code text size"><button class="tool" data-size="-1" title="Smaller code text" aria-label="Smaller code text">A−</button><button class="tool" data-size="1" title="Bigger code text" aria-label="Bigger code text">A+</button></span>
               <button class="tool" data-reset-code title="Start over from the starter code">${icon('shuffle')}<span>Reset</span></button></div>
             <div class="editor-wrap cm-host" data-cm></div>
             <div class="exam-run">
-              <label class="field"><span>Input for Run <span class="muted">(what your program reads)</span></span><textarea data-input rows="2" spellcheck="false"></textarea></label>
+              <label class="field"><span>Input for Run <span class="muted">(what your program reads)</span></span><textarea data-input rows="2" spellcheck="false" autocomplete="off" data-gramm="false" data-gramm_editor="false" data-enable-grammarly="false" data-lt-active="false" writingsuggestions="false"></textarea></label>
               <div class="row"><button class="btn primary" data-run>${icon('play')} Run</button>${q.samples?.length ? `<button class="btn" data-samples>${icon('check')} Run the ${plural(q.samples.length, 'sample test')}</button>` : ''}</div>
               <pre class="exam-out" data-out aria-live="polite"></pre>
             </div>
@@ -300,7 +317,7 @@ export async function render(main, { classId, tid }, query = {}) {
             <div class="exam-text">${md(q.text)}</div>
             ${q.samples?.length ? `<h3 class="exam-sh">Examples</h3>${q.samples.map((s, k) => `<div class="exam-example"><p class="small"><strong>Example ${k + 1}</strong></p><div class="grid2"><div><p class="small muted">Input</p><pre>${esc(s.input || '(none)')}</pre></div><div><p class="small muted">Expected output</p><pre>${esc(s.output)}</pre></div></div></div>`).join('')}` : ''}
             <div class="row between exam-move"><button class="btn" data-prev ${i === 0 ? 'disabled' : ''}>${icon('left')} Previous</button><button class="btn" data-next ${i === qs.length - 1 ? 'disabled' : ''}>Next ${icon('right')}</button></div>
-          </div>
+          </div>${gutter()}
           <div class="exam-work">${input}</div>
         </div>`;
       return `
@@ -318,14 +335,24 @@ export async function render(main, { classId, tid }, query = {}) {
       $('[data-nav]').innerHTML = navHtml();
       const q = qs[idx];
       $('[data-q]').innerHTML = qHtml(q, idx);
+      $('[data-q]').classList.toggle('is-code', q.type === 'code');
       highlight($('[data-q] .exam-text'));
       if (q.type === 'code') {
         codeSize();
-        editor = createCodeEditor($('[data-cm]'), { doc: answers[q.id] ?? q.starter ?? '', exam: true, label: `Java code for ${q.label}`, onChange: (c) => { answers[q.id] = c; changed(false); } });
+        afterDraw();
+        editor = createCodeEditor($('[data-cm]'), { doc: answers[q.id] ?? q.starter ?? '', exam: true, label: `Java code for ${q.label}`, onBlocked, onChange: (c) => { answers[q.id] = c; changed(false); } });
       }
       $('[data-q]').focus({ preventScroll: true });
       $('[data-q]').scrollTop = 0;
     }
+    // integrity reports for the professor (never end the exam): helpers, a second screen, inserted code
+    function flag(type, detail) {
+      if (finished) return;
+      events.push({ t: serverNow(), type, ...(detail ? { detail } : {}) });
+      save(); lastSave = 0;
+    }
+    const onBlocked = insertReporter(flag, (m) => notice(m));
+    if (!preview) cleanupFns.push(watchExam(flag));
     function changed(redrawNav = true) {
       lsSet('ans:' + attempt.id, JSON.stringify({ at: serverNow(), answers }));
       if (redrawNav) $('[data-nav]').innerHTML = navHtml();
@@ -517,6 +544,7 @@ export async function render(main, { classId, tid }, query = {}) {
 
     // ---- answering
     const shell = $('[data-shell]');
+    afterDraw = bindLayout(shell, { onResize: () => editor?.view.requestMeasure() });
     shell.addEventListener('change', (e) => {
       const q = qs[idx];
       if (e.target.name === 'opt') {
@@ -551,7 +579,7 @@ export async function render(main, { classId, tid }, query = {}) {
             out.textContent = r.compileErrors ? 'Your code does not compile yet. Click Run to see the errors (their lines are marked in red).' : r.killed ? 'Stopped: it ran too long (infinite loop?).' : r.results.map((x) => `${x.passed ? '✓' : '✗'} sample ${x.name}${x.passed ? '' : `\n  expected:\n${normalizeOutput(x.expected)}\n  yours:\n${normalizeOutput(x.actual)}`}`).join('\n');
           }
         } catch (err) { out.textContent = 'The runner had a problem: ' + (err?.message || err); }
-        b.disabled = false;
+        b.disabled = false; showOutput(out);
         return;
       }
       if ('submit' in b.dataset) {
