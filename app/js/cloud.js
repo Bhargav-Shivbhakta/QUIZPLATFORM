@@ -47,6 +47,8 @@ let user = null;
 let admin = false;
 let enrollment = {};         // classId -> { name, course, term, exams, role, section }
 let authError = '';
+let accessProblem = ''; // why the classes couldn't be loaded (loadAccess); '' when they were
+export const accessError = () => accessProblem;
 let readyResolve;
 const ready = new Promise((r) => (readyResolve = r));
 const dirtyExams = new Set();
@@ -225,9 +227,19 @@ async function loadAccess() {
   ]);
   admin = a.status === 'fulfilled';
   enrollment = e.status === 'fulfilled' && e.value.exists() ? e.value.data().classes || {} : {};
-  if (e.status === 'rejected' && e.reason?.code !== 'permission-denied') {
-    authError = "Couldn't check your class enrollment. Check your internet connection and reload the page.";
-  }
+  // A read that failed for any reason but "not allowed" (the daily database allowance used up, no
+  // connection) says nothing about the roster: say what went wrong instead of "not on a roster".
+  // Reading your own enrollment is always allowed (even when it doesn't exist), so any refusal there is
+  // a problem with the database or the connection, never with the roster.
+  const failed = e.status === 'rejected' ? e : [a].find((r) => r.status === 'rejected' && r.reason?.code !== 'permission-denied');
+  const code = failed ? String(failed.reason?.code || failed.reason?.message || 'unknown').slice(0, 80) : '';
+  accessProblem = !failed ? '' : code === 'resource-exhausted'
+    ? `Cramming has used today's free database allowance, so it can't load your classes right now. It comes back after midnight, Pacific time. Your progress is safe. (Code: ${code})`
+    : code === 'permission-denied'
+    ? `The database refused to let this account read its own classes. This is a database setting, not your roster. (Code: ${code})`
+    : `Couldn't reach the database to check your classes. Check your internet connection and try again. (Code: ${code})`;
+  if (failed) console.error('Cramming: loading classes failed', failed.reason);
+  if (failed) authError = accessProblem;
   await loadClassContent();
 }
 

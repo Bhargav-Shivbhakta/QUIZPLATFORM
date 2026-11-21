@@ -25,7 +25,7 @@ export async function render(main, params = {}) {
 
   if (!classes.length) {
     if (cloud.isAdmin()) return adminHome(main, manifest);
-    return notEnrolled(main);
+    return notEnrolled(main, cloud.accessError());
   }
   const cls = params.classId ? classes.find((c) => c.id === params.classId) : classes.length === 1 ? classes[0] : null;
   if (params.classId && !cls) {
@@ -149,9 +149,16 @@ function timedCards(cls, timed, teacher) {
   </section>`;
 }
 
-function notEnrolled(main) {
+// problem: why the classes couldn't be loaded (cloud.accessError); then the roster may be fine
+function notEnrolled(main, problem = '') {
   const u = cloud.currentUser();
-  main.innerHTML = `
+  main.innerHTML = problem ? `
+    <section class="page narrow empty-state not-enrolled">
+      <h1>Your classes couldn't load</h1>
+      <p>${esc(problem)}</p>
+      <p>You're signed in as <strong>${esc(u.email)}</strong>.</p>
+      <div class="row center"><button class="btn" data-signout>Sign out</button><button class="btn primary" data-recheck>Try again</button></div>
+    </section>` : `
     <section class="page narrow empty-state not-enrolled">
       <h1>You're not on a class roster yet</h1>
       <p>You're signed in as <strong>${esc(u.email)}</strong>, but this account isn't on the roster of any class here.</p>
@@ -164,7 +171,8 @@ function notEnrolled(main) {
     btn.disabled = true;
     try { await cloud.refreshAccess(); } catch (e) { console.error(e); }
     if (cloud.isEnrolled()) { window.dispatchEvent(new HashChangeEvent('hashchange')); return; }
-    if (!cloud.isEnrolled()) { btn.disabled = false; btn.textContent = 'Still not on a roster. Check again'; }
+    if (cloud.accessError() || problem) { notEnrolled(main, cloud.accessError()); return; }
+    btn.disabled = false; btn.textContent = 'Still not on a roster. Check again';
   };
 }
 
