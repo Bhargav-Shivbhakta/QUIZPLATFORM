@@ -2853,3 +2853,6 @@ textarea.mono { font-family: var(--mono); font-size: .92rem; width: 100%; }
 .exam-shell .exam-text, .exam-shell .exam-example pre, .exam-shell .exam-opts, .exam-shell .exam-sh, .exam-shell .exam-example p { font-size: calc(var(--q-scale, 1) * 1em); }
 .exam-qhead .q-size { display: inline-flex; gap: .3rem; margin-left: .4rem; }
 .exam-qhead > .eyebrow { margin-right: auto; }
+
+/* When the site can't load classes: the Dot resting above the message (views/classes.js, main.js) */
+.site-trouble .bd { display: block; margin: 0 auto var(--cr-space-4, 16px); }

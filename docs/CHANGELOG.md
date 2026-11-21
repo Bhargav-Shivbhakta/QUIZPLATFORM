@@ -5,7 +5,7 @@ One entry for every upload to the live site, newest first. Each entry says what 
 ## 20 November 2026: "not on a roster" when the database is out of reads
 
 - **What happened:** on 20 November every account, admins included, was told "You're not on a class roster yet". The roster was fine: the reads that load an account's classes failed (not the daily allowance: 36,000 of 50,000 reads were used), and Cramming took "couldn't read" to mean "not on a roster". The cause is still being found.
-- **Now** a failed read says what really happened: "Your classes couldn't load", with the reason and the database's error code (allowance used up, refused by the rules, or no connection) and Try again. The error also goes to the browser console. "Not on a roster" appears only when the roster really doesn't list the account.
+- **Now** a failed read shows the Dot resting and "Back in a moment", with what to do ("Cramming is taking a short break and will be back soon. Your progress is safe.") and Try again. Students are never told why (no plans, limits or error codes); the error and its code go only to the browser console. "Cramming is taking too long to open" shows the Dot too. "Not on a roster" appears only when the roster really doesn't list the account.
 - Tested: 82 tests pass; the page was checked with reads refused.
 
 ## 20 November 2026: the finished student bar, in a preview

@@ -47,8 +47,9 @@ let user = null;
 let admin = false;
 let enrollment = {};         // classId -> { name, course, term, exams, role, section }
 let authError = '';
-let accessProblem = ''; // why the classes couldn't be loaded (loadAccess); '' when they were
+let accessProblem = '', accessCode = ''; // why the classes couldn't be loaded (loadAccess); '' when they were
 export const accessError = () => accessProblem;
+export const accessErrorCode = () => accessCode;
 let readyResolve;
 const ready = new Promise((r) => (readyResolve = r));
 const dirtyExams = new Set();
@@ -233,11 +234,13 @@ async function loadAccess() {
   // a problem with the database or the connection, never with the roster.
   const failed = e.status === 'rejected' ? e : [a].find((r) => r.status === 'rejected' && r.reason?.code !== 'permission-denied');
   const code = failed ? String(failed.reason?.code || failed.reason?.message || 'unknown').slice(0, 80) : '';
-  accessProblem = !failed ? '' : code === 'resource-exhausted'
-    ? `Cramming has used today's free database allowance, so it can't load your classes right now. It comes back after midnight, Pacific time. Your progress is safe. (Code: ${code})`
-    : code === 'permission-denied'
-    ? `The database refused to let this account read its own classes. This is a database setting, not your roster. (Code: ${code})`
-    : `Couldn't reach the database to check your classes. Check your internet connection and try again. (Code: ${code})`;
+  // Words for students: what to do, never why (no plans or limits). The code is for staff.
+  accessProblem = !failed ? '' : code === 'permission-denied'
+    ? "Cramming can't open your classes right now. We're on it. Your progress is safe."
+    : code === 'resource-exhausted' || code === 'unavailable' || code === 'deadline-exceeded'
+    ? "Cramming is taking a short break and will be back soon. Your progress is safe. Try again in a little while."
+    : "Cramming can't reach your classes right now. Check your internet connection and try again. Your progress is safe.";
+  accessCode = code;
   if (failed) console.error('Cramming: loading classes failed', failed.reason);
   if (failed) authError = accessProblem;
   await loadClassContent();

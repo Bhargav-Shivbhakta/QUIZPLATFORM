@@ -14,6 +14,7 @@ import { getNavGuard, applyTheme } from './nav.js';
 import { countNew } from './requests.js';
 import { isStudentMode, frameOn, mountShell, unmountShell, setPlace } from './stshell.js';
 import { readPreviewFlag } from './navfc.js';
+import { buddy } from './buddy.js';
 
 const routes = [
   // st: the page students see in the student frame (stshell.js); everyone else gets view
@@ -220,7 +221,8 @@ window.addEventListener('requests-changed', (e) => { newRequests = e.detail; pai
 function signInStuck() {
   const ua = navigator.userAgent;
   const safari = /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox|CriOS|FxiOS/.test(ua);
-  return `<section class="page narrow">
+  return `<section class="page narrow site-trouble">
+    ${buddy('sleepy', { size: 112, cls: 'bd-idle bd-arrive' })}
     <h1>Cramming is taking too long to open</h1>
     <p>This browser's saved sign-in data seems stuck. Your work is safe in your account.</p>
     <p><strong>Quickest fix:</strong> open www.cramming.net in ${safari ? 'a <strong>private window</strong> (File, then New Private Window) or in ' : ''}<strong>Chrome, Edge or Firefox</strong>.</p>

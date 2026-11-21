@@ -4,6 +4,9 @@ Decisions that shape Cramming, newest first, each with the reason. A decision ch
 
 ## 20 November 2026
 
+- **Show first, build after.** Every change is shown to Bhargav as a mockup (how it will look and read) and talked through. Code is written only once he finalises it, so no code is written twice.
+- **The Dot rests on the trouble page.** When the site can't load classes, the Dot sleeps above "Back in a moment". Students are never told why the site is down (no plans, no limits).
+
 - **FC (Final Cramming) comes first.** FC is Cramming with every feature on the system map. Nothing is built until it passes the FC check in `FC.md`: every FC feature that touches it, every scenario, each marked covered or fixed, slots kept for later phases, then Bhargav's yes. Only then are the launch parts built.
 
 - **The Dot comes out of the app, everywhere.** Bhargav decided the study buddy and its animations distract more than they help. Today, Settings (Study buddy, the Flame) and every hop or pose go. This replaces the earlier "keep the Dot, add arms and legs" plan; its intro and poses are dropped from the system map.

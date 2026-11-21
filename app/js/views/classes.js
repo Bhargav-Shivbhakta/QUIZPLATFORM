@@ -1,5 +1,6 @@
 // Home page when sign-in is on: the classes this account is enrolled in.
 // One class goes straight to its page; several show a short list. No subject picker.
+import { buddy } from '../buddy.js';
 import config from '../../config.js';
 import { getManifest } from '../data.js';
 import * as store from '../store.js';
@@ -153,10 +154,10 @@ function timedCards(cls, timed, teacher) {
 function notEnrolled(main, problem = '') {
   const u = cloud.currentUser();
   main.innerHTML = problem ? `
-    <section class="page narrow empty-state not-enrolled">
-      <h1>Your classes couldn't load</h1>
+    <section class="page narrow empty-state not-enrolled site-trouble">
+      ${buddy('sleepy', { size: 112, cls: 'bd-idle bd-arrive' })}
+      <h1>Back in a moment</h1>
       <p>${esc(problem)}</p>
-      <p>You're signed in as <strong>${esc(u.email)}</strong>.</p>
       <div class="row center"><button class="btn" data-signout>Sign out</button><button class="btn primary" data-recheck>Try again</button></div>
     </section>` : `
     <section class="page narrow empty-state not-enrolled">
