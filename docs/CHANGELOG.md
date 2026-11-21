@@ -2,6 +2,12 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+
+## 20 November 2026: the left bar for every professor and admin
+
+- **Professors, TAs and admins now get the left bar by default,** the same frame students have: Today, the classes they teach (all classes for admins), Admin for site admins, and each class's sections. It was a trial, off unless switched on in Settings; the Settings switch "Try the new left bar" is gone. Every screen inside works as before, and exams and the live view stay full screen.
+- Tested: 82 tests pass; checked as a professor at 1440 px.
+
 ## 20 November 2026: "not on a roster" when the database is out of reads
 
 - **What happened:** on 20 November every account, admins included, was told "You're not on a class roster yet". The roster was fine: the reads that load an account's classes failed (not the daily allowance: 36,000 of 50,000 reads were used), and Cramming took "couldn't read" to mean "not on a roster". The cause is still being found.

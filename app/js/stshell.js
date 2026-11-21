@@ -8,8 +8,7 @@
 // number ("CS" over "150"). Tablets always get the rail; phones get tabs at the bottom and a top bar.
 // Every FC place and section is listed in navfc.js; the ones not built yet (Inbox, Calendar, Search, Grades,
 // Q&A...) stay hidden until they ship, except in the FC preview (?fc=1), where they open their plan pages.
-// Staff and admins keep the old top bar unless they switch the new one on in Settings (a trial, off by default):
-// then the same bar holds Today, the classes they teach, Admin (site admins only) and, inside a class, its
+// Staff and admins have the same bar (it was a trial until 20 November 2026): it holds Today, the classes they teach, Admin (site admins only) and, inside a class, its
 // sections, each opening the screen that does that job today. Taking and running exams is never touched.
 import * as cloud from './cloud.js';
 import * as store from './store.js';
@@ -26,8 +25,8 @@ export function isStudentMode() {
   const mine = cloud.myClasses();
   return mine.length > 0 && !mine.some((c) => cloud.isStaffRole(c.role));
 }
-// Staff and admins who switched the new bar on (Settings › Navigation). Kept in this browser only.
-export const isStaffFrame = () => !!(cloud.enabled && cloud.currentUser() && !isStudentMode() && cloud.isInstructor() && store.get('staffFrame', false));
+// Staff and admins: everyone has the new bar since 20 November 2026 (it was a trial before).
+export const isStaffFrame = () => !!(cloud.enabled && cloud.currentUser() && !isStudentMode() && cloud.isInstructor());
 export const frameOn = () => isStudentMode() || isStaffFrame();
 export const classColor = (c) => (c?.color && /^[a-z]+$/.test(c.color) ? c.color : 'blue');
 const LOGO = logoMark('st-logo-mark');

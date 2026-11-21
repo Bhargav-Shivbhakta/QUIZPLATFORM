@@ -44,12 +44,6 @@ export async function render(main) {
           <p class="form-error bad small" data-subj-err role="alert" hidden>Keep at least one class selected.</p>
         </fieldset>
       </form>` : ''}
-      ${cloud.enabled && cloud.isInstructor() && !isStudentMode() ? `<form class="setup-form" data-staffnav>
-        <fieldset><legend>Navigation (trial)</legend>
-          <label class="check"><input type="checkbox" name="staffFrame" ${store.get('staffFrame', false) ? 'checked' : ''}><span>Try the new left bar</span></label>
-          <p class="muted small fieldset-help">The bar students have, with your classes and their sections. Every screen works as before; only the way around changes. It's saved in this browser only, so you can switch back at any time. Exams and the live view are full screen either way.</p>
-        </fieldset>
-      </form>` : ''}
       <form class="setup-form" data-prefs>
         ${isStudentMode() ? `<fieldset><legend>Study buddy</legend><div class="chip-row buddy-row">
           ${[['dot', 'The Dot'], ['flame', 'The Flame'], ['off', 'Off']].map(([v, l]) => `<label class="chip buddy-chip"><input type="radio" name="buddy" value="${v}" ${(s.buddy || 'dot') === v ? 'checked' : ''}><span>${v === 'off' ? '' : buddy('happy', { size: 26, kind: v })}${l}</span></label>`).join('')}
@@ -134,10 +128,6 @@ export async function render(main) {
     toast('Your classes are saved');
   });
 
-  main.querySelector('[data-staffnav]')?.addEventListener('change', (ev) => {
-    store.set('staffFrame', ev.target.checked);
-    if (frameOn()) { mountShell(); mountBell(); setPlace({ path: '/settings' }); } else location.reload(); // the old top bar is drawn at start-up
-  });
   main.querySelector('[data-prefs]').addEventListener('change', (ev) => {
     const f = ev.currentTarget;
     store.saveSettings({
