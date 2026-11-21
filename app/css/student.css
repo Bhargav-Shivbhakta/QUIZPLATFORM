@@ -71,6 +71,11 @@ body.st:not(.st-staff) #main .crumbs { display: none; } /* the top bar's back li
 .st-switch-h { margin: 6px 8px; font-size: 12px; font-weight: 600; color: var(--cr-ink-2); }
 .st-switch-item { display: flex; align-items: center; gap: 10px; min-height: var(--cr-tap); padding: 0 10px; border-radius: var(--cr-radius); color: var(--cr-ink); font-size: var(--cr-text-sm); text-decoration: none; }
 .st-switch-item:hover { background: var(--cr-soft-2); }
+/* each class in the switcher reads like the bar: the code on top, the full name under it (up to two lines) */
+.st-switch-item { align-items: stretch; padding-top: 8px; padding-bottom: 8px; }
+.st-switch-item .st-cstripe { height: auto; align-self: stretch; }
+.st-switch-item .st-code { font-size: var(--cr-text-sm); font-weight: 650; color: var(--cr-ink); letter-spacing: 0.01em; }
+.st-switch-item .st-lbl { white-space: normal; font-size: 13px; line-height: 1.3; color: var(--cr-ink-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .st-gap { height: var(--cr-space-3); flex: none; }
 /* the foot: you */
 .st-side-foot { flex: none; padding: var(--cr-space-2) var(--cr-space-3) var(--cr-space-4); border-top: 1px solid var(--cr-line); }

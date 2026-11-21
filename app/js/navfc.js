@@ -1,8 +1,8 @@
-// FC: the student bar when Cramming is finished (docs/NAVIGATION.md, docs/FC.md check 2). Every place,
-// section and Me item is here from the start; `ready` says whether its first feature has shipped.
-// The bar shows only ready ones (DESIGN › Navigation, rule 3: hidden until it works). The FC preview
-// (open any page with ?fc=1, turn off with ?fc=0) shows them all, so the finished bar can be seen and
-// checked now; an item that isn't ready opens its plan page (views/st-fc.js) instead of a screen.
+// FC: the bar when Cramming is finished, for students and for staff (docs/NAVIGATION.md, docs/FC.md
+// check 2). Every place, section and Me item is here from the start; `ready` says whether its first
+// feature has shipped. The bar shows only ready ones (DESIGN › Navigation, rule 3: hidden until it
+// works); reviewers (REVIEWERS below) see them all, and an item that isn't ready opens its plan page
+// (views/st-fc.js) instead of a screen.
 import * as store from './store.js';
 
 // The main list, under Today. Search sits at the top of the bar, beside the logo.
@@ -36,14 +36,58 @@ export const ME = [
   { key: 'help', label: 'Help', icon: 'help', ready: false, phase: 'Phase 4', what: 'How Cramming works, answers to common questions, and how to reach support.' },
 ];
 
-// The FC preview: on for this browser after ?fc=1, off after ?fc=0.
+// ---------- staff: professors, TAs and admins (the approved mockup, 20 November 2026) ----------
+// Keys of built items match the bar's existing ones (stshell.js), which hold their real addresses.
+export const STAFF_PLACES = [
+  { key: 'today', label: 'Today', icon: 'sun', ready: true, phase: 'Built', what: 'What needs you across your classes: grading waiting, requests, unanswered questions, the class pulse and upcoming exams.' },
+  { key: 's-inbox', label: 'Inbox', icon: 'inbox', ready: false, phase: 'Phase 2', what: 'Student messages, requests to approve (extensions, regrades) and announcements to send, in one list.', switches: ['All', 'Requests', 'Messages', 'Announcements'] },
+  { key: 's-calendar', label: 'Calendar', icon: 'calendar', ready: false, phase: 'Phase 3', what: 'Every date you set across your classes. Drag to move one; add office hours and labs.', switches: ['Month', 'Week', 'List'] },
+];
+export const STAFF_SEARCH = { key: 's-search', label: 'Search', icon: 'search', ready: false, phase: 'Phase 3', what: 'Finds any student, question, set or exam. Inside a class it searches that class. ⌘ K opens it.' };
+export const ADMIN_PLACES = [
+  { key: 'a-overview', label: 'Overview', icon: 'grid', ready: true, phase: 'Built', href: '#/overview', what: 'The school at a glance: classes, people, use and health.' },
+  { key: 'a-classes', label: 'Classes', icon: 'book', ready: true, phase: 'Built', href: '#/admin', what: 'Every class: create one, assign instructors, upload rosters.' },
+  { key: 'a-people', label: 'People', icon: 'users', ready: false, phase: 'Phase 4', what: 'Everyone, a page at a time, with search: roles, permissions, coordinators, district admins and parents.' },
+  { key: 'a-requests', label: 'Requests', icon: 'mail', ready: true, phase: 'Built', href: '#/requests', what: 'Access requests from new educators and new courses.' },
+  { key: 'a-reports', label: 'Reports', icon: 'chart', ready: false, phase: 'Phase 4', what: 'Use, health, department and school reports, and AI use.' },
+  { key: 'a-settings', label: 'School settings', icon: 'settings', ready: false, phase: 'Phase 4', what: 'School sign-in, the LMS and apps, rosters and grades from the school, the AI choice, data and security, branding.' },
+];
+// A class's sections for staff, in order. `who`: lead = the lead instructor or an admin; admin = admins only.
+export const STAFF_SECTIONS = [
+  { key: 'overview', label: 'Overview', icon: 'grid', ready: true, phase: 'Built', what: 'The class at a glance: who is working, announcements, and View as student.' },
+  { key: 'build', label: 'Build', icon: 'sparkle', ready: true, phase: 'Built', who: 'lead', what: 'The course map, materials, units, notes and questions; Build my course.' },
+  { key: 'spractice', label: 'Practice', icon: 'edit', ready: true, phase: 'Built', what: 'Practice sets and question files, and preview as a student.' },
+  { key: 'sgraded', label: 'Graded work', icon: 'graded', ready: true, phase: 'Built', what: 'Exams, quizzes and assignments: setup, access codes, accommodations and the live exam view.' },
+  { key: 'grading', label: 'Grading', icon: 'check', ready: false, phase: 'Phase 2', what: 'Grade question by question or student by student: rubrics, answer groups, comments and regrades.' },
+  { key: 'gradebook', label: 'Gradebook', icon: 'award', ready: false, phase: 'Phase 2', what: 'Every student by every assignment: weights, letter grades, late rules and export to the school.' },
+  { key: 'insights', label: 'Insights', icon: 'chart', ready: true, phase: 'Built', what: 'What to reteach, who needs help, and question statistics.' },
+  { key: 'people', label: 'People', icon: 'users', ready: true, phase: 'Built', what: 'The roster, sections, TAs and extra time; then groups.' },
+  { key: 's-qa', label: 'Q&A', icon: 'chat', ready: false, phase: 'Phase 3', what: 'Students\' questions to answer and good answers to endorse.', switches: ['Unanswered', 'All', 'Endorsed'] },
+  { key: 'liveclass', label: 'Live class', icon: 'live', ready: false, phase: 'Phase 4', what: 'Polls, word clouds, attendance and questions from the audience, shown on the projector.' },
+  { key: 'csettings', label: 'Class settings', icon: 'settings', ready: true, phase: 'Built', who: 'admin', what: 'The class\'s name, term, colour, sections and tools.' },
+];
+export const STAFF_ME = [
+  { key: 's-notifications', label: 'Notifications', icon: 'bell', ready: false, phase: 'Phase 3', what: 'Choose what you are told about (requests, questions, grading waiting), how and how often.' },
+  { key: 'settings', label: 'Settings', icon: 'settings', ready: true, href: '#/settings', what: 'How Cramming looks for you.' },
+  { key: 'teachsettings', label: 'Teaching settings', icon: 'users', ready: false, phase: 'Phase 3', what: 'Your defaults for new classes, exams and grading, your office hours and how students reach you.' },
+  { key: 's-help', label: 'Help', icon: 'help', ready: false, phase: 'Phase 4', what: 'How each part works, guides for setting up a course, and how to reach support.' },
+];
+
 // Returns true when the setting changed, so the bar can be drawn again.
 export function readPreviewFlag(query = {}) {
   if (query.fc !== '1' && query.fc !== '0') return false;
-  const on = query.fc === '1', was = !!store.get('fcPreview', false);
-  store.set('fcPreview', on);
-  return on !== was;
+  const was = preview();
+  store.set('fcPreview', query.fc === '1');
+  return preview() !== was;
 }
-export const preview = () => !!store.get('fcPreview', false);
+// Only reviewers see the finished bar (Bhargav's and Anusha's accounts, and Prof. Kraft), on by default;
+// ?fc=0 (or Turn off) hides it for them, ?fc=1 brings it back. Everyone else sees only what is built,
+// whatever the address says.
+export const REVIEWERS = ['bshivbhakta@sdsu.edu', 'bshivbhakta4143@sdsu.edu', 'pkraft@sdsu.edu', 'akarve0363@sdsu.edu', 'akarve@sdsu.edu'];
+let viewer = '';
+export const setViewer = (email) => { viewer = String(email || '').toLowerCase(); };
+export const isReviewer = () => REVIEWERS.includes(viewer);
+export const preview = () => isReviewer() && store.get('fcPreview', true) !== false; // only reviewers, ever
 export const shown = (list) => list.filter((x) => x.ready || preview());
-export const findItem = (key) => [...PLACES, SEARCH, ...SECTIONS, ...ME].find((x) => x.key === key) || null;
+// staff: look in the staff lists first (Settings exists in both)
+export const findItem = (key, staff = false) => (staff ? [...STAFF_PLACES, STAFF_SEARCH, ...ADMIN_PLACES, ...STAFF_SECTIONS, ...STAFF_ME] : [...PLACES, SEARCH, ...SECTIONS, ...ME]).find((x) => x.key === key) || null;

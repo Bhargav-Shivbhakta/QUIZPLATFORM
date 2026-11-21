@@ -204,7 +204,7 @@ One frame, the same on every page, so a student never has to look for the way ar
 
 1. **Two levels in the bar, never more:** a place, then a section. Anything deeper is a switch at the top of the page (Practice: Sets · Try again · Review · Flashcards · Practice tests).
 2. **The bar drills into a class.** The class gets the whole middle of the bar; the logo always leads back out.
-3. **Hidden until it works.** A place, section or switch appears only when its first feature ships. No "coming soon", no empty tabs. Every FC place and section is already in the code (`app/js/navfc.js`) with a `ready` flag; the FC preview (`?fc=1`) shows them all for review, with a plan page for each one not built.
+3. **Hidden until it works.** A place, section or switch appears only when its first feature ships. No "coming soon", no empty tabs. Every FC place and section is already in the code (`app/js/navfc.js`) with a `ready` flag; the reviewer accounts (`REVIEWERS` in navfc.js) see them all, with a plan page for each one not built; no one else ever does.
 4. **Focused work is full screen.** Practice sets, practice tests, exams, flashcards, the code editor, grading and the projector hide the bar: a slim bar with Exit, the name and progress.
 5. **One way up.** Every page that isn't a place or a section has exactly one back link, top left, naming where it goes. `backFor()` decides it; a new route adds a line there and a test.
 6. **The highlight shows where you are.** The place, the class and the section are marked with `aria-current="page"`.

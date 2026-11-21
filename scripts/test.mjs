@@ -1057,6 +1057,22 @@ console.log('\nMock exams');
     assert.deepEqual(F.shown(F.SECTIONS).map((x) => x.label), ['Ready', 'Learn', 'Practice', 'Graded work']);
     assert.deepEqual(F.shown(F.PLACES).map((x) => x.label), ['Today']);
   });
+  test('FC bar for staff: unique keys, planned items say when and what, non-reviewers see only built', () => {
+    const all = [...F.STAFF_PLACES, F.STAFF_SEARCH, ...F.ADMIN_PLACES, ...F.STAFF_SECTIONS, ...F.STAFF_ME];
+    assert.equal(new Set(all.map((x) => x.key)).size, all.length);
+    for (const x of all) { assert.ok(x.label && x.icon, x.key); if (!x.ready) assert.ok(/^Phase \d$/.test(x.phase) && x.what, x.key); }
+    F.setViewer('someprof@sdsu.edu');
+    assert.deepEqual(F.shown(F.STAFF_SECTIONS).map((x) => x.label), ['Overview', 'Build', 'Practice', 'Graded work', 'Insights', 'People', 'Class settings']);
+    F.setViewer('pkraft@sdsu.edu'); assert.equal(F.shown(F.STAFF_SECTIONS).length, 11);
+    F.setViewer('');
+  });
+  test('FC bar: only the reviewer accounts see the finished bar, whatever the address says', () => {
+    F.setViewer('student@sdsu.edu'); assert.equal(F.preview(), false);
+    assert.equal(F.shown(F.SECTIONS).length, 4);
+    F.setViewer('BShivbhakta@sdsu.edu'); assert.equal(F.preview(), true);
+    assert.equal(F.shown(F.SECTIONS).length, F.SECTIONS.length);
+    F.setViewer('');
+  });
   test('FC bar: every feature home in the data is a place, section, Me item or an everywhere group', () => {
     const keys = new Set([...F.PLACES, F.SEARCH, ...F.SECTIONS, ...F.ME].map((x) => x.key).concat(['question', 'tutor', 'frame', 'phone', 'me']));
     for (const k of Object.keys(FEATURES)) assert.ok(keys.has(k), k);

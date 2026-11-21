@@ -17,7 +17,7 @@ import { motionLevel } from './buddy.js';
 import { backFor, classTitle, codeParts, className } from './navmap.js';
 const nameOf = className;
 import { getManifest } from './data.js';
-import { PLACES, SEARCH, SECTIONS as FC_SECTIONS, ME, shown, preview } from './navfc.js';
+import { PLACES, SEARCH, SECTIONS as FC_SECTIONS, ME, STAFF_PLACES, STAFF_SEARCH, ADMIN_PLACES, STAFF_SECTIONS, STAFF_ME, shown, preview, setViewer } from './navfc.js';
 
 // Students only: on at least one roster, teaching none, not an admin.
 export function isStudentMode() {
@@ -37,18 +37,15 @@ const e = encodeURIComponent;
 const sectionsNow = () => shown(FC_SECTIONS).map((x) => [x.key, x.label, x.icon]);
 // Where a place or Me item goes: its screen when built, its plan page (FC preview) when not.
 const hrefOf = (x) => (x.key === 'today' ? '#/' : x.ready ? x.href : `#/fc/${x.key}`);
-// A class's sections for staff: [key, label, icon, href]. Each opens the screen that does that job today.
-const staffSections = (id) => [
-  ['overview', 'Overview', 'grid', `#/instructor?class=${e(id)}&tab=progress`],
-  ...(cloud.isAdmin() || cloud.leadsClass(id) ? [['build', 'Build', 'sparkle', `#/build/${e(id)}`]] : []),
-  ['spractice', 'Practice', 'edit', `#/content/${e(id)}`],
-  ['sgraded', 'Graded work', 'graded', `#/timed/${e(id)}`],
-  ['insights', 'Insights', 'chart', `#/instructor?class=${e(id)}&tab=scores`],
-  ['people', 'People', 'users', `#/instructor?class=${e(id)}&tab=students`],
-  ...(cloud.isAdmin() ? [['csettings', 'Class settings', 'settings', `#/admin?edit=${e(id)}`]] : []),
-];
-const ADMIN = [['a-overview', 'Platform overview', 'chart', '#/overview'], ['a-requests', 'Access requests', 'mail', '#/requests'], ['a-classes', 'Classes and rosters', 'users', '#/admin']];
+// A class's sections for staff: [key, label, icon, href], from navfc.js. A built one opens the screen
+// that does that job today; one that isn't built (reviewers only) opens its plan, inside the class.
+const staffHref = (id) => ({ overview: `#/instructor?class=${e(id)}&tab=progress`, build: `#/build/${e(id)}`, spractice: `#/content/${e(id)}`, sgraded: `#/timed/${e(id)}`, insights: `#/instructor?class=${e(id)}&tab=scores`, people: `#/instructor?class=${e(id)}&tab=students`, csettings: `#/admin?edit=${e(id)}` });
+const staffSections = (id) => shown(STAFF_SECTIONS)
+  .filter((x) => !x.who || cloud.isAdmin() || (x.who === 'lead' && cloud.leadsClass(id)))
+  .map((x) => [x.key, x.label, x.icon, x.ready ? staffHref(id)[x.key] : `#/fc/${x.key}?class=${e(id)}`]);
+const adminPlaces = () => shown(ADMIN_PLACES).map((x) => [x.key, x.label, x.icon, x.ready ? x.href : `#/fc/${x.key}`]);
 function staffSectionOf(path, query) {
+  if (path.startsWith('/fc/')) return path.slice(4);
   if (path.startsWith('/build/')) return 'build';
   if (path.startsWith('/content/')) return 'spractice';
   if (path.startsWith('/timed/')) return 'sgraded';
@@ -98,6 +95,7 @@ export function mountShell() {
   document.body.classList.add('st');
   document.body.classList.toggle('st-staff', staff);
   const { u, name, avatar } = who(), mine = myList();
+  setViewer(u.email);
   const slim = store.get('sideSlim', false), several = mine.length > 1;
   unmountShell(true);
   const me = (cls) => `<button type="button" class="st-me ${cls}" data-st-me aria-haspopup="dialog" aria-expanded="false" aria-label="You: ${esc(name)}" title="${esc(name)}"><span class="st-avatar">${avatar}</span><span class="st-lbl">${esc(name)}</span></button>`;
@@ -106,17 +104,17 @@ export function mountShell() {
     <aside class="st-side ${slim ? 'slim' : ''}" id="st-side" aria-label="Cramming">
       <button type="button" class="st-handle" data-st-slim aria-expanded="${!slim}" aria-label="${slim ? 'Open the bar' : 'Collapse the bar'}" title="${slim ? 'Open the bar' : 'Collapse the bar'} (⌘ + \\)">${icon(slim ? 'right' : 'left')}</button>
       <div class="st-side-top"><button type="button" class="st-brand" data-st-logo>${LOGO}<span>Cramming</span></button>
-        ${!staff && shown([SEARCH]).length ? `<a class="st-item st-search" href="${hrefOf(SEARCH)}" data-st="search" title="Search (⌘ K)">${icon('search')}<span class="st-lbl">Search</span><kbd class="st-kbd">⌘ K</kbd></a>` : ''}</div>
+        ${shown([staff ? STAFF_SEARCH : SEARCH]).map((x) => `<a class="st-item st-search" href="${hrefOf(x)}" data-st="${x.key}" title="Search (⌘ K)">${icon('search')}<span class="st-lbl">Search</span><kbd class="st-kbd">⌘ K</kbd></a>`).join('')}</div>
       <div class="st-slide"><div class="st-track">
         <nav class="st-pane st-pane-main" aria-label="Main">
-          ${(staff ? PLACES.slice(0, 1) : shown(PLACES)).map((x) => `<a class="st-item" href="${hrefOf(x)}" data-st="${x.key}" title="${x.label}">${icon(x.icon)}<span class="st-lbl">${x.label}</span></a>`).join('')}
+          ${shown(staff ? STAFF_PLACES : PLACES).map((x) => `<a class="st-item" href="${hrefOf(x)}" data-st="${x.key}" title="${x.label}">${icon(x.icon)}<span class="st-lbl">${x.label}</span></a>`).join('')}
           <div data-st-classes>${mine.length ? `<p class="st-label"><span>${staff ? (cloud.isAdmin() ? 'All classes' : 'Teaching') : several ? 'Your classes' : 'Your class'}</span></p>` : ''}
           ${mine.map(classRow).join('')}</div>
-          ${staff && cloud.isAdmin() ? `<p class="st-label"><span>Admin</span></p>${ADMIN.map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-st="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}` : ''}
+          ${staff && cloud.isAdmin() ? `<p class="st-label"><span>Admin</span></p>${adminPlaces().map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-st="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}` : ''}
         </nav>
         <nav class="st-pane st-pane-class" aria-label="This class" inert></nav>
       </div></div>
-      <div class="st-side-foot">${!staff && preview() ? `<div class="st-fcbar"><a href="#/fc" data-st="fc">${icon('eye')}<span class="st-lbl">FC preview</span></a><button type="button" class="st-fcoff" data-st-fcoff title="Turn the FC preview off">Turn off</button></div>` : ''}${me('st-me-side')}</div>
+      <div class="st-side-foot">${preview() ? `<div class="st-fcbar"><a href="#/fc" data-st="fc">${icon('eye')}<span class="st-lbl">FC preview</span></a><button type="button" class="st-fcoff" data-st-fcoff title="Turn the FC preview off">Turn off</button></div>` : ''}${me('st-me-side')}</div>
     </aside>
     <header class="st-top" id="st-top">
       <div class="st-top-left"><a class="st-brand st-brand-top" href="#/" aria-label="Cramming, Today">${LOGO}<span>Cramming</span></a><a class="st-back" href="#/" hidden>${icon('left')}<span></span></a></div>
@@ -126,7 +124,7 @@ export function mountShell() {
       <button type="button" class="st-scrim" data-st-close tabindex="-1" aria-label="Close"></button>
       <section class="st-medlg" role="dialog" aria-modal="true" aria-labelledby="st-me-name">
         <div class="st-menu-who"><span class="st-avatar">${avatar}</span><span><strong id="st-me-name">${esc(u.displayName || name)}</strong><span class="st-sub">${esc(u.email)}</span></span></div>
-        ${(staff ? ME.filter((x) => x.key === 'settings') : shown(ME)).map((x) => `<a class="st-menu-item" href="${hrefOf(x)}" data-st-go>${icon(x.icon)} ${x.label}</a>`).join('')}
+        ${shown(staff ? STAFF_ME : ME).map((x) => `<a class="st-menu-item" href="${hrefOf(x)}" data-st-go>${icon(x.icon)} ${x.label}</a>`).join('')}
         <button type="button" class="st-menu-item" data-st-signout>${icon('logout')} Sign out</button>
         <button type="button" class="st-btn st-btn-ghost st-sm st-me-close" data-st-close>Close</button>
       </section>
@@ -228,7 +226,7 @@ function drawClassPane(cls) {
   pane.innerHTML = `
     <button type="button" class="st-classcard cc-${classColor(cls)}" data-st-switch aria-expanded="false" ${others.length ? 'aria-controls="st-switch"' : 'disabled'} title="${esc(classTitle(cls))}${others.length ? ': switch class' : ''}">
       <span class="st-cstripe" aria-hidden="true"></span>${badge(cls)}<span class="st-lbl"><b>${esc(nameOf(cls))}</b><span class="st-sub">${esc([codeOf(cls), cls.term].filter(Boolean).join(', '))}</span></span>${others.length ? icon('chev', 'st-chev') : ''}</button>
-    ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="${classHref(c)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}</div>` : ''}
+    ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="${classHref(c)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-ctext">${codeOf(c) ? `<span class="st-code">${esc(codeOf(c))}</span>` : ''}<span class="st-lbl">${esc(nameOf(c))}</span></span></a>`).join('')}</div>` : ''}
     <span class="st-gap" aria-hidden="true"></span>
     ${(staff ? staffSections(cls.id) : sectionsNow().map(([k, l, ic]) => [k, l, ic, `#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}`])).map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
 }
@@ -286,7 +284,7 @@ export async function setPlace({ path, params = {}, query = {} }) {
   else if (path === '/classes') key = 'classes';
   else if (path === '/settings') key = 'settings';
   else if (path === '/fc') key = 'fc';
-  else if (/^\/fc\//.test(path)) key = path.slice(4);
+  else if (/^\/fc\//.test(path)) key = query.class ? '' : path.slice(4); // a class section's plan stays in the class
   const cid = params.classId || (params.id ? cloud.classForExam(params.id)?.id : null) || query.class || (staff ? query.edit : null);
   const cls = cid ? mine.find((c) => c.id === cid) : null;
   if (!key && cls) key = `class:${cid}`;

@@ -49,7 +49,7 @@ const routes = [
   { re: /^\/build\/([^/]+)\/review$/, keys: ['classId'], view: () => import('./views/build-review.js'), nav: 'instructor' },
   { re: /^\/take\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/take.js'), nav: 'home', focus: true, exam: true },
   { re: /^\/fc$/, view: () => import('./views/st-fc.js'), st: () => import('./views/st-fc.js'), nav: 'home' },
-  { re: /^\/fc\/([a-z]+)$/, keys: ['key'], view: () => import('./views/st-fc.js'), st: () => import('./views/st-fc.js'), nav: 'home' },
+  { re: /^\/fc\/([a-z-]+)$/, keys: ['key'], view: () => import('./views/st-fc.js'), st: () => import('./views/st-fc.js'), nav: 'home' },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), st: () => import('./views/st-settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
   { re: /^\/signin$/, view: () => import('./views/signin.js'), nav: '' },

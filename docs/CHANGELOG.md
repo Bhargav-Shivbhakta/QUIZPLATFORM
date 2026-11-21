@@ -3,6 +3,20 @@
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
 
+
+
+## 20 November 2026: the finished educator bar, and class names in the switcher
+
+- **The educator and admin bar now holds every FC place** (app/js/navfc.js, from the approved mockup): Search, Today, Inbox, Calendar; Teaching; Admin (Overview, Classes, People, Requests, Reports, School settings); in a class Overview, Build, Practice, Graded work, Grading, Gradebook, Insights, People, Q&A, Live class, Class settings; Me with Notifications, Settings, Teaching settings, Help. Professors see only what is built; the reviewer accounts see everything, and each unbuilt place opens its plan with every feature that will live there. The admin links are now named Overview, Classes and Requests.
+- **The class switcher** (the arrow on the class card) lists each class like the bar: the code on top, the full name under it on up to two lines.
+- Tested: 84 tests pass (one new for the staff bar); screenshots as a professor and admin at 1440 px.
+
+## 20 November 2026: the finished bar, for reviewers only
+
+- **Only five accounts see the finished bar,** automatically: bshivbhakta@sdsu.edu (admin), akarve@sdsu.edu (professor), bshivbhakta4143@sdsu.edu and akarve0363@sdsu.edu (students), and pkraft@sdsu.edu. Every unbuilt place opens its plan page for them. Every other student sees only what is built, even with ?fc=1. Places are switched on for everyone one by one as they ship.
+- Reviewers can hide it with Turn off (or ?fc=0) and bring it back with ?fc=1. The list is `REVIEWERS` in app/js/navfc.js.
+- Tested: 83 tests pass (one new: only reviewers, whatever the address says).
+
 ## 20 November 2026: the left bar for every professor and admin
 
 - **Professors, TAs and admins now get the left bar by default,** the same frame students have: Today, the classes they teach (all classes for admins), Admin for site admins, and each class's sections. It was a trial, off unless switched on in Settings; the Settings switch "Try the new left bar" is gone. Every screen inside works as before, and exams and the live view stay full screen.
