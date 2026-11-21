@@ -13,6 +13,7 @@ import { mountBell } from './notify.js';
 import { getNavGuard, applyTheme } from './nav.js';
 import { countNew } from './requests.js';
 import { isStudentMode, frameOn, mountShell, unmountShell, setPlace } from './stshell.js';
+import { readPreviewFlag } from './navfc.js';
 
 const routes = [
   // st: the page students see in the student frame (stshell.js); everyone else gets view
@@ -46,6 +47,8 @@ const routes = [
   { re: /^\/build\/([^/]+)\/go$/, keys: ['classId'], view: () => import('./views/build-run.js'), nav: 'instructor' },
   { re: /^\/build\/([^/]+)\/review$/, keys: ['classId'], view: () => import('./views/build-review.js'), nav: 'instructor' },
   { re: /^\/take\/([^/]+)\/([^/]+)$/, keys: ['classId', 'tid'], view: () => import('./views/take.js'), nav: 'home', focus: true, exam: true },
+  { re: /^\/fc$/, view: () => import('./views/st-fc.js'), st: () => import('./views/st-fc.js'), nav: 'home' },
+  { re: /^\/fc\/([a-z]+)$/, keys: ['key'], view: () => import('./views/st-fc.js'), st: () => import('./views/st-fc.js'), nav: 'home' },
   { re: /^\/settings$/, view: () => import('./views/settings.js'), st: () => import('./views/st-settings.js'), nav: 'settings' },
   { re: /^\/author$/, view: () => import('./views/author.js'), nav: 'author' },
   { re: /^\/signin$/, view: () => import('./views/signin.js'), nav: '' },
@@ -72,6 +75,8 @@ function parseHash() {
 async function route() {
   const token = ++renderToken;
   const { path, query } = parseHash();
+  // ?fc=1 / ?fc=0: the FC preview of the finished bar (navfc.js); the bar is drawn again when it changes
+  if (readPreviewFlag(query) && cloud.currentUser() && frameOn()) { mountShell(); mountBell(); }
   if (cleanup) { try { cleanup(); } catch (e) { console.error(e); } cleanup = null; }
   // fresh container each time so no event listeners leak between pages
   const old = document.getElementById('main');
@@ -81,8 +86,20 @@ async function route() {
   closeModal(); // a dialog never outlives the page it was opened on (e.g. after pressing Back)
   let r = routes.find((x) => x.re.test(path));
   if (cloud.enabled) {
+    // Sign-in normally answers in a second. If the browser's saved sign-in data is stuck (Safari can
+    // leave its database hanging after an update), say so after 8 seconds instead of a blank page,
+    // and carry on by itself if sign-in answers later.
+    let waited = false;
+    const stuck = setTimeout(() => {
+      if (token !== renderToken) return;
+      waited = true;
+      main.innerHTML = signInStuck();
+      main.querySelector('[data-reload]')?.addEventListener('click', () => location.reload());
+    }, 8000);
     await cloud.whenReady();
+    clearTimeout(stuck);
     if (token !== renderToken) return;
+    if (waited) main.innerHTML = '';
     // signed out: the landing page, sign-in, the policy pages and the file checker are open;
     // everything else asks for sign-in
     const open = path === '/author' || path === '/signin' || POLICY.test(path);
@@ -198,6 +215,20 @@ function paintBadge() {
   });
 }
 window.addEventListener('requests-changed', (e) => { newRequests = e.detail; paintBadge(); });
+
+// Shown when sign-in hasn't answered after 8 seconds (see route)
+function signInStuck() {
+  const ua = navigator.userAgent;
+  const safari = /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox|CriOS|FxiOS/.test(ua);
+  return `<section class="page narrow">
+    <h1>Cramming is taking too long to open</h1>
+    <p>This browser's saved sign-in data seems stuck. Your work is safe in your account.</p>
+    <p><strong>Quickest fix:</strong> open www.cramming.net in ${safari ? 'a <strong>private window</strong> (File, then New Private Window) or in ' : ''}<strong>Chrome, Edge or Firefox</strong>.</p>
+    ${safari ? `<p><strong>To fix this Safari for good</strong> (about 20 seconds): open Safari, then Settings, then Privacy, then <strong>Manage Website Data</strong>. Search for <strong>cramming</strong>, remove it, close Settings and reload this page. Then sign in again.</p>` : ''}
+    <p>Taking an exam? Tell your proctor now.</p>
+    <p><button class="btn primary" type="button" data-reload>Try again</button></p>
+  </section>`;
+}
 
 function init() {
   document.getElementById('site-name').textContent = config.siteName;

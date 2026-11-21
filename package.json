@@ -10,7 +10,8 @@
     "check": "node scripts/build.mjs --check",
     "new-exam": "node scripts/new-exam.mjs",
     "test": "node scripts/test.mjs && node scripts/architecture.mjs",
-    "audit": "node scripts/audit.mjs"
+    "audit": "node scripts/audit.mjs",
+    "scale": "node scripts/scale.mjs"
   },
   "dependencies": {
     "@highlightjs/cdn-assets": "^11.11.1",

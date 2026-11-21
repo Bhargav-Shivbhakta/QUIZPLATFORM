@@ -6,7 +6,8 @@
 //  - fixed foot: your name, which opens the Me panel over a blurred page.
 // The bar collapses to a rail (the round handle or ⌘ + \); in the rail a class shows its subject over its
 // number ("CS" over "150"). Tablets always get the rail; phones get tabs at the bottom and a top bar.
-// Places that are planned but not built (Inbox, Calendar, Search, Grades) stay hidden until they ship.
+// Every FC place and section is listed in navfc.js; the ones not built yet (Inbox, Calendar, Search, Grades,
+// Q&A...) stay hidden until they ship, except in the FC preview (?fc=1), where they open their plan pages.
 // Staff and admins keep the old top bar unless they switch the new one on in Settings (a trial, off by default):
 // then the same bar holds Today, the classes they teach, Admin (site admins only) and, inside a class, its
 // sections, each opening the screen that does that job today. Taking and running exams is never touched.
@@ -17,6 +18,7 @@ import { motionLevel } from './buddy.js';
 import { backFor, classTitle, codeParts, className } from './navmap.js';
 const nameOf = className;
 import { getManifest } from './data.js';
+import { PLACES, SEARCH, SECTIONS as FC_SECTIONS, ME, shown, preview } from './navfc.js';
 
 // Students only: on at least one roster, teaching none, not an admin.
 export function isStudentMode() {
@@ -31,8 +33,11 @@ export const classColor = (c) => (c?.color && /^[a-z]+$/.test(c.color) ? c.color
 const LOGO = logoMark('st-logo-mark');
 const e = encodeURIComponent;
 
-// A class's sections, in order: [tab in st-class.js, label, icon]. Grades joins when it is built.
-const SECTIONS = [['plan', 'Ready', 'target'], ['notes', 'Learn', 'learn'], ['practice', 'Practice', 'edit'], ['graded', 'Graded work', 'graded']];
+// A class's sections, in order: [tab in st-class.js, label, icon]. The full FC list is in navfc.js; the bar
+// shows the built ones (all of them in the FC preview).
+const sectionsNow = () => shown(FC_SECTIONS).map((x) => [x.key, x.label, x.icon]);
+// Where a place or Me item goes: its screen when built, its plan page (FC preview) when not.
+const hrefOf = (x) => (x.key === 'today' ? '#/' : x.ready ? x.href : `#/fc/${x.key}`);
 // A class's sections for staff: [key, label, icon, href]. Each opens the screen that does that job today.
 const staffSections = (id) => [
   ['overview', 'Overview', 'grid', `#/instructor?class=${e(id)}&tab=progress`],
@@ -54,7 +59,7 @@ function staffSectionOf(path, query) {
 // Which section a page inside a class belongs to.
 function sectionOf(path, query) {
   if (staff) return staffSectionOf(path, query);
-  if (/^\/class\//.test(path)) return SECTIONS.some(([k]) => k === query.tab) ? query.tab : 'plan';
+  if (/^\/class\//.test(path)) return sectionsNow().some(([k]) => k === query.tab) ? query.tab : 'plan';
   if (/^\/(study|mystudy)\//.test(path)) return 'notes';
   if (/^\/(exam|cards|browse|start|assignments)\//.test(path)) return 'practice';
   return 'graded';
@@ -101,17 +106,18 @@ export function mountShell() {
   (skip || document.body).insertAdjacentHTML(skip ? 'afterend' : 'afterbegin', `
     <aside class="st-side ${slim ? 'slim' : ''}" id="st-side" aria-label="Cramming">
       <button type="button" class="st-handle" data-st-slim aria-expanded="${!slim}" aria-label="${slim ? 'Open the bar' : 'Collapse the bar'}" title="${slim ? 'Open the bar' : 'Collapse the bar'} (⌘ + \\)">${icon(slim ? 'right' : 'left')}</button>
-      <div class="st-side-top"><button type="button" class="st-brand" data-st-logo>${LOGO}<span>Cramming</span></button></div>
+      <div class="st-side-top"><button type="button" class="st-brand" data-st-logo>${LOGO}<span>Cramming</span></button>
+        ${!staff && shown([SEARCH]).length ? `<a class="st-item st-search" href="${hrefOf(SEARCH)}" data-st="search" title="Search (⌘ K)">${icon('search')}<span class="st-lbl">Search</span><kbd class="st-kbd">⌘ K</kbd></a>` : ''}</div>
       <div class="st-slide"><div class="st-track">
         <nav class="st-pane st-pane-main" aria-label="Main">
-          <a class="st-item" href="#/" data-st="today" title="Today">${icon('sun')}<span class="st-lbl">Today</span></a>
+          ${(staff ? PLACES.slice(0, 1) : shown(PLACES)).map((x) => `<a class="st-item" href="${hrefOf(x)}" data-st="${x.key}" title="${x.label}">${icon(x.icon)}<span class="st-lbl">${x.label}</span></a>`).join('')}
           <div data-st-classes>${mine.length ? `<p class="st-label"><span>${staff ? (cloud.isAdmin() ? 'All classes' : 'Teaching') : several ? 'Your classes' : 'Your class'}</span></p>` : ''}
           ${mine.map(classRow).join('')}</div>
           ${staff && cloud.isAdmin() ? `<p class="st-label"><span>Admin</span></p>${ADMIN.map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-st="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}` : ''}
         </nav>
         <nav class="st-pane st-pane-class" aria-label="This class" inert></nav>
       </div></div>
-      <div class="st-side-foot">${me('st-me-side')}</div>
+      <div class="st-side-foot">${!staff && preview() ? `<div class="st-fcbar"><a href="#/fc" data-st="fc">${icon('eye')}<span class="st-lbl">FC preview</span></a><button type="button" class="st-fcoff" data-st-fcoff title="Turn the FC preview off">Turn off</button></div>` : ''}${me('st-me-side')}</div>
     </aside>
     <header class="st-top" id="st-top">
       <div class="st-top-left"><a class="st-brand st-brand-top" href="#/" aria-label="Cramming, Today">${LOGO}<span>Cramming</span></a><a class="st-back" href="#/" hidden>${icon('left')}<span></span></a></div>
@@ -121,8 +127,7 @@ export function mountShell() {
       <button type="button" class="st-scrim" data-st-close tabindex="-1" aria-label="Close"></button>
       <section class="st-medlg" role="dialog" aria-modal="true" aria-labelledby="st-me-name">
         <div class="st-menu-who"><span class="st-avatar">${avatar}</span><span><strong id="st-me-name">${esc(u.displayName || name)}</strong><span class="st-sub">${esc(u.email)}</span></span></div>
-        ${staff ? '' : `<a class="st-menu-item" href="#/progress" data-st-go>${icon('chart')} My progress</a>`}
-        <a class="st-menu-item" href="#/settings" data-st-go>${icon('settings')} Settings</a>
+        ${(staff ? ME.filter((x) => x.key === 'settings') : shown(ME)).map((x) => `<a class="st-menu-item" href="${hrefOf(x)}" data-st-go>${icon(x.icon)} ${x.label}</a>`).join('')}
         <button type="button" class="st-menu-item" data-st-signout>${icon('logout')} Sign out</button>
         <button type="button" class="st-btn st-btn-ghost st-sm st-me-close" data-st-close>Close</button>
       </section>
@@ -144,6 +149,7 @@ export function mountShell() {
   logo.addEventListener('dblclick', () => refreshApp(logo));
   document.querySelector('.st-brand-top').addEventListener('dblclick', (ev) => { ev.preventDefault(); refreshApp(ev.currentTarget); });
   side.querySelector('.st-pane-class').addEventListener('click', onClassPane);
+  side.querySelector('[data-st-fcoff]')?.addEventListener('click', () => { location.hash = '#/?fc=0'; });
   document.querySelectorAll('[data-st-me]').forEach((b) => b.addEventListener('click', () => openMe(b)));
   const panel = document.getElementById('st-mepanel');
   panel.addEventListener('click', (ev) => { if (ev.target.closest('[data-st-close], [data-st-go]')) closeMe(); });
@@ -225,7 +231,7 @@ function drawClassPane(cls) {
       <span class="st-cstripe" aria-hidden="true"></span>${badge(cls)}<span class="st-lbl"><b>${esc(nameOf(cls))}</b><span class="st-sub">${esc([codeOf(cls), cls.term].filter(Boolean).join(', '))}</span></span>${others.length ? icon('chev', 'st-chev') : ''}</button>
     ${others.length ? `<div class="st-switch" id="st-switch" hidden><p class="st-switch-h">Switch to</p>${others.map((c) => `<a class="st-switch-item cc-${classColor(c)}" href="${classHref(c)}" title="${esc(classTitle(c))}"><span class="st-cstripe" aria-hidden="true"></span>${badge(c)}<span class="st-lbl">${esc(nameOf(c))}</span><span class="st-code">${esc(codeOf(c))}</span></a>`).join('')}</div>` : ''}
     <span class="st-gap" aria-hidden="true"></span>
-    ${(staff ? staffSections(cls.id) : SECTIONS.map(([k, l, ic]) => [k, l, ic, `#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}`])).map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
+    ${(staff ? staffSections(cls.id) : sectionsNow().map(([k, l, ic]) => [k, l, ic, `#/class/${e(cls.id)}${k === 'plan' ? '' : `?tab=${k}`}`])).map(([k, l, ic, h]) => `<a class="st-item" href="${h}" data-sec="${k}" title="${l}">${icon(ic)}<span class="st-lbl">${l}</span></a>`).join('')}`;
 }
 function onClassPane(ev) {
   const sw = ev.target.closest('[data-st-switch]');
@@ -280,6 +286,8 @@ export async function setPlace({ path, params = {}, query = {} }) {
   else if (path === '/progress' || /^\/(progress|results)\//.test(path)) key = 'progress';
   else if (path === '/classes') key = 'classes';
   else if (path === '/settings') key = 'settings';
+  else if (path === '/fc') key = 'fc';
+  else if (/^\/fc\//.test(path)) key = path.slice(4);
   const cid = params.classId || (params.id ? cloud.classForExam(params.id)?.id : null) || query.class || (staff ? query.edit : null);
   const cls = cid ? mine.find((c) => c.id === cid) : null;
   if (!key && cls) key = `class:${cid}`;

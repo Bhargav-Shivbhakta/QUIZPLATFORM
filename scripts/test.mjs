@@ -1044,6 +1044,23 @@ console.log('\nMock exams');
 {
   console.log('\nNavigation (the student frame)');
   const N = await import('../app/js/navmap.js');
+  const F = await import('../app/js/navfc.js');
+  const { FEATURES } = await import('../app/js/fcfeatures.js');
+  test('FC bar: every item has a unique key; built ones need no plan, planned ones say when and what', () => {
+    const all = [...F.PLACES, F.SEARCH, ...F.SECTIONS, ...F.ME];
+    assert.equal(new Set(all.map((x) => x.key)).size, all.length);
+    for (const x of all) { assert.ok(x.label && x.icon, x.key); if (!x.ready) assert.ok(/^Phase \d$/.test(x.phase) && x.what, x.key); }
+    for (const x of F.ME.filter((m) => m.ready)) assert.ok(x.href, x.key);
+  });
+  test('FC bar: students see only built places and sections unless the preview is on', () => {
+    assert.equal(F.preview(), false);
+    assert.deepEqual(F.shown(F.SECTIONS).map((x) => x.label), ['Ready', 'Learn', 'Practice', 'Graded work']);
+    assert.deepEqual(F.shown(F.PLACES).map((x) => x.label), ['Today']);
+  });
+  test('FC bar: every feature home in the data is a place, section, Me item or an everywhere group', () => {
+    const keys = new Set([...F.PLACES, F.SEARCH, ...F.SECTIONS, ...F.ME].map((x) => x.key).concat(['question', 'tutor', 'frame', 'phone', 'me']));
+    for (const k of Object.keys(FEATURES)) assert.ok(keys.has(k), k);
+  });
   test('class badges use the course number, so two CS classes differ', () => {
     assert.equal(N.badgeFor('CS150'), '150'); assert.equal(N.badgeFor('CS 210'), '210'); assert.equal(N.badgeFor('MATH 150A'), '150A');
     assert.equal(N.badgeFor('', 'Biology'), 'BI'); assert.equal(N.badgeFor(''), '?');

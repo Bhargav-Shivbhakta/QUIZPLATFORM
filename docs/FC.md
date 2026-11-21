@@ -4,7 +4,7 @@
 
 ## The FC check: before building anything
 
-No screen, card, rule or data field is built until it passes these five steps, written down here.
+No screen, card, rule or data field is built until it passes these six steps, written down here.
 
 1. **Every FC feature that touches it.** Go through the system map (all four journeys, every status) and list each feature that adds to it, feeds it or changes it.
 2. **Every scenario.** Walk through each group below and write the cases that apply.
@@ -16,7 +16,8 @@ No screen, card, rule or data field is built until it passes these five steps, w
    - **Devices and people's needs:** phone, big monitor, offline, screen reader, keyboard, Spanish, reduced motion.
 3. **Covered or a gap.** Mark each case. A gap gets a fix in the design or the data, not a note for later.
 4. **Fixed slots.** Where FC adds something later, the design keeps a place for it now (a category, a field, a card that stays hidden), so adding it later never moves the rest.
-5. **Approval.** Bhargav approves the check. Then only the launch parts are built.
+5. **Scale.** Each feature it touches gets its pattern from docs/SCALE.md and must follow that pattern's rule, with the five scale rules: the database location, no crowded records, the exam rush, small reads only, outside limits arranged ahead. Any new read or write is added to `scripts/scale.mjs`, and `npm run scale` must show no new Fail at 20 million students. (Added 20 November 2026.)
+6. **Approval.** Bhargav approves the check. Then only the launch parts are built.
 
 ## Check 1: Today (20 November 2026)
 
@@ -90,6 +91,40 @@ The Dot never changes the layout. It may appear only in three places, built now:
 
 Each moment sends one named signal (plan done, topic solid, exam passed, first visit, back after a break). Nothing listens until the Dot is built. The Dot never appears in practice questions or exams.
 
+### Scale (added after the check)
+
+Today follows "Class totals" and "Own records": it reads the student's own records and one summary per class, never every classmate. Its Coming up list and readiness come from records the class already keeps. No new Fail in `npm run scale`.
+
 ### Result
 
 Passed, 20 November 2026. Bhargav approved the fixes for all thirteen gaps and settled the open question (20). The launch build includes every rule above and keeps empty slots for the later phases.
+
+## Check 2: Student navigation (20 November 2026)
+
+### What feeds it in FC
+
+Every student feature on the system map (208 after merging the ones listed twice) has a home: Today, Inbox, Calendar, Search, the class sections (Ready, Learn, Practice, Graded work, Grades, Q&A, Class info, My group, Live), the Me panel (My progress, Notifications, Settings, Your classes, Your data, Help, Sign out), or a group that lives everywhere (inside every question, the tutor, the bar itself, phone and offline). The full map: docs/NAVIGATION.md. In code: `app/js/navfc.js`.
+
+### Scenarios
+
+| # | Scenario | Covered? | How |
+|---|---|---|---|
+| 1 | One class | Yes | "Your class", one row; the class sections as usual |
+| 2 | Six or more classes | Yes | The list scrolls inside the middle of the bar; the logo and Me stay fixed; the rail shows subject over number |
+| 3 | A class with no practice or no exams | Yes | The section stays (same place in every class) and says what will appear |
+| 4 | An exam open right now | Yes | Today leads with it (check 1, case 13); Graded work holds it; taking it is full screen |
+| 5 | Live class | Fixed | Live appears in the class only while a session is on, at the end of the list, so nothing moves |
+| 6 | Sections that aren't built | Fixed | Every section is in the code now and hidden until it ships: adding one never moves the others |
+| 7 | Seeing the finished bar before it is built | Fixed | The FC preview (?fc=1) shows every place; unbuilt ones open their plan page; students never see it unless they use that address |
+| 8 | Collapsed bar | Yes | Every place and section has an icon and its name on hover; new icons for Inbox, Calendar, Grades, Q&A, Class info, Live, Help |
+| 9 | Phone | Gap, planned | Class sections show as tabs at the top (they scroll); the bottom tabs are still Today, Classes, Progress, Settings. The phone redesign (Today, Classes, Inbox, Calendar) comes after the laptop bar is approved |
+| 10 | Screen reader and keyboard | Yes | Each place and section is a link with its name; the current one has aria-current; Me is a modal panel; ⌘ K opens search once built |
+| 11 | Spanish | Fixed | Every label comes from navfc.js, one place to translate when Spanish ships (Phase 4) |
+| 12 | Teaches one class, takes another | Yes | Separate work and school accounts (check 1, case 18) |
+| 13 | Parents, coordinators (Phase 4) | Yes | Their own bars (docs/NAVIGATION.md); the student bar doesn't change |
+| 14 | Class info has nothing on the system map | Gap | The syllabus, staff contacts and office hours aren't features on the map yet: proposed to add them in Phase 3 |
+| 15 | Scale | Yes | The bar reads nothing new from the database; "Own records" and "On the device" |
+
+### Result
+
+Built for review on 20 November 2026 behind the FC preview. Students see exactly what they saw before. Waiting for Bhargav's approval of the layout, the Me panel order and the two gaps (9, 14).

@@ -489,3 +489,41 @@ body.st .resume-banner { margin: 0; }
 @container stpage (min-width: 1600px) {
   .st-class .st-cols { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); }
 }
+
+/* ---------- FC: search in the bar, and the FC preview (navfc.js, views/st-fc.js) ---------- */
+.st-search { margin-top: var(--cr-space-1); }
+.st-kbd { margin-left: auto; padding: 1px 6px; border: 1px solid var(--cr-line); border-radius: 6px; font: 600 11px var(--cr-font); color: var(--cr-ink-2); }
+.st-side.slim .st-kbd { display: none; }
+.st-fcbar { display: flex; align-items: center; gap: var(--cr-space-2); margin-bottom: var(--cr-space-2); padding: 6px var(--cr-space-2) 6px var(--cr-space-3); border-radius: var(--cr-radius); background: var(--cr-accent-soft); }
+.st-fcbar a { display: flex; align-items: center; gap: var(--cr-space-2); flex: 1; min-width: 0; color: var(--cr-accent); font-size: var(--cr-text-xs); font-weight: 650; text-decoration: none; }
+.st-fcbar .icon { width: 18px; height: 18px; flex: none; }
+.st-fcoff { border: 0; background: none; color: var(--cr-accent); font: 600 12px var(--cr-font); cursor: pointer; padding: 4px 6px; border-radius: 6px; }
+.st-fcoff:hover { background: var(--cr-surface); }
+.st-side.slim .st-fcoff { display: none; }
+.st-side.slim .st-fcbar { justify-content: center; padding: 6px 0; }
+.st-side.slim .st-fcbar a { flex: none; }
+
+.fc-page h1 { display: flex; align-items: center; gap: var(--cr-space-3); }
+.fc-page h1 .icon { width: 28px; height: 28px; color: var(--cr-ink-2); }
+.fc-h { margin: 0 0 var(--cr-space-3); font-size: var(--cr-text-md); }
+.fc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--cr-space-4); }
+.fc-card { display: flex; flex-direction: column; gap: var(--cr-space-2); padding: var(--cr-space-5); color: var(--cr-ink); text-decoration: none; transition: border-color var(--cr-fast) var(--cr-ease); }
+.fc-card:hover { border-color: var(--cr-ink-2); }
+.fc-card-top { display: flex; align-items: center; gap: var(--cr-space-2); }
+.fc-card-top .icon { width: 20px; height: 20px; color: var(--cr-ink-2); }
+.fc-card-top .fc-tag { margin-left: auto; }
+.fc-count { margin-top: auto; font-size: var(--cr-text-xs); font-weight: 600; color: var(--cr-ink-2); }
+.fc-tag { flex: none; padding: 2px 8px; border-radius: var(--cr-radius-pill); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.fc-have { background: var(--cr-right-soft); color: var(--cr-right); }
+.fc-partly { background: var(--cr-warn-soft); color: var(--cr-warn); }
+.fc-planned { background: var(--cr-accent-soft); color: var(--cr-accent); }
+.fc-no { background: var(--cr-soft-2); color: var(--cr-ink-2); }
+.fc-plan { display: flex; flex-direction: column; gap: var(--cr-space-5); max-width: var(--cr-width-work); }
+.fc-note { display: flex; align-items: center; gap: var(--cr-space-2); margin: 0; font-size: var(--cr-text-xs); font-weight: 600; color: var(--cr-accent); }
+.fc-note .icon { width: 16px; height: 16px; }
+.fc-what { margin: 0; font-size: var(--cr-text-md); max-width: 62ch; }
+.fc-switch { display: flex; flex-wrap: wrap; gap: var(--cr-space-1); padding: 4px; border-radius: var(--cr-radius); background: var(--cr-soft); width: max-content; max-width: 100%; }
+.fc-switch span { padding: 6px 12px; border-radius: 9px; font-size: var(--cr-text-xs); font-weight: 600; color: var(--cr-ink-2); }
+.fc-switch .on { background: var(--cr-surface); color: var(--cr-ink); box-shadow: 0 1px 2px var(--cr-shadow); }
+.fc-sub { margin: var(--cr-space-5) 0 0; font-size: var(--cr-text-sm); }
+.fc-list li { padding: 10px 0; }

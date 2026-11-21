@@ -2,6 +2,33 @@
 
 One entry for every upload to the live site, newest first. Each entry says what changed for people and how it was tested. Uploads made before this file existed weren't recorded.
 
+## 20 November 2026: the finished student bar, in a preview
+
+- **Students see no change.** The bar now holds every place and section Cramming will have (app/js/navfc.js); the ones not built yet stay hidden.
+- **The FC preview:** open any page with `?fc=1` (for example www.cramming.net/#/?fc=1) with a student account. The bar then shows Search, Inbox, Calendar, the class sections Grades, Q&A, Class info, My group and Live, and the full Me panel; each unbuilt one opens a page with every feature that will live there and whether it is built. #/fc shows the whole finished bar. Turn it off at the foot of the bar or with `?fc=0`.
+- New icons: Inbox, Calendar, Grades, Q&A, Class info, Live, Help.
+- FC check 2 (student navigation) in docs/FC.md.
+- Tested: 82 tests pass (3 new for the FC bar); screenshots at 1440 px (open and collapsed) and 390 px.
+
+## 20 November 2026: a home for every feature (no change to the live site)
+
+- **Proposed:** docs/NAVIGATION.md gives all 469 features on the system map a home (place › section › switch) for students, educators and TAs, admins, parents and visitors, with the bar for each role. 11 features listed twice are merged. Waiting for approval, then the FC check, mockups and the build.
+- The build plan to Phase 4 is in the Claude Doc "Cramming: the build plan to Phase 4".
+
+## 20 November 2026: the scale test and scale rules (no change to the live site)
+
+- **New test:** `npm run scale` simulates 20 million students for one exam-week day and checks every read and write against the published Firestore, Firebase Auth and hosting limits. It writes docs/SCALE-REPORT.md.
+- **New rules:** docs/SCALE.md (five scale rules, sixteen patterns, fixes F1 to F8, the live test plan); the FC check gains step 5, Scale. docs/SCALE-FEATURES.md gives every feature on the system map its pattern.
+- **Proposed:** docs/SCHOOLS-AND-AI.md, how schools connect (SSO, LTI 1.3, OneRoster) and the three AI options.
+- No app code changed; fixes F1 to F8 wait for approval. Tested: the scale test runs in about 17 seconds; 79 tests pass.
+
+## 20 November 2026: Safari's black page, explained and fixed
+
+- **What happened at Midterm 3:** some students' Safari 26.6 showed only the logo, the top bar and the footer, while a private window worked. Cramming waits for sign-in to answer before drawing a page, and in those Safaris the saved sign-in data (kept in Safari's IndexedDB database) never answered, so the page waited with no end.
+- **Now, after 8 seconds of waiting,** the page says "Cramming is taking too long to open", and tells students to use a private window, or Chrome, Edge or Firefox. In Safari it also explains the lasting fix: Settings, Privacy, Manage Website Data, remove cramming, then reload and sign in again. If sign-in answers later, the page loads by itself.
+- **If the app can't start at all** (a script fails to load, an error before start, or nothing after 12 seconds), the page says so, with the error and the browser version for the instructor, instead of staying blank.
+- Tested: 79 tests pass. The sign-in wait was checked three ways (answers at once: no message; never answers: the message at 8 seconds; answers at 12 seconds: the message, then Today on its own). The start message was checked with a missing file, a failing file and a normal start.
+
 ## 20 November 2026: class names you can read
 
 - **Classes in the bar** show the code on top in bold ("CS 150") and the full name under it on up to two lines, instead of one line cut off mid-word ("Introductory Com..."). The collapsed rail still shows the badges.

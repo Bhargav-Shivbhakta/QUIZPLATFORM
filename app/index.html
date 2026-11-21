@@ -25,22 +25,34 @@
     } catch (e) {}
   </script>
   <script>
-    // If this browser can't run the app (an old Safari, say), say so instead of leaving a blank page.
-    // main.js sets window.crStarted once it runs; a code error before that means it never will.
+    // If the app can't start in this browser, say so (with the reason) instead of leaving a blank page.
+    // main.js sets window.crStarted once it runs. Before that, any error, a script that fails to load,
+    // or 12 seconds with nothing means it won't start here.
     (function () {
-      var shown = false;
-      function tooOld() {
+      var shown = false, why = '';
+      function cantStart(old) {
         if (shown || window.crStarted) return;
         shown = true;
         var m = document.getElementById('main');
         if (!m) return;
-        m.innerHTML = '<section class="page"><h1>This browser can\'t open Cramming</h1>' +
-          '<p>Your browser is too old for Cramming. Update Safari: on a Mac, open System Settings, then General, then Software Update. ' +
-          'Or open www.cramming.net in a current Chrome, Edge or Firefox.</p>' +
-          '<p>Taking an exam in Safe Exam Browser? Tell your proctor now. It uses the same engine as Safari, so the Mac needs updating too.</p></section>';
+        var safari = /Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg|Firefox/.test(navigator.userAgent);
+        m.innerHTML = '<section class="page" style="max-width:640px"><h1>Cramming couldn\'t start in this browser</h1>' +
+          '<p><strong>Open www.cramming.net in Chrome, Edge or Firefox</strong> to keep going. Your work is saved to your account, so nothing is lost.</p>' +
+          (old && safari ? '<p>Or update Safari: on a Mac, open System Settings, then General, then Software Update.</p>' : '') +
+          '<p>Taking an exam? Tell your proctor now.</p>' +
+          (why ? '<p style="font-size:13px;opacity:.75">Details for your instructor: ' + why.replace(/[<>&]/g, '') + ' · ' + navigator.userAgent.replace(/[<>&]/g, '') + '</p>' : '') +
+          '</section>';
       }
-      window.addEventListener('error', function (e) { if (e && e.error instanceof SyntaxError) tooOld(); });
-      if (!('noModule' in document.createElement('script'))) document.addEventListener('DOMContentLoaded', tooOld);
+      window.addEventListener('error', function (e) {
+        if (window.crStarted) return;
+        var t = e && e.target;
+        if (t && t.tagName === 'SCRIPT') { why = 'could not load ' + (t.src || 'a script'); cantStart(false); return; }
+        why = (e && e.error && e.error.name ? e.error.name + ': ' : '') + (e && e.message || '');
+        cantStart(e && e.error instanceof SyntaxError);
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) { if (window.crStarted) return; why = String(e && e.reason && (e.reason.message || e.reason) || 'unhandled'); cantStart(false); });
+      if (!('noModule' in document.createElement('script'))) document.addEventListener('DOMContentLoaded', function () { cantStart(true); });
+      setTimeout(function () { if (!window.crStarted) { why = why || 'the app did not start within 12 seconds'; cantStart(false); } }, 12000);
     })();
   </script>
   <script defer src="vendor/katex/katex.min.js"></script>

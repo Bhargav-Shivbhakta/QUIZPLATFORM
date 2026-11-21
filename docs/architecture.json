@@ -17,7 +17,8 @@
         "app/js/requests.js",
         "app/js/format.js",
         "app/js/today.js",
-        "app/js/navmap.js"
+        "app/js/navmap.js",
+        "app/js/fcfeatures.js"
       ],
       "mayImport": [
         "core"
@@ -49,6 +50,7 @@
         "app/js/nav.js",
         "app/js/buddy.js",
         "app/js/stshell.js",
+        "app/js/navfc.js",
         "app/js/integrity.js"
       ],
       "mayImport": [

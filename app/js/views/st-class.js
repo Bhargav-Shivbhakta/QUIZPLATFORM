@@ -14,9 +14,10 @@ import { classColor } from '../stshell.js';
 import { classData, clearClassData, redrawAfterFirstSync } from './st-data.js';
 import { resumeBanner } from './home.js';
 import { announcementBanners, bindAnnouncements } from './announce.js';
+import { SECTIONS, shown } from '../navfc.js';
 
-// the same four as the class's list in the bar (stshell.js); on phones they show as tabs at the top
-const TABS = [['plan', 'Ready'], ['notes', 'Learn'], ['practice', 'Practice'], ['graded', 'Graded work']];
+// the same sections as the class's list in the bar (stshell.js, from navfc.js); on phones they show as tabs at the top
+const tabsNow = () => shown(SECTIONS).map((x) => [x.key, x.label]);
 const e = encodeURIComponent;
 const word = (w) => `<span class="st-word st-word-${w === 'Solid' ? 'solid' : w === 'Getting there' ? 'there' : 'none'}">${esc(w)}</span>`;
 
@@ -26,9 +27,11 @@ export async function render(main, { classId }, query = {}) {
   await cloud.freshClassContent();
   clearClassData();
   const [d, ann] = await Promise.all([classData(cls), announcementBanners(cls.id, { staff: false }).catch(() => '')]);
+  const TABS = tabsNow();
   const tab = TABS.some(([k]) => k === query.tab) ? query.tab : 'plan';
+  const fcItem = SECTIONS.find((x) => x.key === tab && !x.ready); // FC preview: a section that isn't built shows its plan
   const cc = classColor(cls);
-  const body = tab === 'plan' ? planTab(d) : tab === 'practice' ? practiceTab(d) : tab === 'notes' ? notesTab(d) : gradedTab(d);
+  const body = fcItem ? (await import('./st-fc.js')).planBody(fcItem) : tab === 'plan' ? planTab(d) : tab === 'practice' ? practiceTab(d) : tab === 'notes' ? notesTab(d) : gradedTab(d);
   main.innerHTML = `
     <section class="st-page st-class cc-${cc}">
       <header class="st-chead"><div><p class="st-muted st-small">${esc([codeParts(cls.course, cls.name).code, cls.term, cls.section ? `Section ${String(cls.section).replace(/^\s*section\s*/i, '')}` : ''].filter(Boolean).join(' · '))}</p>
