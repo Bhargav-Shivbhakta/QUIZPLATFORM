@@ -12,6 +12,7 @@ import { buddy } from '../buddy.js';
 import { mountShell, setPlace, classColor } from '../stshell.js';
 import { mountBell } from '../notify.js';
 import { badgeFor, classTitle } from '../navmap.js';
+import { isReviewer, preview, setPreview } from '../navfc.js';
 
 // one choice from a few: a segmented control (a radio group)
 const seg = (name, cur, opts, label) => `<div class="ss-seg" role="radiogroup" aria-label="${esc(label)}">${opts.map(([v, l]) => `<label><input type="radio" name="${name}" value="${v}" ${String(cur) === String(v) ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>`;
@@ -52,6 +53,10 @@ export async function render(main) {
           ${row('High contrast', '', sw('highContrast', s.contrast === 'high', 'High contrast'))}
         </section>
       </form>
+
+      ${isReviewer() ? `<section class="st-card ss-card" aria-labelledby="ss-fc"><h2 id="ss-fc">Finished bar</h2>
+        ${row('Show the finished bar', 'Every place Cramming will have, including the ones not built yet. Only reviewers have this.', sw('fcBar', preview(), 'Show the finished bar'))}
+      </section>` : ''}
 
       <section class="st-card ss-card" aria-labelledby="ss-data"><h2 id="ss-data">Your data</h2>
         <p class="st-muted st-small ss-intro">Your progress and code are saved to your school account, so you can sign in on any device. Your professor can see them.</p>
@@ -107,6 +112,11 @@ export async function render(main) {
     if ('wipe' in b.dataset) {
       if (await confirmDialog({ title: 'Erase everything?', body: '<p>All your progress, history, code and settings are erased from your account and this device. This can\'t be undone.</p>', confirm: 'Erase everything', danger: true })) { store.resetEverything(); applyTheme(); toast('Everything erased'); window.dispatchEvent(new HashChangeEvent('hashchange')); }
     }
+  });
+  main.querySelector('[name="fcBar"]')?.addEventListener('change', (ev) => {
+    setPreview(ev.target.checked);
+    mountShell(); mountBell(); setPlace({ path: '/settings' });
+    toast(ev.target.checked ? 'The finished bar is on' : 'The finished bar is off');
   });
   main.querySelector('[data-import]').addEventListener('change', async (ev) => {
     const file = ev.target.files[0]; if (!file) return;

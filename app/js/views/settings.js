@@ -9,6 +9,7 @@ import { dayKey } from '../format.js';
 import { isStudentMode, frameOn, mountShell, setPlace } from '../stshell.js';
 import { buddy } from '../buddy.js';
 import { mountBell } from '../notify.js';
+import { isReviewer, preview, setPreview } from '../navfc.js';
 
 export async function render(main) {
   const s = store.getSettings();
@@ -44,6 +45,9 @@ export async function render(main) {
           <p class="form-error bad small" data-subj-err role="alert" hidden>Keep at least one class selected.</p>
         </fieldset>
       </form>` : ''}
+      ${isReviewer() ? `<form class="setup-form" data-fcbar><fieldset><legend>Finished bar (reviewers)</legend>
+        <label class="check"><input type="checkbox" name="fcBar" ${preview() ? 'checked' : ''}><span>Show every place Cramming will have, including the ones not built yet</span></label>
+      </fieldset></form>` : ''}
       <form class="setup-form" data-prefs>
         ${isStudentMode() ? `<fieldset><legend>Study buddy</legend><div class="chip-row buddy-row">
           ${[['dot', 'The Dot'], ['flame', 'The Flame'], ['off', 'Off']].map(([v, l]) => `<label class="chip buddy-chip"><input type="radio" name="buddy" value="${v}" ${(s.buddy || 'dot') === v ? 'checked' : ''}><span>${v === 'off' ? '' : buddy('happy', { size: 26, kind: v })}${l}</span></label>`).join('')}
@@ -128,6 +132,11 @@ export async function render(main) {
     toast('Your classes are saved');
   });
 
+  main.querySelector('[data-fcbar]')?.addEventListener('change', (ev) => {
+    setPreview(ev.target.checked);
+    if (frameOn()) { mountShell(); mountBell(); setPlace({ path: '/settings' }); }
+    toast(ev.target.checked ? 'The finished bar is on' : 'The finished bar is off');
+  });
   main.querySelector('[data-prefs]').addEventListener('change', (ev) => {
     const f = ev.currentTarget;
     store.saveSettings({

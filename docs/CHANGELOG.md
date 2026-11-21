@@ -8,8 +8,11 @@ One entry for every upload to the live site, newest first. Each entry says what 
 ## 20 November 2026: the finished educator bar, and class names in the switcher
 
 - **The educator and admin bar now holds every FC place** (app/js/navfc.js, from the approved mockup): Search, Today, Inbox, Calendar; Teaching; Admin (Overview, Classes, People, Requests, Reports, School settings); in a class Overview, Build, Practice, Graded work, Grading, Gradebook, Insights, People, Q&A, Live class, Class settings; Me with Notifications, Settings, Teaching settings, Help. Professors see only what is built; the reviewer accounts see everything, and each unbuilt place opens its plan with every feature that will live there. The admin links are now named Overview, Classes and Requests.
+- **Half a screen (under 1024 px wide), where the bar is the narrow rail:** Search no longer squeezes "⌘ K" beside its icon, and the finished-bar strip shows only its eye icon instead of a wrapped "Turn off" (turn it off in Settings there).
+- **The logo in the bar:** the blue circle is now the same size as the other three (it had no outline, so it was drawn smaller). The landing page and top bar logos already matched.
 - **The class switcher** (the arrow on the class card) lists each class like the bar: the code on top, the full name under it on up to two lines.
-- Tested: 84 tests pass (one new for the staff bar); screenshots as a professor and admin at 1440 px.
+- **Reviewers can turn the finished bar back on in Settings** ("Finished bar", students and staff alike). Turn off at the foot of the bar now says where to turn it on again. Before, the only way back was the address ?fc=1.
+- Tested: 84 tests pass (one new for the staff bar); screenshots as a professor and admin at 1440 px. Turning off and on again checked for a student and a professor.
 
 ## 20 November 2026: the finished bar, for reviewers only
 

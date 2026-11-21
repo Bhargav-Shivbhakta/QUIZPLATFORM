@@ -17,7 +17,8 @@ import { motionLevel } from './buddy.js';
 import { backFor, classTitle, codeParts, className } from './navmap.js';
 const nameOf = className;
 import { getManifest } from './data.js';
-import { PLACES, SEARCH, SECTIONS as FC_SECTIONS, ME, STAFF_PLACES, STAFF_SEARCH, ADMIN_PLACES, STAFF_SECTIONS, STAFF_ME, shown, preview, setViewer } from './navfc.js';
+import { mountBell } from './notify.js';
+import { PLACES, SEARCH, SECTIONS as FC_SECTIONS, ME, STAFF_PLACES, STAFF_SEARCH, ADMIN_PLACES, STAFF_SECTIONS, STAFF_ME, shown, preview, setViewer, setPreview } from './navfc.js';
 
 // Students only: on at least one roster, teaching none, not an admin.
 export function isStudentMode() {
@@ -146,7 +147,7 @@ export function mountShell() {
   logo.addEventListener('dblclick', () => refreshApp(logo));
   document.querySelector('.st-brand-top').addEventListener('dblclick', (ev) => { ev.preventDefault(); refreshApp(ev.currentTarget); });
   side.querySelector('.st-pane-class').addEventListener('click', onClassPane);
-  side.querySelector('[data-st-fcoff]')?.addEventListener('click', () => { location.hash = '#/?fc=0'; });
+  side.querySelector('[data-st-fcoff]')?.addEventListener('click', () => { setPreview(false); mountShell(); mountBell(); location.hash = '#/'; toast('The finished bar is off. Turn it on again in Settings.'); });
   document.querySelectorAll('[data-st-me]').forEach((b) => b.addEventListener('click', () => openMe(b)));
   const panel = document.getElementById('st-mepanel');
   panel.addEventListener('click', (ev) => { if (ev.target.closest('[data-st-close], [data-st-go]')) closeMe(); });

@@ -26,7 +26,7 @@ body.st:not(.st-staff) #main .crumbs { display: none; } /* the top bar's back li
 .st-side-top .st-brand:hover { background: var(--cr-soft-2); }
 .st-logo-mark { width: 24px; height: 24px; flex: none; overflow: visible; }
 .st-logo-mark circle { fill: none; stroke: currentColor; stroke-width: 2.2; }
-.st-logo-mark .logo-dot { fill: var(--cr-accent); stroke: none; transform-box: fill-box; transform-origin: center; }
+.st-logo-mark .logo-dot { fill: var(--cr-accent); stroke: var(--cr-accent); /* the same outline as the others, so all four circles are the same size */ transform-box: fill-box; transform-origin: center; }
 .st-refreshing .st-logo-mark { animation: st-refresh .6s var(--cr-ease); }
 @keyframes st-refresh { to { transform: rotate(360deg); } }
 .st-handle { position: absolute; top: 28px; right: -13px; z-index: 2; width: 26px; height: 26px; padding: 0; border: 1px solid var(--cr-line-2); border-radius: var(--cr-radius-pill); background: var(--cr-surface); color: var(--cr-ink-2); display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 10px -6px var(--cr-shadow); opacity: 0; transition: opacity var(--cr-fast) var(--cr-ease); }
@@ -129,6 +129,9 @@ html[data-motion="none"] .st-side, html[data-motion="none"] .st-track, html[data
   body.st { --st-side-w: 72px; }
   .st-handle, .st-side .st-brand span, .st-side .st-lbl, .st-side .st-code, .st-side .st-ctext, .st-side .st-cstripe, .st-side .st-chev, .st-side .st-label span, .st-side .st-switch-h { display: none; }
   .st-side .st-badge { display: inline-flex; }
+  .st-side .st-kbd, .st-side .st-fcoff { display: none; }
+  .st-side .st-fcbar { justify-content: center; padding: 6px 0; }
+  .st-side .st-fcbar a { flex: none; }
   .st-side .st-pane, .st-side .st-side-top, .st-side .st-side-foot { padding-left: 10px; padding-right: 10px; }
   .st-side .st-brand, .st-side .st-item, .st-side .st-me, .st-side .st-classcard, .st-side .st-switch-item { justify-content: center; padding-left: 0; padding-right: 0; }
   .st-side .st-classcard { padding: 6px 0; }

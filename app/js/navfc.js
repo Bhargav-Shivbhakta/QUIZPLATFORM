@@ -88,6 +88,7 @@ let viewer = '';
 export const setViewer = (email) => { viewer = String(email || '').toLowerCase(); };
 export const isReviewer = () => REVIEWERS.includes(viewer);
 export const preview = () => isReviewer() && store.get('fcPreview', true) !== false; // only reviewers, ever
+export const setPreview = (on) => store.set('fcPreview', !!on); // Settings › Finished bar, and Turn off
 export const shown = (list) => list.filter((x) => x.ready || preview());
 // staff: look in the staff lists first (Settings exists in both)
 export const findItem = (key, staff = false) => (staff ? [...STAFF_PLACES, STAFF_SEARCH, ...ADMIN_PLACES, ...STAFF_SECTIONS, ...STAFF_ME] : [...PLACES, SEARCH, ...SECTIONS, ...ME]).find((x) => x.key === key) || null;
